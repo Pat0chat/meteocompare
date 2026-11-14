@@ -77,7 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
-import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.ConditionStatusIcon
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import com.meteocompare.app.ui.theme.confidenceColor
@@ -780,17 +780,22 @@ private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>, mode: Di
                         modifier = Modifier.height(if (mode == DisplayMode.DAILY) 48.dp else 34.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (mode == DisplayMode.DAILY && (point.dayCondition != null || point.nightCondition != null)) {
-                            DayNightConditionIcons(point.dayCondition, point.nightCondition)
-                        } else point.condition?.let { condition ->
-                            WeatherIconDecorative(
-                                condition = condition,
+                        if (mode == DisplayMode.DAILY) {
+                            DayNightConditionIcons(
+                                point.dayCondition, point.nightCondition,
+                                dayDiagnostic = point.dayConditionDiagnostic,
+                                nightDiagnostic = point.nightConditionDiagnostic
+                            )
+                        } else {
+                            ConditionStatusIcon(
+                                condition = point.condition,
+                                decision = point.conditionDiagnostic,
                                 size = 28.dp,
-                                tint = if (point.isNight == true && condition == com.meteocompare.app.domain.model.WeatherCondition.CLEAR)
-                                    Color.Unspecified else condition.semanticTint(),
+                                tint = if (point.isNight == true && point.condition == com.meteocompare.app.domain.model.WeatherCondition.CLEAR)
+                                    Color.Unspecified else point.condition?.semanticTint() ?: Color.Unspecified,
                                 isNight = point.isNight == true
                             )
-                        } ?: Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     UvIndexCompact(point.uvIndex)
                 }

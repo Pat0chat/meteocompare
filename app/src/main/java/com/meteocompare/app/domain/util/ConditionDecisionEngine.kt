@@ -210,7 +210,11 @@ internal object ConditionDecisionEngine {
         // unknown hours, gaps or contradictory daily maximum.
         val certain = counts.entries.firstOrNull { it.value.toDouble() > duration / 2.0 + EPS }?.key
         if (certain != null) return ConditionDecision(certain,
-            if (hasDerived) ConditionStatus.ESTIMATED else ConditionStatus.RELIABLE,
+            when {
+                covered < duration -> ConditionStatus.INCOMPLETE
+                hasDerived -> ConditionStatus.ESTIMATED
+                else -> ConditionStatus.RELIABLE
+            },
             origin, coverage, reasons = reasons + ConditionReason.IRREVERSIBLE_MAJORITY,
             notablePhenomenon = risk)
 
@@ -234,7 +238,11 @@ internal object ConditionDecisionEngine {
                 }
                 val proposed = WeatherConditionConsensus.resolveUnweighted(weighted)
                 if (proposed != null) return ConditionDecision(proposed,
-                    if (hasDerived || coverage < 1.0) ConditionStatus.ESTIMATED else ConditionStatus.RELIABLE,
+                    when {
+                        covered < duration -> ConditionStatus.INCOMPLETE
+                        hasDerived -> ConditionStatus.ESTIMATED
+                        else -> ConditionStatus.RELIABLE
+                    },
                     origin, coverage, reasons = reasons + ConditionReason.REPRESENTATIVE_SAMPLES,
                     notablePhenomenon = risk)
             }

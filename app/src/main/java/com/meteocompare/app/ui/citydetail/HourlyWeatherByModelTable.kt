@@ -16,12 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -31,12 +28,10 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionDecisionEngine
-import com.meteocompare.app.domain.util.ConditionOrigin
-import com.meteocompare.app.domain.util.ConditionStatus
 import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
-import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.ConditionStatusIcon
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
 import java.time.Instant
@@ -79,7 +74,6 @@ fun HourlyWeatherByModelTable(
                         condition = diagnosis.condition,
                         precipProbability = series.hourly.precipitationProbability.getOrNull(idx),
                         cloudCover = series.hourly.effectiveCloudCover(idx),
-                        isInferred = diagnosis.origin != ConditionOrigin.HOURLY_WMO,
                         diagnosis = diagnosis
                     )
                 }.toMap()
@@ -252,12 +246,7 @@ private data class HourCellData(
     val condition: WeatherCondition?,
     val precipProbability: Int?,
     val cloudCover: Int?,
-    /**
-     * `true` si la [condition] a été dérivée localement depuis les variables
-     * du même modèle (précip/temp ou cloud_cover), faute de code WMO direct.
-     * L'UI l'atténue légèrement pour rendre cette provenance visible.
-     */
-    val isInferred: Boolean = false,
+    /** Decision metadata; the common icon renders its provenance and limitations. */
     val diagnosis: ConditionDecision? = null
 )
 
@@ -276,37 +265,16 @@ private fun HourIconCell(
             .detailTableCell(background, palette),
         contentAlignment = Alignment.Center
     ) {
-        if (cell == null) {
-            // Modèle sans donnée pour cette heure (typique : un modèle régional ne
-            // couvre que J+0 à J+2, colonnes vides au-delà). Tiret discret
-            // pour que la cellule reste reconnaissable comme cellule.
-            Text(
-                "—",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (cell.condition == null) {
-            val symbol = if (cell.diagnosis?.status == ConditionStatus.AMBIGUOUS) "≠" else "—"
-            val explanation = when (cell.diagnosis?.status) {
-                ConditionStatus.AMBIGUOUS -> stringResource(R.string.condition_diagnostic_ambiguous)
-                ConditionStatus.INCOMPLETE -> stringResource(R.string.condition_diagnostic_incomplete)
-                else -> stringResource(R.string.condition_diagnostic_unavailable)
-            }
-            Text(symbol, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { contentDescription = explanation })
+        if (cell == null || cell.condition == null) {
+            ConditionStatusIcon(cell?.condition, cell?.diagnosis, size = 28.dp, isNight = isNight)
         } else {
-            // Marqueur visuel d'inférence : la condition vient uniquement des
-            // variables du MÊME modèle. 65 % reste visible sur fond clair/sombre
-            // tout en signalant qu'il ne s'agit pas d'un weather_code direct.
-            val contentModifier = if (cell.isInferred) Modifier.alpha(0.55f) else Modifier
             Column(
-                modifier = contentModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                WeatherIconDecorative(
+                ConditionStatusIcon(
                     condition = cell.condition,
+                    decision = cell.diagnosis,
                     size = 28.dp,
                     tint = if (isNight && cell.condition == WeatherCondition.CLEAR) Color.Unspecified
                         else cell.condition.semanticTint(),

@@ -43,7 +43,6 @@ object WeatherConditionConsensus {
         MIXED_EVIDENCE_CONSENSUS,
         /** Fallback catégoriel déduit des variables du même modèle. */
         DERIVED_MODEL_CONSENSUS,
-        AGGREGATED_VARIABLES,
         SINGLE_NATIVE_WMO,
         NONE
     }
@@ -65,6 +64,7 @@ object WeatherConditionConsensus {
      * 3. Un WMO natif isolé reste utilisable ; une opposition irrésolue reste
      *    indéterminée, jamais transformée en scénario construit de médianes.
      */
+    @Suppress("UNUSED_PARAMETER") // Legacy API shape; these medians must never fabricate a categorical forecast.
     fun resolveAggregate(
         nativeEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
         temperatureCentralC: Double?,

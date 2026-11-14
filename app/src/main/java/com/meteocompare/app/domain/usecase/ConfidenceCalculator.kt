@@ -212,8 +212,6 @@ class ConfidenceCalculator @Inject constructor(
     ): WeatherCondition? {
         val nativeConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
         val derivedConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
-        val temperatureSamples = mutableListOf<Pair<WeatherModel, Double>>()
-        val precipitationRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
         val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
         val supportModels = linkedSetOf<WeatherModel>()
 
@@ -231,14 +229,10 @@ class ConfidenceCalculator @Inject constructor(
                     nativeConditionEntries += ForecastConsensus.Entry(model, adjusted)
                     supportModels += model
                 }
-            series.hourly.temperature2m.getOrNull(idx)?.takeIf(Double::isFinite)?.let {
-                temperatureSamples += model to it
-                supportModels += model
-            }
+            if (series.hourly.temperature2m.getOrNull(idx)?.isFinite() == true) supportModels += model
             val amount = series.hourly.precipitation.getOrNull(idx)
             val probability = series.hourly.precipitationProbability.getOrNull(idx)
             if (amount?.isFinite() == true || probability?.let { it in 0..100 } == true) {
-                precipitationRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 supportModels += model
             }
             series.hourly.effectiveCloudCover(idx)
@@ -248,25 +242,9 @@ class ConfidenceCalculator @Inject constructor(
                 }
         }
 
-        val temperatureCentral = engineContinuous(
-            samples = temperatureSamples,
-            thresholds = Thresholds.TEMPERATURE,
-            engineContext = engineContext,
-            variable = ForecastEngineVariable.TEMPERATURE,
-            allowCalibration = false
-        ).central
-        val precipitationCentral = ForecastEngineV3.precipitation(
-            precipitationRows,
-            ForecastEngineV3.PrecipitationOptions(
-                engine = engineContext.engine,
-                threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
-                localWeights = localWeights(precipitationRows.map { it.model }) +
-                    engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
-                calibration = emptyMap(),
-                amountTight = 0.5,
-                amountWide = 4.0
-            )
-        ).centralAmountMm
+        // Temperature and precipitation medians no longer create condition
+        // categories: mixing central values from different models would be
+        // scientifically unjustified. Only coherent per-model decisions vote.
         val cloudCentral = engineContinuous(
             samples = cloudSamples,
             thresholds = Thresholds(10.0, 50.0),
@@ -278,8 +256,8 @@ class ConfidenceCalculator @Inject constructor(
         ).central
         val aggregate = WeatherConditionConsensus.resolveAggregate(
             nativeEntries = nativeConditionEntries,
-            temperatureCentralC = temperatureCentral,
-            precipitationCentralMm = precipitationCentral,
+            temperatureCentralC = null,
+            precipitationCentralMm = null,
             cloudCoverPercent = cloudCentral,
             cloudCoverFamilyCount = cloudSamples.map { ForecastConsensus.groupFor(it.first) }.distinct().size,
             supportModels = supportModels,

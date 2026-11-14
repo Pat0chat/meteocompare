@@ -23,8 +23,8 @@ import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.DailyConditionPeriod
-import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionDecisionEngine
 import com.meteocompare.app.domain.util.ConditionOrigin
 import com.meteocompare.app.domain.util.ConditionReason
 import com.meteocompare.app.domain.util.ConditionStatus
@@ -145,8 +145,11 @@ internal data class SimplifiedTimelinePoint(
     val conditionDiagnostic: ConditionDecision? = null,
     /** Condition dominante du soleil levé au soleil couché (daily uniquement). */
     val dayCondition: WeatherCondition? = null,
+    /** Diagnostic preserving partial coverage and competing daily scenarios. */
+    val dayConditionDiagnostic: ConditionDecision? = null,
     /** Condition dominante du coucher du soleil au lever suivant (daily uniquement). */
     val nightCondition: WeatherCondition? = null,
+    val nightConditionDiagnostic: ConditionDecision? = null,
     /** UV from one location-based best-match forecast, not a model consensus. */
     val uvIndex: Double? = null,
     /** Vrai la nuit pour les échéances horaires quand les heures solaires sont connues. */
@@ -288,16 +291,37 @@ private fun buildDailyTimeline(
         val snapshots = indexed.mapNotNull { it[date] }
         val solar = forecastSolarWindow(forecast, date)
         val nextSolar = forecastSolarWindow(forecast, date.plusDays(1))
-        fun periodConsensus(period: DailyConditionPeriod): WeatherCondition? {
-            val entries = forecast.seriesByModel.mapNotNull { (model, series) ->
-                series.resolveDailyCondition(date, zone, period, solar, nextSolar)
-                    ?.let { ForecastConsensus.Entry(model, it.condition) }
+        fun periodConsensus(period: DailyConditionPeriod): ConditionDecision {
+            val byModel = forecast.seriesByModel.map { (model, series) ->
+                model to ConditionDecisionEngine.period(series, date, zone, period, solar, nextSolar)
             }
-            // Même hiérarchie/équilibrage par familles que le consensus daily.
-            return WeatherConditionConsensus.resolve(entries, cloudCoverPercent = null).value
+            val native = byModel.mapNotNull { (model, decision) ->
+                decision.condition?.takeIf {
+                    decision.status == ConditionStatus.RELIABLE && decision.origin == ConditionOrigin.HOURLY_DOMINANT
+                }?.let { ForecastConsensus.Entry(model, it) }
+            }
+            val derived = byModel.mapNotNull { (model, decision) ->
+                decision.condition?.takeUnless {
+                    decision.status == ConditionStatus.RELIABLE && decision.origin == ConditionOrigin.HOURLY_DOMINANT
+                }?.let { ForecastConsensus.Entry(model, it) }
+            }
+            val result = WeatherConditionConsensus.resolveDecision(
+                nativeEntries = native, derivedEntries = derived,
+                supportModels = byModel.map { it.first }
+            )
+            val winners = byModel.map { it.second }.filter { it.condition != null && it.condition == result.condition }
+            val partial = winners.any { it.status == ConditionStatus.INCOMPLETE }
+            return result.copy(
+                status = if (result.condition != null && partial) ConditionStatus.INCOMPLETE else result.status,
+                reasons = result.reasons + winners.flatMap { it.reasons },
+                notablePhenomenon = winners.mapNotNull { it.notablePhenomenon }
+                    .maxByOrNull { it.severityRank }
+            )
         }
-        val dayCondition = periodConsensus(DailyConditionPeriod.DAY)
-        val nightCondition = periodConsensus(DailyConditionPeriod.NIGHT)
+        val dayDecision = periodConsensus(DailyConditionPeriod.DAY)
+        val nightDecision = periodConsensus(DailyConditionPeriod.NIGHT)
+        val dayCondition = dayDecision.condition
+        val nightCondition = nightDecision.condition
         val base = timelinePoint(
             timestamp = null,
             date = date,
@@ -310,11 +334,15 @@ private fun buildDailyTimeline(
         )
         // A daily row with only a valid day/night condition is still a useful
         // forecast. A missing daily-axis snapshot must not erase those periods.
-        if (base != null || dayCondition != null || nightCondition != null) {
+        if (base != null || dayCondition != null || nightCondition != null ||
+            dayDecision.status != ConditionStatus.UNAVAILABLE ||
+            nightDecision.status != ConditionStatus.UNAVAILABLE) {
             (base ?: SimplifiedTimelinePoint(date = date)).copy(
                 estimatedSunHours = estimatedSunshineHours(forecast, date),
                 dayCondition = dayCondition,
-                nightCondition = nightCondition
+                dayConditionDiagnostic = dayDecision,
+                nightCondition = nightCondition,
+                nightConditionDiagnostic = nightDecision
             )
         } else null
     }
@@ -337,6 +365,7 @@ private data class TimelineSnapshot(
     val windDirection: Int?,
     val condition: WeatherCondition?,
     val nativeCondition: WeatherCondition? = null,
+    val conditionDecision: ConditionDecision? = null
 ) {
     val hasAnyValue: Boolean
         get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true ||
@@ -366,13 +395,9 @@ private fun indexHourlySnapshots(
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
         val windDirection = series.hourly.windDirection10m.getOrNull(index)
-        val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
-            ?.takeUnless { it == WeatherCondition.UNKNOWN }
-            ?.let { native ->
-                if (native == WeatherCondition.OVERCAST)
-                    series.resolveHourlyCondition(index) ?: native else native
-            }
-        val condition = series.resolveHourlyCondition(index)
+        val decision = ConditionDecisionEngine.hourly(series.hourly, index)
+        val nativeCondition = decision.condition?.takeIf { decision.origin == ConditionOrigin.HOURLY_WMO }
+        val condition = decision.condition
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = temperature,
@@ -389,7 +414,8 @@ private fun indexHourlySnapshots(
             windGust = windGust,
             windDirection = windDirection,
             condition = condition,
-            nativeCondition = nativeCondition
+            nativeCondition = nativeCondition,
+            conditionDecision = decision
         )
         if (snapshot.hasAnyValue) put(timestamp, snapshot)
     }
@@ -435,7 +461,8 @@ private fun indexDailySnapshots(
             windGust = windGust,
             windDirection = windDirection,
             condition = condition,
-            nativeCondition = nativeCondition
+            nativeCondition = nativeCondition,
+            conditionDecision = resolved?.decision
         )
         if (snapshot.hasAnyValue) put(date, snapshot)
     }
@@ -565,11 +592,6 @@ private fun timelinePoint(
     val nativeConditionEntries = meaningful.mapNotNull { snap ->
         snap.nativeCondition?.let { ForecastConsensus.Entry(snap.model, it) }
     }
-    val conditionTemperature = if (hourly) {
-        temp.forecastValue.central
-    } else {
-        tempMin?.forecastValue?.central ?: temp.forecastValue.central
-    }
     // La provenance de la condition doit compter uniquement les modèles qui
     // contribuent réellement à l'un de ses inputs. Un modèle « wind-only »
     // ou « gust-only » reste utile à la chronologie générale, mais ne doit pas
@@ -589,8 +611,8 @@ private fun timelinePoint(
     }
     val conditionResolution = WeatherConditionConsensus.resolveAggregate(
         nativeEntries = nativeConditionEntries,
-        temperatureCentralC = conditionTemperature,
-        precipitationCentralMm = precipitationForecast.centralAmountMm,
+        temperatureCentralC = null,
+        precipitationCentralMm = null,
         cloudCoverPercent = cloud.forecastValue.central,
         cloudCoverFamilyCount = meaningful
             .filter { it.cloudCover?.let { cloudValue -> cloudValue in 0..100 } == true }
@@ -740,24 +762,7 @@ private fun timelinePoint(
         windGustModelCount = gust.agreement.modelCount,
         windDirectionDeg = windDirection,
         condition = conditionConsensus.value,
-        conditionDiagnostic = ConditionDecision(
-            condition = conditionConsensus.value,
-            status = when {
-                conditionConsensus.value == null && meaningful.any { it.condition != null } -> ConditionStatus.AMBIGUOUS
-                conditionConsensus.value == null -> ConditionStatus.UNAVAILABLE
-                hourly && nativeConditionEntries.isNotEmpty() -> ConditionStatus.RELIABLE
-                else -> ConditionStatus.ESTIMATED
-            },
-            origin = if (conditionConsensus.value != null) ConditionOrigin.MODEL_CONSENSUS else ConditionOrigin.NONE,
-            coverage = meaningful.count { it.condition != null }.toDouble() / meaningful.size,
-            agreement = conditionConsensus.percent?.div(100.0),
-            alternatives = if (conditionConsensus.value == null) meaningful.mapNotNull { it.condition }.distinct() else emptyList(),
-            reasons = when {
-                conditionConsensus.value == null && meaningful.any { it.condition != null } -> setOf(ConditionReason.MODEL_DISAGREEMENT)
-                conditionConsensus.value == null -> setOf(ConditionReason.MISSING_DATA)
-                else -> emptySet()
-            }
-        ),
+        conditionDiagnostic = timelineConditionDiagnostic(meaningful, conditionConsensus),
         modelCount = meaningful.size,
         familyCount = familyCount,
         temperatureModelCount = temp.agreement.modelCount,
@@ -768,6 +773,49 @@ private fun timelinePoint(
         consensusLevel = overall?.let(::metricLevel),
         metricConsensus = metricConsensus,
         divergenceReasons = divergenceReasons
+    )
+}
+
+/** A single diagnostic adapter for both hourly and daily timeline renderers. */
+private fun timelineConditionDiagnostic(
+    snapshots: List<TimelineSnapshot>,
+    vote: ForecastConsensus.Vote<WeatherCondition>
+): ConditionDecision {
+    val all = snapshots.mapNotNull { it.conditionDecision }
+    val winners = all.filter { it.condition != null && it.condition == vote.value }
+    val nativeWinner = winners.any {
+        it.status == ConditionStatus.RELIABLE &&
+            (it.origin == ConditionOrigin.HOURLY_WMO || it.origin == ConditionOrigin.HOURLY_DOMINANT)
+    }
+    val incomplete = winners.any { it.status == ConditionStatus.INCOMPLETE }
+    val choices = (snapshots.mapNotNull { it.condition } + all.flatMap { it.alternatives })
+        .filter { it != WeatherCondition.UNKNOWN }.distinct()
+    val status = when {
+        vote.value == null && choices.isNotEmpty() -> ConditionStatus.AMBIGUOUS
+        vote.value == null -> ConditionStatus.UNAVAILABLE
+        incomplete -> ConditionStatus.INCOMPLETE
+        nativeWinner -> ConditionStatus.RELIABLE
+        else -> ConditionStatus.ESTIMATED
+    }
+    return ConditionDecision(
+        condition = vote.value,
+        status = status,
+        origin = when {
+            vote.value == null && choices.isEmpty() -> ConditionOrigin.NONE
+            snapshots.size == 1 && winners.size == 1 -> winners[0].origin
+            else -> ConditionOrigin.MODEL_CONSENSUS
+        },
+        coverage = if (snapshots.size == 1 && winners.size == 1)
+            winners.single().coverage else snapshots.count { it.condition != null }.toDouble() / snapshots.size,
+        agreement = vote.percent?.div(100.0),
+        alternatives = if (vote.value == null) choices else emptyList(),
+        reasons = buildSet {
+            winners.forEach { addAll(it.reasons) }
+            if (status == ConditionStatus.AMBIGUOUS) add(ConditionReason.MODEL_DISAGREEMENT)
+            if (status == ConditionStatus.UNAVAILABLE) add(ConditionReason.MISSING_DATA)
+        },
+        notablePhenomenon = winners.mapNotNull { it.notablePhenomenon }
+            .maxByOrNull { it.severityRank }
     )
 }
 
