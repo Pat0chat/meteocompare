@@ -1,7 +1,12 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.assertTextEquals
@@ -11,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
@@ -343,16 +349,24 @@ class CityDetailContentTest {
 
         composeRule.setContent {
             MeteoCompareTheme {
+                // Reproduce the persisted section state normally owned by the ViewModel.
+                var collapsedSections by remember { mutableStateOf(emptySet<CityDetailSection>()) }
                 CityDetailContent(
                     state = loadedState,
                     isRefreshing = false,
                     biasState = BiasScreenState.EMPTY,
+                    collapsedSections = collapsedSections,
                     snackbarHostState = snackbar,
                     onBack = {},
                     onRefresh = {},
                     onSectionExpandedChange = { section, expanded ->
                         changedSection = section
                         expandedValue = expanded
+                        collapsedSections = if (expanded) {
+                            collapsedSections - section
+                        } else {
+                            collapsedSections + section
+                        }
                     }
                 )
             }
@@ -360,12 +374,28 @@ class CityDetailContentTest {
 
         composeRule.onNodeWithTag(TAG_DETAIL_LOADED)
             .performScrollToNode(hasTestTag(TAG_LOCAL_RELIABILITY_HEADER))
-        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_HEADER)
+        val header = composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_HEADER)
             .assertIsDisplayed()
-            .performClick()
+            .assertHasClickAction()
+        // This verifies the section callback, not hit testing. After a LazyColumn
+        // scroll the synthetic tap can land beneath the fixed Scaffold top bar.
+        // The direct section test separately covers a real performClick().
+        header.performSemanticsAction(SemanticsActions.OnClick)
 
-        assertEquals(CityDetailSection.CONFIDENCE, changedSection)
-        assertEquals(false, expandedValue)
+        composeRule.runOnIdle {
+            assertEquals(CityDetailSection.CONFIDENCE, changedSection)
+            assertEquals(false, expandedValue)
+        }
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertDoesNotExist()
+
+        // Verify the reverse transition as well: the stored state is fed back
+        // into CityDetailContent and the details become visible again.
+        header.performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.runOnIdle {
+            assertEquals(CityDetailSection.CONFIDENCE, changedSection)
+            assertEquals(true, expandedValue)
+        }
+        composeRule.onNodeWithTag(TAG_LOCAL_RELIABILITY_DETAILS).assertExists()
     }
 
     @Test
