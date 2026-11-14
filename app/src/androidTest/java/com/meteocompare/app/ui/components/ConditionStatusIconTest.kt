@@ -190,4 +190,18 @@ class ConditionStatusIconTest {
         composeRule.onNodeWithTag("condition_coverage").assertDoesNotExist()
     }
 
+
+    @Test
+    fun missing_condition_without_decision_is_explained_as_unavailable() {
+        composeRule.setContent {
+            MeteoCompareTheme { ConditionStatusIcon(condition = null, decision = null) }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_unavailable), substring = true
+        ).assertIsDisplayed().performClick()
+        composeRule.onNodeWithText(context.getString(R.string.condition_status_unavailable_desc))
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("condition_coverage").assertDoesNotExist()
+    }
+
 }

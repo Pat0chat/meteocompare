@@ -57,7 +57,7 @@ class ReleaseSourceCompletenessTest(unittest.TestCase):
         self.assertIn('Modifier.width(30.dp)', compact)
         self.assertIn('Modifier.weight(1f).testTag("legend_label_${status.name}")', compact)
         self.assertIn('Modifier.width(30.dp).testTag("legend_symbol_${status.name}")', compact)
-        self.assertIn('heightIn(min = 36.dp)', compact)
+        self.assertIn('heightIn(min = 28.dp)', compact)
         for tag in ('condition_legend_first_row', 'condition_legend_second_row'):
             self.assertIn(f'testTag("{tag}")', compact)
         # Prevent a return to a separate card/pill for each status.

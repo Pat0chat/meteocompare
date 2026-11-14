@@ -54,18 +54,18 @@ internal fun ConditionStatusLegend(modifier: Modifier = Modifier) {
         tonalElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
                     Icons.Outlined.Info,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
                 Text(
                     stringResource(R.string.condition_legend_title),
@@ -83,7 +83,7 @@ internal fun ConditionStatusLegend(modifier: Modifier = Modifier) {
             }
             Column(
                 modifier = Modifier.fillMaxWidth().semantics { contentDescription = accessibleSummary },
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().testTag("condition_legend_first_row"),
@@ -113,7 +113,7 @@ internal fun ConditionStatusLegend(modifier: Modifier = Modifier) {
 @Composable
 private fun LegendChip(status: ConditionStatus, labelRes: Int, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier.heightIn(min = 36.dp),
+        modifier = modifier.heightIn(min = 28.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -17,7 +17,9 @@ import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.test.platform.app.InstrumentationRegistry
@@ -73,7 +75,7 @@ class MiniForecastStripTest {
     }
 
     @Test
-    fun weather_condition_icon_is_rendered_for_each_available_hour() {
+    fun available_conditions_and_unavailable_hour_are_both_exposed() {
         composeRule.setContent {
             MiniForecastStrip(
                 hourlyTemps = List(12) { 20.0 },
@@ -87,8 +89,20 @@ class MiniForecastStripTest {
 
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}1").assertIsDisplayed()
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}2").assertDoesNotExist()
+        // The shared V3+ status component deliberately renders an unavailable
+        // forecast placeholder instead of leaving a visual / accessibility hole.
+        // A missing weather code must not be inferred from temperature or PoP.
+        val unavailable = composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}2")
+        unavailable.assertIsDisplayed()
+            .assertContentDescriptionContains(
+                context.getString(R.string.condition_status_unavailable), substring = true
+            )
         composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}0").assertIsDisplayed()
+        // The placeholder is actionable: users can see why no condition is given.
+        unavailable.performClick()
+        composeRule.onNodeWithTag("condition_explanation_dialog").assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(R.string.condition_status_unavailable_desc))
+            .assertIsDisplayed()
     }
 
     @Test
@@ -110,7 +124,11 @@ class MiniForecastStripTest {
             composeRule.onNodeWithTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
                 .assertIsDisplayed()
         }
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}3").assertDoesNotExist()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}3")
+            .assertIsDisplayed()
+            .assertContentDescriptionContains(
+                context.getString(R.string.condition_status_unavailable), substring = true
+            )
     }
 
     @Test

@@ -41,7 +41,10 @@ internal fun ConditionExplanationDialog(
     isNight: Boolean,
     onDismiss: () -> Unit
 ) {
-    val status = decision?.status
+    // The icon already displays "unavailable" when both the condition and its
+    // diagnostic are missing. Explain that same state in the dialog instead of
+    // contradicting the icon with "status not specified".
+    val status = decision?.status ?: if (condition == null) ConditionStatus.UNAVAILABLE else null
     val scheme = MaterialTheme.colorScheme
     ConditionInfoDialog(
         title = stringResource(R.string.condition_detail_title),

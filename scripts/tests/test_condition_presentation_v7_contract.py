@@ -23,6 +23,24 @@ class ConditionPresentationV7Contract(unittest.TestCase):
         self.assertIn('testTag("condition_legend_second_row")', compact)
         self.assertIn('fontSize = 21.sp', compact)
 
+    def test_legend_is_compact_but_keeps_its_one_themed_background_and_alignment(self):
+        code = (SRC / 'components/ConditionStatusLegend.kt').read_text(encoding='utf-8')
+        compact = code.split('internal fun ConditionStatusLegend', 1)[1].split(
+            'private fun ConditionLegendDialog', 1)[0]
+        self.assertIn('Modifier.padding(horizontal = 10.dp, vertical = 6.dp)', compact)
+        self.assertIn('verticalArrangement = Arrangement.spacedBy(3.dp)', compact)
+        self.assertIn('verticalArrangement = Arrangement.spacedBy(1.dp)', compact)
+        self.assertIn('modifier.heightIn(min = 28.dp)', compact)
+        self.assertIn('Modifier.width(30.dp).testTag("legend_symbol_${status.name}")', compact)
+        self.assertEqual(1, compact.count('Surface('))
+        self.assertIn('color = MaterialTheme.colorScheme.surfaceContainer', compact)
+
+    def test_mini_forecast_android_test_imports_compose_text_finder(self):
+        code = (ROOT / 'app/src/androidTest/java/com/meteocompare/app/ui/citylist/'
+                'MiniForecastStripTest.kt').read_text(encoding='utf-8')
+        self.assertIn('import androidx.compose.ui.test.onNodeWithText', code)
+        self.assertIn('composeRule.onNodeWithText(', code)
+
     def test_timeline_legend_is_below_convergence_explanation(self):
         source = (SRC / 'citydetail/SimplifiedTimeline.kt').read_text(encoding='utf-8')
         self.assertLess(source.index('R.string.timeline_disagreement_hint'),
