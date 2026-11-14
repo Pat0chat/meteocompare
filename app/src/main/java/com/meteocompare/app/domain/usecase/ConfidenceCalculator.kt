@@ -12,6 +12,7 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.HourlySampling
@@ -208,6 +209,7 @@ class ConfidenceCalculator @Inject constructor(
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
     ): WeatherCondition? {
         val nativeConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+        val derivedConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
         val temperatureSamples = mutableListOf<Pair<WeatherModel, Double>>()
         val precipitationRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
         val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
@@ -216,6 +218,9 @@ class ConfidenceCalculator @Inject constructor(
         val target = HourlySampling.anchor(forecast, now)
         forecast.seriesByModel.forEach { (model, series) ->
             val idx = exactCurrentIndex(series, target) ?: return@forEach
+            series.resolveHourlyCondition(idx)?.let { derived ->
+                derivedConditionEntries += ForecastConsensus.Entry(model, derived)
+            }
             WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?.let { native ->
@@ -234,8 +239,7 @@ class ConfidenceCalculator @Inject constructor(
                 precipitationRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 supportModels += model
             }
-            series.hourly.cloudCover.getOrNull(idx)
-                ?.takeIf { it in 0..100 }
+            series.hourly.effectiveCloudCover(idx)
                 ?.let {
                     cloudSamples += model to it.toDouble()
                     supportModels += model
@@ -277,7 +281,8 @@ class ConfidenceCalculator @Inject constructor(
             cloudCoverPercent = cloudCentral,
             cloudCoverFamilyCount = cloudSamples.map { ForecastConsensus.groupFor(it.first) }.distinct().size,
             supportModels = supportModels,
-            localWeights = localWeights(nativeConditionEntries.map { it.model })
+            localWeights = localWeights(nativeConditionEntries.map { it.model }),
+            derivedEntries = derivedConditionEntries
         ).vote.value
         // When NO model supplies a WMO code, the ordinary cloud-cover fallback
         // can only infer OVERCAST from 98% total clouds. In that precise case,
@@ -287,16 +292,12 @@ class ConfidenceCalculator @Inject constructor(
             aggregate == WeatherCondition.OVERCAST &&
             (cloudCentral ?: 0.0) >= 90.0
         ) {
-            val derived = forecast.seriesByModel.mapNotNull { (model, series) ->
-                val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
-                series.resolveHourlyCondition(idx)?.let { ForecastConsensus.Entry(model, it) }
-            }
             return WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
                 original = aggregate,
                 nativeWmoAvailable = false,
                 cloudCoverPercent = cloudCentral,
-                resolvedPerModel = derived,
-                localWeights = localWeights(derived.map { it.model })
+                resolvedPerModel = derivedConditionEntries,
+                localWeights = localWeights(derivedConditionEntries.map { it.model })
             )
         }
         return aggregate

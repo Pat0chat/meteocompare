@@ -5,6 +5,7 @@ import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
@@ -65,6 +66,7 @@ internal object ForecastAggregates {
             val tempRows = mutableListOf<ForecastConsensus.Entry<Double>>()
             val precipRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
             val conditionRows = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+            val derivedConditionRows = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
             val cloudRows = mutableListOf<ForecastConsensus.Entry<Double>>()
 
             forecast.seriesByModel.forEach { (model, series) ->
@@ -80,6 +82,9 @@ internal object ForecastAggregates {
                     precipRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 }
                 if (conditions != null) {
+                    series.resolveHourlyCondition(index)?.let { derived ->
+                        derivedConditionRows += ForecastConsensus.Entry(model, derived)
+                    }
                     WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
                         ?.takeUnless { it == WeatherCondition.UNKNOWN }
                         ?.let { native ->
@@ -88,8 +93,7 @@ internal object ForecastAggregates {
                                     series.resolveHourlyCondition(index) ?: native else native
                             )
                         }
-                    series.hourly.cloudCover.getOrNull(index)
-                        ?.takeIf { it in 0..100 }
+                    series.hourly.effectiveCloudCover(index)
                         ?.let { cloudRows += ForecastConsensus.Entry(model, it.toDouble()) }
                 }
             }
@@ -144,7 +148,8 @@ internal object ForecastAggregates {
                     precipitationCentralMm = precipitation.centralAmountMm,
                     cloudCoverPercent = cloudCentral,
                     cloudCoverFamilyCount = cloudRows.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
-                    supportModels = supportModels
+                    supportModels = supportModels,
+                    derivedEntries = derivedConditionRows
                 ).vote.value
                 // The Home mini strip previously lost VEILED when weather_code
                 // was absent, even though the model's hourly layers + solar
@@ -154,18 +159,11 @@ internal object ForecastAggregates {
                     baseCondition == WeatherCondition.OVERCAST &&
                     cloudCentral?.let { it >= 90.0 } == true
                 ) {
-                    val derived = forecast.seriesByModel.mapNotNull { (model, series) ->
-                        val index = with(HourlySampling) {
-                            series.hourly.timestamps.exactIndex(target)
-                        } ?: return@mapNotNull null
-                        series.resolveHourlyCondition(index)
-                            ?.let { ForecastConsensus.Entry(model, it) }
-                    }
                     WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
                         original = baseCondition,
                         nativeWmoAvailable = false,
                         cloudCoverPercent = cloudCentral,
-                        resolvedPerModel = derived
+                        resolvedPerModel = derivedConditionRows
                     )
                 } else baseCondition
             }

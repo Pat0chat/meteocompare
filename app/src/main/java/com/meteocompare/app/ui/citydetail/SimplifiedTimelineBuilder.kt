@@ -16,6 +16,7 @@ import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
@@ -349,7 +350,7 @@ private fun indexHourlySnapshots(
         val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
-        val cloudCover = series.hourly.cloudCover.getOrNull(index)
+        val cloudCover = series.hourly.effectiveCloudCover(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
         val windDirection = series.hourly.windDirection10m.getOrNull(index)
@@ -582,7 +583,10 @@ private fun timelinePoint(
             .distinct()
             .size,
         supportModels = conditionSupportModels,
-        localWeights = emptyMap()
+        localWeights = emptyMap(),
+        derivedEntries = if (hourly) meaningful.mapNotNull { snapshot ->
+            snapshot.condition?.let { ForecastConsensus.Entry(snapshot.model, it) }
+        } else emptyList()
     )
     // Un cumul daily de 8 mm peut correspondre à UNE seule heure de pluie.
     // La condition de la chronologie daily ne doit jamais être inférée du

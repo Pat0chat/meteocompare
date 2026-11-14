@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
+import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.SolarSkyInterpretation
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
@@ -40,7 +41,7 @@ internal fun ForecastSeries.dailyCloudCoverMean(date: LocalDate, zone: ZoneId): 
     val start = date.atStartOfDay(zone).toInstant()
     val end = date.plusDays(1).atStartOfDay(zone).toInstant()
     val valuesByHour = validHourlyByHour(start, end) { index ->
-        hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
+        hourly.effectiveCloudCover(index)
     }
     if (!hasRepresentativeHourlyCoverage(start, end, valuesByHour.keys.toList())) return null
     return valuesByHour.values.average().roundToInt()
@@ -60,9 +61,12 @@ internal fun ForecastSeries.resolveHourlyCondition(index: Int): WeatherCondition
 
 internal fun HourlyForecast.resolveHourlyCondition(index: Int): WeatherCondition? {
     if (index !in timestamps.indices) return null
+    // Couvre également les anciens caches dans lesquels la nébulosité totale
+    // n'avait pas été reconstruite, sans mélanger les données de deux modèles.
+    val effectiveCloud = effectiveCloudCover(index)
     val solarIndex = timestamps.indexOf(timestamps[index].plusSeconds(3600))
     val veiled = SolarSkyInterpretation.isVeiledSky(
-        cloudCover.getOrNull(index),
+        effectiveCloud,
         cloudCoverLow.getOrNull(index), cloudCoverMid.getOrNull(index),
         cloudCoverHigh.getOrNull(index),
         sunshineDuration.getOrNull(solarIndex),
@@ -74,8 +78,7 @@ internal fun HourlyForecast.resolveHourlyCondition(index: Int): WeatherCondition
             precipMm = precipitation.getOrNull(index),
             tempMinC = temperature2m.getOrNull(index)
         )
-        ?: cloudCover.getOrNull(index)
-            ?.takeIf { it in 0..100 }
+        ?: effectiveCloud
             ?.let { WeatherCondition.fromCloudCover(it.toDouble()) }
     // Avoid a false luminous label when another field predicts actual rainfall.
     val wet = precipitation.getOrNull(index)?.let { it.isFinite() && it > 0.1 } == true
@@ -200,7 +203,24 @@ internal fun ForecastSeries.resolveDailyCondition(
     // WMO daily qui pourrait annoncer la famille OPPOSÉE : par exemple,
     // 19 h sèches malgré une lacune de 5 h et un daily « pluie ».
     // Les épisodes horaires restent disponibles dans la chronologie.
-    if (hasStableMajority && !noInternalGaps) return null
+    if (hasStableMajority && !noInternalGaps) {
+        // Même si une lacune interne interdit de supposer le temps de chaque
+        // heure, un sous-type qui occupe déjà STRICTEMENT plus de la moitié
+        // de TOUTES les heures de la période est mathématiquement dominant,
+        // quel que soit le temps durant les heures inconnues. Ne jamais
+        // extrapoler une simple majorité de la branche sec/humide à un sous-type.
+        val certainLeaf = values.groupingBy { it }.eachCount()
+            .entries.firstOrNull { (condition, count) ->
+                condition != WeatherCondition.UNKNOWN && count > expectedHours / 2.0
+            }?.key
+        if (certainLeaf != null) {
+            val provenance = if (hourlyConditions.all { it.third })
+                DailyConditionProvenance.HOURLY_WMO
+            else DailyConditionProvenance.DERIVED_VARIABLES
+            return DailyConditionResolution(certainLeaf, provenance)
+        }
+        return null
+    }
 
     // Quand les heures couvrent réellement toute la période MAIS ne dégagent
     // aucune majorité stable (égalité sec/humide, par exemple), le code daily
@@ -272,7 +292,7 @@ internal fun ForecastSeries.dailyPeriodMetrics(
         hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
     }
     val cloudCover = validHourlyByHour(start, end) { index ->
-        hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
+        hourly.effectiveCloudCover(index)
     }
     if (probabilities.isEmpty() && cloudCover.isEmpty()) return null
     // Le maximum de risque est un signal ponctuel : une seule heure valide peut
