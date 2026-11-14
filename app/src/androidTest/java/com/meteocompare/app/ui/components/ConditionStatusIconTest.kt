@@ -96,6 +96,10 @@ class ConditionStatusIconTest {
                         WeatherCondition.CLEAR, WeatherCondition.RAIN)))
             }
         }
+        composeRule.onNodeWithTag("condition_alternative_primary", useUnmergedTree = true)
+            .assertExists()
+        composeRule.onNodeWithTag("condition_alternative_secondary", useUnmergedTree = true)
+            .assertExists()
         composeRule.onNodeWithContentDescription(context.getString(R.string.condition_status_ambiguous),
             substring = true).performClick()
         composeRule.onNodeWithText(context.getString(R.string.condition_explanation_alternatives_title))
@@ -111,6 +115,8 @@ class ConditionStatusIconTest {
     @Test
     fun legend_explains_all_five_statuses() {
         composeRule.setContent { MeteoCompareTheme { ConditionStatusLegend() } }
+        composeRule.onNodeWithTag("condition_legend_first_row", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag("condition_legend_second_row", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag("condition_status_legend").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("condition_legend_dialog").assertIsDisplayed()
         listOf(R.string.condition_status_reliable, R.string.condition_status_estimated,

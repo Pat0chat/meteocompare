@@ -173,7 +173,25 @@ class ConditionDecisionEngineTest {
         val x = source(t + List(25) { t[0] }, wmo = List(24) { if (it < 12) 0 else 61 } + List(25) { 0 })
         val result = ConditionDecisionEngine.period(x, day, utc)
         assertEquals(null, result.condition)
-        assertEquals(1.0, result.coverage)
+        assertEquals(1.0, result.coverage, 1e-9)
+    }
+
+    @Test fun `three cloud observations do not create a representative daily icon`() {
+        val hours = listOf(9L, 13L, 17L).map {
+            day.atStartOfDay(utc).toInstant().plusSeconds(it * 3600L)
+        }
+        val result = ConditionDecisionEngine.period(
+            source(hours, cloud = List(3) { 60 }), day, utc)
+        assertEquals(null, result.condition)
+        assertEquals(ConditionStatus.INCOMPLETE, result.status)
+        assertEquals(3.0 / 24.0, result.coverage, 1e-9)
+    }
+
+    @Test fun `daily numerical metrics alone do not manufacture a condition`() {
+        val result = ConditionDecisionEngine.period(source(emptyList()), day, utc)
+        assertEquals(null, result.condition)
+        assertEquals(ConditionStatus.UNAVAILABLE, result.status)
+        assertEquals(0.0, result.coverage, 1e-9)
     }
 
     @Test fun `daily severe maximum fallback is tagged as maximum not dominance`() {

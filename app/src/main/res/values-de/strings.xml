@@ -1193,6 +1193,10 @@ Daten</string>
     <string name="condition_reason_sun">Daten zu Sonnenaufgang oder -untergang fehlen</string>
     <string name="condition_reason_disagreement">Modelle widersprechen sich</string>
     <string name="condition_reason_daily_max">Der Tagescode beschreibt nicht unbedingt die vorherrschende Wetterlage</string>
+    <string name="condition_legend_estimated_short">Geschätzt</string>
+    <string name="condition_legend_alternatives_short">Alternativen</string>
+    <string name="condition_legend_partial_short">Teilweise</string>
+    <string name="condition_legend_unavailable_short">Keine Daten</string>
     <string name="condition_legend_summary">≈ Geschätzt · ≠ Alternativen · ◔ Teilweise · — Keine Daten</string>
     <string name="condition_legend_help">Erklärung</string>
     <string name="condition_legend_title">Wetterbedingungen verstehen</string>

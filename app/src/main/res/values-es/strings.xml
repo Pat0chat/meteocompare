@@ -1199,6 +1199,10 @@ datos</string>
     <string name="condition_reason_sun">Faltan datos de amanecer o atardecer</string>
     <string name="condition_reason_disagreement">Los modelos discrepan</string>
     <string name="condition_reason_daily_max">El código diario no siempre refleja la condición dominante</string>
+    <string name="condition_legend_estimated_short">Estimado</string>
+    <string name="condition_legend_alternatives_short">Alternativas</string>
+    <string name="condition_legend_partial_short">Parcial</string>
+    <string name="condition_legend_unavailable_short">Sin datos</string>
     <string name="condition_legend_summary">≈ Estimado · ≠ Alternativas · ◔ Parcial · — Sin datos</string>
     <string name="condition_legend_help">Explicación</string>
     <string name="condition_legend_title">Comprender las condiciones</string>

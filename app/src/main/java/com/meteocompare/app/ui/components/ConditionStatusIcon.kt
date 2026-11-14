@@ -2,9 +2,7 @@ package com.meteocompare.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,7 +53,13 @@ internal fun ConditionStatusIcon(
         ?: if (condition == null) stringResource(R.string.condition_status_unavailable)
            else stringResource(R.string.condition_status_not_specified)
     val conditionText = condition?.let { stringResource(weatherConditionLabelRes(it)) }
-    val talkback = listOfNotNull(conditionText, label).joinToString(" · ")
+    val alternativeText = if (treatment == ConditionVisualTreatment.ALTERNATIVES && alternatives.isNotEmpty()) {
+        val first = stringResource(weatherConditionLabelRes(alternatives[0]))
+        val second = if (alternatives.size >= 2) stringResource(weatherConditionLabelRes(alternatives[1]))
+                     else null
+        listOfNotNull(first, second).joinToString(" / ")
+    } else null
+    val talkback = listOfNotNull(conditionText ?: alternativeText, label).joinToString(" · ")
     var showDetails by remember(condition, decision) { mutableStateOf(false) }
 
     Box(
@@ -67,17 +72,22 @@ internal fun ConditionStatusIcon(
         when (treatment) {
             ConditionVisualTreatment.ALTERNATIVES -> {
                 if (alternatives.size >= 2) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(0.dp), verticalAlignment = Alignment.CenterVertically) {
-                        alternatives.forEach { alternative ->
-                            WeatherIconDecorative(alternative, size = size * 0.50f, isNight = isNight)
-                        }
+                    // Diagonal overlap gives each condition 76% of the full icon
+                    // size instead of two illegible 50%-width icons side by side.
+                    Box(modifier = Modifier.size(size)) {
+                        WeatherIconDecorative(alternatives[0],
+                            modifier = Modifier.align(Alignment.TopStart).testTag("condition_alternative_primary"),
+                            size = size * 0.76f, isNight = isNight)
+                        WeatherIconDecorative(alternatives[1],
+                            modifier = Modifier.align(Alignment.BottomEnd).testTag("condition_alternative_secondary"),
+                            size = size * 0.76f, isNight = isNight)
                     }
                 } else if (alternatives.size == 1) {
                     WeatherIconDecorative(alternatives[0], size = size * 0.78f, isNight = isNight)
                 } else {
                     Text("≠", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
                 }
-                StatusMarker("≠", Modifier.align(Alignment.BottomEnd))
+                StatusMarker("≠", Modifier.align(Alignment.TopEnd))
             }
             ConditionVisualTreatment.NO_DATA -> Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
             else -> {

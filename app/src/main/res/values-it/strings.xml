@@ -1199,6 +1199,10 @@ dato</string>
     <string name="condition_reason_sun">Mancano dati su alba o tramonto</string>
     <string name="condition_reason_disagreement">I modelli non concordano</string>
     <string name="condition_reason_daily_max">Il codice giornaliero non rappresenta necessariamente la condizione dominante</string>
+    <string name="condition_legend_estimated_short">Stimata</string>
+    <string name="condition_legend_alternatives_short">Alternative</string>
+    <string name="condition_legend_partial_short">Parziale</string>
+    <string name="condition_legend_unavailable_short">Senza dati</string>
     <string name="condition_legend_summary">≈ Stimata · ≠ Alternative · ◔ Parziale · — Nessun dato</string>
     <string name="condition_legend_help">Spiegazione</string>
     <string name="condition_legend_title">Capire le condizioni meteo</string>

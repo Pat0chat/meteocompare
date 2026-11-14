@@ -48,7 +48,7 @@ class ConditionStatusCorpusTest {
                 val expected = row.getValue("expected_condition").takeUnless { it == "_" }
                 assertEquals("$id condition", expected, result.condition?.name)
                 assertEquals("$id status", row.getValue("expected_status"), result.status.name)
-                assertEquals("$id coverage", k.toDouble() / n, result.coverage)
+                assertEquals("$id coverage", k.toDouble() / n, result.coverage, 1e-9)
                 assertEquals("$id origin", row.getValue("expected_origin"), result.origin.name)
                 cases++
             }

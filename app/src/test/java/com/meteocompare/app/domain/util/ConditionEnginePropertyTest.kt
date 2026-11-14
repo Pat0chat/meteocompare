@@ -61,7 +61,7 @@ class ConditionEnginePropertyTest {
             val result = ConditionDecisionEngine.periodBetween(
                 forecast(repeated.map { it.first }, repeated.map { it.second }), start, end)
             assertEquals(original.condition, result.condition)
-            assertEquals(original.coverage, result.coverage)
+            assertEquals(original.coverage, result.coverage, 1e-9)
         }
     }
 

@@ -1207,6 +1207,10 @@
     <string name="condition_reason_sun">Gün doğumu veya gün batımı verileri eksik</string>
     <string name="condition_reason_disagreement">Modeller uyuşmuyor</string>
     <string name="condition_reason_daily_max">Günlük kod her zaman baskın hava durumunu göstermez</string>
+    <string name="condition_legend_estimated_short">Tahminî</string>
+    <string name="condition_legend_alternatives_short">Alternatifler</string>
+    <string name="condition_legend_partial_short">Kısmi</string>
+    <string name="condition_legend_unavailable_short">Veri yok</string>
     <string name="condition_legend_summary">≈ Tahminî · ≠ Alternatifler · ◔ Kısmi · — Veri yok</string>
     <string name="condition_legend_help">Açıklama</string>
     <string name="condition_legend_title">Hava durumunu anlama</string>

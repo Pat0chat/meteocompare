@@ -90,7 +90,7 @@ class ConditionStatusContractTest {
         val forecast = series(duplicated, List(t.size) { if (it < 14) 0 else null } + List(50) { 0 })
         val result = ConditionDecisionEngine.periodBetween(forecast, t.first(), t.last().plusSeconds(3600))
         assertEquals(ConditionStatus.INCOMPLETE, result.status)
-        assertEquals(14.0 / 24.0, result.coverage)
+        assertEquals(14.0 / 24.0, result.coverage, 1e-9)
     }
 
     @Test fun `native code has priority over incompatible inferred evidence`() {

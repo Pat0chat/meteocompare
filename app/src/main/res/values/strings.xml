@@ -1211,6 +1211,10 @@
     <string name="condition_reason_sun">Horaires de lever/coucher manquants</string>
     <string name="condition_reason_disagreement">Désaccord entre modèles</string>
     <string name="condition_reason_daily_max">Le code quotidien ne représente pas nécessairement la dominante</string>
+    <string name="condition_legend_estimated_short">Estimée</string>
+    <string name="condition_legend_alternatives_short">Alternatives</string>
+    <string name="condition_legend_partial_short">Partielle</string>
+    <string name="condition_legend_unavailable_short">Indisponible</string>
     <string name="condition_legend_summary">≈ Estimée · ≠ Alternatives · ◔ Partielle · — Indisponible</string>
     <string name="condition_legend_help">Comprendre</string>
     <string name="condition_legend_title">Comment lire les conditions météo ?</string>
