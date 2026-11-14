@@ -1,0 +1,1 @@
+Condiciones meteorológicas más claras: motor unificado y cinco estados explicados (fiable, estimada, alternativas, parcial, no disponible). Diálogo visual y símbolos más grandes. Leyenda alineada en dos filas con fondo discreto en Cronología y Chart View. Mayor coherencia entre pantallas, widgets y notificaciones, y pruebas de regresión reforzadas.

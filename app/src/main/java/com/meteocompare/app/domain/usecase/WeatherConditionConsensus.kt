@@ -26,9 +26,9 @@ import kotlin.math.abs
  *    ├─ FREEZING_RAIN
  *    └─ THUNDERSTORM
  *
- * La branche SKY est la seule feuille intermédiaire résolue par une variable
- * physique continue : la nébulosité centrale du moteur V3 sélectionné. Les
- * autres branches restent décidées à partir des codes WMO des modèles.
+ * La branche SKY peut être affinée par une nébulosité centrale provenant de
+ * plusieurs lignées indépendantes. Aucune combinaison de température médiane
+ * d'un modèle et de précipitations médianes d'un autre ne devient une condition.
  *
  * Important : le [ForecastConsensus.Vote.percent] retourné reste toujours le
  * pourcentage d'accord sur la feuille WMO brute exacte. La consolidation
@@ -39,7 +39,10 @@ object WeatherConditionConsensus {
     /** Provenance de la condition centrale agrégée. */
     enum class AggregateSource {
         NATIVE_WMO_CONSENSUS,
-        AGGREGATED_VARIABLES,
+        /** Native WMO tie resolved by independent same-model derived evidence. */
+        MIXED_EVIDENCE_CONSENSUS,
+        /** Fallback catégoriel déduit des variables du même modèle. */
+        DERIVED_MODEL_CONSENSUS,
         SINGLE_NATIVE_WMO,
         NONE
     }
@@ -52,15 +55,16 @@ object WeatherConditionConsensus {
     /**
      * Hiérarchie de production pour une condition centrale multi-modèles.
      *
-     * 1. Dès que deux familles indépendantes fournissent un WMO natif, seules
-     *    ces observations catégorielles participent au consensus. Les fallbacks
-     *    d'autres modèles ne peuvent donc pas renverser ce signal.
-     * 2. Si la couverture WMO native est insuffisante, on déduit UNE condition
-     *    depuis les variables centrales déjà calculées par le moteur (pluie,
-     *    température, nébulosité), au lieu de voter sur plusieurs heuristiques.
-     * 3. Si les variables centrales sont elles-mêmes insuffisantes, un WMO natif
-     *    isolé reste utilisable, sans pourcentage de consensus inter-familles.
+     * 1. Deux familles natives tranchent en priorité. En cas d'égalité
+     *    réellement indécise, on ne réexamine le résultat que si au moins
+     *    DEUX autres familles indépendantes disposent d'indices dérivés.
+     *    Une majorité WMO déjà acquise n'est jamais renversée par le repli.
+     * 2. Lorsque les WMO natifs ne suffisent pas, seules des conditions dérivées
+     *    indépendamment des variables de CHAQUE modèle peuvent participer.
+     * 3. Un WMO natif isolé reste utilisable ; une opposition irrésolue reste
+     *    indéterminée, jamais transformée en scénario construit de médianes.
      */
+    @Suppress("UNUSED_PARAMETER") // Legacy API shape; these medians must never fabricate a categorical forecast.
     fun resolveAggregate(
         nativeEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
         temperatureCentralC: Double?,
@@ -68,7 +72,8 @@ object WeatherConditionConsensus {
         cloudCoverPercent: Double?,
         cloudCoverFamilyCount: Int = 0,
         supportModels: Collection<WeatherModel>,
-        localWeights: Map<WeatherModel, Double> = emptyMap()
+        localWeights: Map<WeatherModel, Double> = emptyMap(),
+        derivedEntries: List<ForecastConsensus.Entry<WeatherCondition>> = emptyList()
     ): AggregateResolution {
         val native = nativeEntries.filter { it.value != WeatherCondition.UNKNOWN }
         val nativeFamilyCount = native.map { ForecastConsensus.groupFor(it.model) }.distinct().size
@@ -91,43 +96,109 @@ object WeatherConditionConsensus {
             val robustSkyCloud = cloudCoverPercent.takeIf {
                 cloudCoverFamilyCount >= 2 && it != null && it.isFinite() && it in 0.0..100.0
             }
+            val nativeVote = resolve(native, cloudCoverPercent = robustSkyCloud, localWeights = localWeights)
+            if (nativeVote.value == null) {
+                val nativeModels = native.map { it.model }.toSet()
+                val nativeFamilies = native.map { ForecastConsensus.groupFor(it.model) }.toSet()
+                val independentDerived = derivedEntries.asSequence()
+                    .filter { it.value != WeatherCondition.UNKNOWN && it.model !in nativeModels }
+                    .filter { ForecastConsensus.groupFor(it.model) !in nativeFamilies }
+                    .distinctBy { it.model }
+                    .toList()
+                if (independentDerived.map { ForecastConsensus.groupFor(it.model) }.distinct().size >= 2) {
+                    val mixedVote = resolve(native + independentDerived, robustSkyCloud, localWeights)
+                    if (mixedVote.value != null) {
+                        // Native and heuristic forecasts are not equally strong
+                        // evidence. Never expose their raw categorical agreement
+                        // as a calibrated confidence percentage.
+                        return AggregateResolution(
+                            vote = mixedVote.copy(percent = null),
+                            source = AggregateSource.MIXED_EVIDENCE_CONSENSUS
+                        )
+                    }
+                }
+            }
+            return AggregateResolution(nativeVote, AggregateSource.NATIVE_WMO_CONSENSUS)
+        }
+
+        // Every derived entry must come from variables of ONE model. In particular,
+        // do not create a fictional rain/snow/sky scenario by crossing median
+        // temperature, precipitation and cloud cover from different models.
+        val independentDerived = derivedEntries.asSequence()
+            .filter { it.value != WeatherCondition.UNKNOWN }
+            .filter { candidate -> native.none { it.model == candidate.model } }
+            .distinctBy { it.model }
+            .toList()
+        val usable = native + independentDerived
+        if (usable.isNotEmpty()) {
+            val vote = resolve(usable, cloudCoverPercent = null, localWeights = localWeights)
             return AggregateResolution(
-                vote = resolve(native, cloudCoverPercent = robustSkyCloud, localWeights = localWeights),
-                source = AggregateSource.NATIVE_WMO_CONSENSUS
+                vote = if (native.size == 1 && independentDerived.isEmpty()) vote
+                       else vote.copy(percent = null),
+                source = when {
+                    native.isNotEmpty() && independentDerived.isNotEmpty() -> AggregateSource.MIXED_EVIDENCE_CONSENSUS
+                    native.isNotEmpty() -> AggregateSource.SINGLE_NATIVE_WMO
+                    else -> AggregateSource.DERIVED_MODEL_CONSENSUS
+                }
             )
         }
 
-        val derived = WeatherCondition.inferFromPrecipAndTemp(
-            precipMm = precipitationCentralMm,
-            tempMinC = temperatureCentralC
-        ) ?: cloudCoverPercent
-            ?.takeIf { it.isFinite() && it in 0.0..100.0 }
-            ?.let(WeatherCondition::fromCloudCover)
-
-        if (derived != null) {
-            val models = supportingModels
-            val families = models.map(ForecastConsensus::groupFor).distinct().size
-            return AggregateResolution(
-                vote = ForecastConsensus.Vote(
-                    value = derived,
-                    percent = null,
-                    modelCount = models.size,
-                    familyCount = families
-                ),
-                source = AggregateSource.AGGREGATED_VARIABLES
-            )
-        }
-
-        if (native.isNotEmpty()) {
-            return AggregateResolution(
-                vote = resolve(native, cloudCoverPercent = null, localWeights = localWeights),
-                source = AggregateSource.SINGLE_NATIVE_WMO
-            )
-        }
+        // Legacy API parameters are retained for compatibility with callers;
+        // aggregated medians are NOT sufficient evidence for a weather category.
+        // A future fallback can only be added with an explicit coherent source.
 
         return AggregateResolution(
             vote = ForecastConsensus.Vote(null, null, 0, 0),
             source = AggregateSource.NONE
+        )
+    }
+
+    /** Shared diagnostic for all UI consumers; `agreement` is raw categorical
+     * agreement, not a calibrated probability of being correct. */
+    internal fun resolveDecision(
+        nativeEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
+        derivedEntries: List<ForecastConsensus.Entry<WeatherCondition>> = emptyList(),
+        cloudCoverPercent: Double? = null,
+        cloudCoverFamilyCount: Int = 0,
+        supportModels: Collection<WeatherModel> = emptyList(),
+        localWeights: Map<WeatherModel, Double> = emptyMap()
+    ): com.meteocompare.app.domain.util.ConditionDecision {
+        val aggregate = resolveAggregate(nativeEntries, null, null, cloudCoverPercent,
+            cloudCoverFamilyCount, supportModels, localWeights, derivedEntries)
+        val validEntries = (nativeEntries + derivedEntries)
+            .filter { it.value != WeatherCondition.UNKNOWN }
+        val choices = validEntries.map { it.value }.distinct()
+        val availableModels = validEntries.map { it.model }.distinct().size
+        val possibleModels = (supportModels + validEntries.map { it.model }).distinct().size
+        val modelCoverage = if (possibleModels == 0) 0.0 else availableModels.toDouble() / possibleModels
+        val status = when {
+            aggregate.vote.value == null && choices.isNotEmpty() ->
+                com.meteocompare.app.domain.util.ConditionStatus.AMBIGUOUS
+            aggregate.vote.value == null -> com.meteocompare.app.domain.util.ConditionStatus.UNAVAILABLE
+            aggregate.source == AggregateSource.NATIVE_WMO_CONSENSUS ||
+                aggregate.source == AggregateSource.SINGLE_NATIVE_WMO ->
+                com.meteocompare.app.domain.util.ConditionStatus.RELIABLE
+            else -> com.meteocompare.app.domain.util.ConditionStatus.ESTIMATED
+        }
+        return com.meteocompare.app.domain.util.ConditionDecision(
+            condition = aggregate.vote.value,
+            status = status,
+            origin = if (aggregate.vote.value == null && choices.isEmpty())
+                com.meteocompare.app.domain.util.ConditionOrigin.NONE
+                else com.meteocompare.app.domain.util.ConditionOrigin.MODEL_CONSENSUS,
+            // For an ensemble decision, coverage is the fraction of available
+            // contributing models; it is NOT the temporal coverage of a day.
+            coverage = modelCoverage,
+            agreement = aggregate.vote.percent?.div(100.0),
+            alternatives = if (status == com.meteocompare.app.domain.util.ConditionStatus.AMBIGUOUS)
+                choices else emptyList(),
+            reasons = when (status) {
+                com.meteocompare.app.domain.util.ConditionStatus.AMBIGUOUS ->
+                    setOf(com.meteocompare.app.domain.util.ConditionReason.MODEL_DISAGREEMENT)
+                com.meteocompare.app.domain.util.ConditionStatus.UNAVAILABLE ->
+                    setOf(com.meteocompare.app.domain.util.ConditionReason.MISSING_DATA)
+                else -> emptySet()
+            }
         )
     }
 

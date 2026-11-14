@@ -107,6 +107,84 @@ class WeatherConditionConsensusTest {
     }
 
     @Test
+    fun `two extra independent families can resolve an hourly native WMO tie`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN)
+            ),
+            temperatureCentralC = 12.0,
+            precipitationCentralMm = null,
+            cloudCoverPercent = null,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF,
+                WeatherModel.ICON_GLOBAL, WeatherModel.ARPEGE_EUROPE),
+            derivedEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ARPEGE_EUROPE, WeatherCondition.MAINLY_CLEAR)
+            )
+        )
+        assertEquals(WeatherCondition.CLEAR, result.vote.value)
+        assertEquals(WeatherConditionConsensus.AggregateSource.MIXED_EVIDENCE_CONSENSUS, result.source)
+        assertEquals(null, result.vote.percent) // mélange heuristique/WMO ≠ confiance calibrée
+    }
+
+    @Test
+    fun `WMO tie cannot be decided by a single extra lineage or its siblings`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN)
+            ),
+            temperatureCentralC = null,
+            precipitationCentralMm = null,
+            cloudCoverPercent = null,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF,
+                WeatherModel.ICON_GLOBAL, WeatherModel.ICON_EU),
+            derivedEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.ICON_GLOBAL, WeatherCondition.CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ICON_EU, WeatherCondition.CLEAR)
+            )
+        )
+        assertEquals(null, result.vote.value)
+        assertEquals(WeatherConditionConsensus.AggregateSource.NATIVE_WMO_CONSENSUS, result.source)
+    }
+
+    @Test
+    fun `hourly derived conditions from old caches survive missing aggregated inputs`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = emptyList(),
+            temperatureCentralC = 13.0,
+            precipitationCentralMm = null,
+            cloudCoverPercent = null,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF),
+            derivedEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.MAINLY_CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.MAINLY_CLEAR)
+            )
+        )
+        assertEquals(WeatherCondition.MAINLY_CLEAR, result.vote.value)
+        assertEquals(null, result.vote.percent)
+        assertEquals(WeatherConditionConsensus.AggregateSource.DERIVED_MODEL_CONSENSUS, result.source)
+    }
+
+    @Test
+    fun `opposing derived forecasts without native WMO remain undecided`() {
+        val result = WeatherConditionConsensus.resolveAggregate(
+            nativeEntries = emptyList(),
+            temperatureCentralC = null,
+            precipitationCentralMm = null,
+            cloudCoverPercent = null,
+            supportModels = listOf(WeatherModel.GFS, WeatherModel.ECMWF),
+            derivedEntries = listOf(
+                ForecastConsensus.Entry(WeatherModel.GFS, WeatherCondition.CLEAR),
+                ForecastConsensus.Entry(WeatherModel.ECMWF, WeatherCondition.RAIN)
+            )
+        )
+        assertEquals(null, result.vote.value)
+        assertEquals(WeatherConditionConsensus.AggregateSource.DERIVED_MODEL_CONSENSUS, result.source)
+    }
+
+    @Test
     fun `nebulosite seule peut resoudre un ciel sec sans code WMO`() {
         val result = WeatherConditionConsensus.resolve(emptyList(), cloudCoverPercent = 82.0)
 
@@ -288,14 +366,13 @@ class WeatherConditionConsensusTest {
             supportModels = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
         )
 
-        assertEquals(WeatherCondition.DRIZZLE, result.vote.value)
+        // The two medians can come from DIFFERENT models; without a same-model
+        // condition no liquid/solid/sky diagnosis is scientifically defensible.
+        assertEquals(null, result.vote.value)
         assertEquals(null, result.vote.percent)
-        assertEquals(2, result.vote.modelCount)
-        assertEquals(2, result.vote.familyCount)
-        assertEquals(
-            WeatherConditionConsensus.AggregateSource.AGGREGATED_VARIABLES,
-            result.source
-        )
+        assertEquals(0, result.vote.modelCount)
+        assertEquals(0, result.vote.familyCount)
+        assertEquals(WeatherConditionConsensus.AggregateSource.NONE, result.source)
     }
 
     @Test

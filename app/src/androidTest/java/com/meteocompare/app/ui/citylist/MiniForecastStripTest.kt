@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citylist
 
 import android.content.res.Configuration
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -15,12 +16,13 @@ import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.lifecycle.Lifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.LocalDateTime
@@ -30,7 +32,7 @@ import org.junit.Rule
 import org.junit.Test
 
 class MiniForecastStripTest {
-    @get:Rule val composeRule = createComposeRule()
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
@@ -73,22 +75,41 @@ class MiniForecastStripTest {
     }
 
     @Test
-    fun weather_condition_icon_is_rendered_for_each_available_hour() {
+    fun available_conditions_and_unavailable_hour_are_both_exposed() {
+        // "pending setContent" indicates an unattached Compose root, not an
+        // infinite icon animation. Check the host window before installing the
+        // strip so emulator/lifecycle failures are clearly identified.
+        val activity = composeRule.activity
+        composeRule.waitUntil(
+            conditionDescription = "Compose host activity window is attached and resumed",
+            timeoutMillis = 15_000
+        ) {
+            activity.window.decorView.isAttachedToWindow &&
+                activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        }
         composeRule.setContent {
             MiniForecastStrip(
-                hourlyTemps = List(12) { 20.0 },
-                hourlyPrecipProb = List(12) { 0 },
-                hourlyConditions = listOf(
-                    WeatherCondition.CLEAR,
-                    WeatherCondition.RAIN
-                ) + List(10) { null }
+                hourlyTemps = List(3) { 20.0 },
+                hourlyPrecipProb = List(3) { 0 },
+                hourlyConditions = listOf(WeatherCondition.CLEAR, WeatherCondition.RAIN)
             )
         }
 
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0").assertIsDisplayed()
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}1").assertIsDisplayed()
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}2").assertDoesNotExist()
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}0").assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}0")
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}1")
+            .assertIsDisplayed()
+        // Missing WMO must stay visible as unavailable, not be inferred from
+        // temperature / rain probability or silently omitted from the UI.
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}2")
+            .assertIsDisplayed()
+            .assertContentDescriptionContains(
+                context.getString(R.string.condition_status_unavailable), substring = true
+            )
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_TEMPERATURE_PREFIX}0")
+            .assertIsDisplayed()
+        // ConditionStatusIconTest.missing_condition_without_decision_is_explained_as_unavailable
+        // separately tests opening the dialog and its localized explanation.
     }
 
     @Test
@@ -110,7 +131,11 @@ class MiniForecastStripTest {
             composeRule.onNodeWithTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
                 .assertIsDisplayed()
         }
-        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}3").assertDoesNotExist()
+        composeRule.onNodeWithTag("${TAG_MINI_FORECAST_CONDITION_PREFIX}3")
+            .assertIsDisplayed()
+            .assertContentDescriptionContains(
+                context.getString(R.string.condition_status_unavailable), substring = true
+            )
     }
 
     @Test

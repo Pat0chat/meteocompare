@@ -16,13 +16,18 @@ import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.DailyConditionPeriod
-import com.meteocompare.app.domain.util.resolveHourlyCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionDecisionEngine
+import com.meteocompare.app.domain.util.ConditionOrigin
+import com.meteocompare.app.domain.util.ConditionReason
+import com.meteocompare.app.domain.util.ConditionStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -136,10 +141,15 @@ internal data class SimplifiedTimelinePoint(
     /** Direction d'origine du vent agrégée circulairement, en degrés météo. */
     val windDirectionDeg: Int? = null,
     val condition: WeatherCondition? = null,
+    /** Diagnostic de résolution non probabiliste, commun aux sorties horaires et daily. */
+    val conditionDiagnostic: ConditionDecision? = null,
     /** Condition dominante du soleil levé au soleil couché (daily uniquement). */
     val dayCondition: WeatherCondition? = null,
+    /** Diagnostic preserving partial coverage and competing daily scenarios. */
+    val dayConditionDiagnostic: ConditionDecision? = null,
     /** Condition dominante du coucher du soleil au lever suivant (daily uniquement). */
     val nightCondition: WeatherCondition? = null,
+    val nightConditionDiagnostic: ConditionDecision? = null,
     /** UV from one location-based best-match forecast, not a model consensus. */
     val uvIndex: Double? = null,
     /** Vrai la nuit pour les échéances horaires quand les heures solaires sont connues. */
@@ -281,16 +291,15 @@ private fun buildDailyTimeline(
         val snapshots = indexed.mapNotNull { it[date] }
         val solar = forecastSolarWindow(forecast, date)
         val nextSolar = forecastSolarWindow(forecast, date.plusDays(1))
-        fun periodConsensus(period: DailyConditionPeriod): WeatherCondition? {
-            val entries = forecast.seriesByModel.mapNotNull { (model, series) ->
-                if (date !in series.daily.dates) return@mapNotNull null
-                series.resolveDailyCondition(date, zone, period, solar, nextSolar)
-                    ?.let { ForecastConsensus.Entry(model, it.condition) }
-            }
-            // Même hiérarchie/équilibrage par familles que le consensus daily.
-            return WeatherConditionConsensus.resolve(entries, cloudCoverPercent = null).value
-        }
-        timelinePoint(
+        fun periodConsensus(period: DailyConditionPeriod): ConditionDecision =
+            com.meteocompare.app.domain.util.ForecastConditionResolver.periodConsensus(
+                forecast, date, zone, period, solar, nextSolar
+            )
+        val dayDecision = periodConsensus(DailyConditionPeriod.DAY)
+        val nightDecision = periodConsensus(DailyConditionPeriod.NIGHT)
+        val dayCondition = dayDecision.condition
+        val nightCondition = nightDecision.condition
+        val base = timelinePoint(
             timestamp = null,
             date = date,
             snapshots = snapshots,
@@ -299,11 +308,34 @@ private fun buildDailyTimeline(
                 ?.let { issueDate -> ChronoUnit.DAYS.between(issueDate, date).toInt() }
                 ?.takeIf { it in 1..7 },
             engineContext = engineContext
-        )?.copy(
-            estimatedSunHours = estimatedSunshineHours(forecast, date),
-            dayCondition = periodConsensus(DailyConditionPeriod.DAY),
-            nightCondition = periodConsensus(DailyConditionPeriod.NIGHT)
         )
+        // Full-day is resolved by exactly the same per-model period engine as
+        // Engine Comparison. Numeric clouds may depend on the selected engine;
+        // they refine the sky vote but never invent precipitation.
+        val fullDayDecision = com.meteocompare.app.domain.util.ForecastConditionResolver.periodConsensus(
+            forecast = forecast,
+            date = date,
+            zone = zone,
+            cloudCoverPercent = base?.cloudCoverPercent?.toDouble(),
+            cloudCoverFamilyCount = snapshots.filter { it.cloudCover != null }
+                .map { ForecastConsensus.groupFor(it.model) }.distinct().size
+        )
+        // A daily row with only a valid condition, day or night, remains useful
+        // even when the daily numeric axis is absent or incomplete.
+        if (base != null || fullDayDecision.condition != null ||
+            dayCondition != null || nightCondition != null ||
+            dayDecision.status != ConditionStatus.UNAVAILABLE ||
+            nightDecision.status != ConditionStatus.UNAVAILABLE) {
+            (base ?: SimplifiedTimelinePoint(date = date)).copy(
+                estimatedSunHours = estimatedSunshineHours(forecast, date),
+                condition = fullDayDecision.condition,
+                conditionDiagnostic = fullDayDecision,
+                dayCondition = dayCondition,
+                dayConditionDiagnostic = dayDecision,
+                nightCondition = nightCondition,
+                nightConditionDiagnostic = nightDecision
+            )
+        } else null
     }
 }
 
@@ -324,6 +356,7 @@ private data class TimelineSnapshot(
     val windDirection: Int?,
     val condition: WeatherCondition?,
     val nativeCondition: WeatherCondition? = null,
+    val conditionDecision: ConditionDecision? = null
 ) {
     val hasAnyValue: Boolean
         get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true ||
@@ -349,17 +382,13 @@ private fun indexHourlySnapshots(
         val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
         val precipitation = series.hourly.precipitation.getOrNull(index)
         val probability = series.hourly.precipitationProbability.getOrNull(index)
-        val cloudCover = series.hourly.cloudCover.getOrNull(index)
+        val cloudCover = series.hourly.effectiveCloudCover(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
         val windDirection = series.hourly.windDirection10m.getOrNull(index)
-        val nativeCondition = WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
-            ?.takeUnless { it == WeatherCondition.UNKNOWN }
-            ?.let { native ->
-                if (native == WeatherCondition.OVERCAST)
-                    series.resolveHourlyCondition(index) ?: native else native
-            }
-        val condition = series.resolveHourlyCondition(index)
+        val decision = ConditionDecisionEngine.hourly(series.hourly, index)
+        val nativeCondition = decision.condition?.takeIf { decision.origin == ConditionOrigin.HOURLY_WMO }
+        val condition = decision.condition
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = temperature,
@@ -376,7 +405,8 @@ private fun indexHourlySnapshots(
             windGust = windGust,
             windDirection = windDirection,
             condition = condition,
-            nativeCondition = nativeCondition
+            nativeCondition = nativeCondition,
+            conditionDecision = decision
         )
         if (snapshot.hasAnyValue) put(timestamp, snapshot)
     }
@@ -387,17 +417,20 @@ private fun indexDailySnapshots(
     series: ForecastSeries,
     zone: java.time.ZoneId
 ): Map<LocalDate, TimelineSnapshot> = buildMap {
-    series.daily.dates.forEachIndexed { index, date ->
-        val min = series.daily.tempMin.getOrNull(index)
-        val max = series.daily.tempMax.getOrNull(index)
-        val precipitation = series.daily.precipitationSum.getOrNull(index)
-        val probability = series.daily.precipitationProbabilityMax.getOrNull(index)
+    val dates = (series.daily.dates + series.hourly.timestamps.map { it.atZone(zone).toLocalDate() })
+        .distinct().sorted()
+    dates.forEach { date ->
+        val index = series.daily.dates.indexOf(date)
+        val min = index.takeIf { it >= 0 }?.let { series.daily.tempMin.getOrNull(it) }
+        val max = index.takeIf { it >= 0 }?.let { series.daily.tempMax.getOrNull(it) }
+        val precipitation = index.takeIf { it >= 0 }?.let { series.daily.precipitationSum.getOrNull(it) }
+        val probability = index.takeIf { it >= 0 }?.let { series.daily.precipitationProbabilityMax.getOrNull(it) }
         val cloudCover = series.dailyCloudCoverMean(date, zone)
         val pressure = series.dailyAtmosphericMetrics(date, zone).meanPressureHpa
         val moisture = series.dailyMoisture(date, zone)
-        val wind = series.daily.windSpeedMax.getOrNull(index)
-        val windGust = series.daily.windGustsMax.getOrNull(index)
-        val windDirection = series.daily.windDirection10mDominant.getOrNull(index)
+        val wind = index.takeIf { it >= 0 }?.let { series.daily.windSpeedMax.getOrNull(it) }
+        val windGust = index.takeIf { it >= 0 }?.let { series.daily.windGustsMax.getOrNull(it) }
+        val windDirection = index.takeIf { it >= 0 }?.let { series.daily.windDirection10mDominant.getOrNull(it) }
         // Un code daily sévère peut ne représenter qu'une heure. Faire voter
         // la condition corrigée, pas le MAX brut qui recréerait le bug #40
         // dans « Next few days » malgré sa correction dans le tableau.
@@ -419,7 +452,8 @@ private fun indexDailySnapshots(
             windGust = windGust,
             windDirection = windDirection,
             condition = condition,
-            nativeCondition = nativeCondition
+            nativeCondition = nativeCondition,
+            conditionDecision = resolved?.decision
         )
         if (snapshot.hasAnyValue) put(date, snapshot)
     }
@@ -549,11 +583,6 @@ private fun timelinePoint(
     val nativeConditionEntries = meaningful.mapNotNull { snap ->
         snap.nativeCondition?.let { ForecastConsensus.Entry(snap.model, it) }
     }
-    val conditionTemperature = if (hourly) {
-        temp.forecastValue.central
-    } else {
-        tempMin?.forecastValue?.central ?: temp.forecastValue.central
-    }
     // La provenance de la condition doit compter uniquement les modèles qui
     // contribuent réellement à l'un de ses inputs. Un modèle « wind-only »
     // ou « gust-only » reste utile à la chronologie générale, mais ne doit pas
@@ -573,8 +602,8 @@ private fun timelinePoint(
     }
     val conditionResolution = WeatherConditionConsensus.resolveAggregate(
         nativeEntries = nativeConditionEntries,
-        temperatureCentralC = conditionTemperature,
-        precipitationCentralMm = precipitationForecast.centralAmountMm,
+        temperatureCentralC = null,
+        precipitationCentralMm = null,
         cloudCoverPercent = cloud.forecastValue.central,
         cloudCoverFamilyCount = meaningful
             .filter { it.cloudCover?.let { cloudValue -> cloudValue in 0..100 } == true }
@@ -582,7 +611,10 @@ private fun timelinePoint(
             .distinct()
             .size,
         supportModels = conditionSupportModels,
-        localWeights = emptyMap()
+        localWeights = emptyMap(),
+        derivedEntries = if (hourly) meaningful.mapNotNull { snapshot ->
+            snapshot.condition?.let { ForecastConsensus.Entry(snapshot.model, it) }
+        } else emptyList()
     )
     // Un cumul daily de 8 mm peut correspondre à UNE seule heure de pluie.
     // La condition de la chronologie daily ne doit jamais être inférée du
@@ -721,6 +753,7 @@ private fun timelinePoint(
         windGustModelCount = gust.agreement.modelCount,
         windDirectionDeg = windDirection,
         condition = conditionConsensus.value,
+        conditionDiagnostic = timelineConditionDiagnostic(meaningful, conditionConsensus),
         modelCount = meaningful.size,
         familyCount = familyCount,
         temperatureModelCount = temp.agreement.modelCount,
@@ -731,6 +764,49 @@ private fun timelinePoint(
         consensusLevel = overall?.let(::metricLevel),
         metricConsensus = metricConsensus,
         divergenceReasons = divergenceReasons
+    )
+}
+
+/** A single diagnostic adapter for both hourly and daily timeline renderers. */
+private fun timelineConditionDiagnostic(
+    snapshots: List<TimelineSnapshot>,
+    vote: ForecastConsensus.Vote<WeatherCondition>
+): ConditionDecision {
+    val all = snapshots.mapNotNull { it.conditionDecision }
+    val winners = all.filter { it.condition != null && it.condition == vote.value }
+    val nativeWinner = winners.any {
+        it.status == ConditionStatus.RELIABLE &&
+            (it.origin == ConditionOrigin.HOURLY_WMO || it.origin == ConditionOrigin.HOURLY_DOMINANT)
+    }
+    val incomplete = winners.any { it.status == ConditionStatus.INCOMPLETE }
+    val choices = (snapshots.mapNotNull { it.condition } + all.flatMap { it.alternatives })
+        .filter { it != WeatherCondition.UNKNOWN }.distinct()
+    val status = when {
+        vote.value == null && choices.isNotEmpty() -> ConditionStatus.AMBIGUOUS
+        vote.value == null -> ConditionStatus.UNAVAILABLE
+        incomplete -> ConditionStatus.INCOMPLETE
+        nativeWinner -> ConditionStatus.RELIABLE
+        else -> ConditionStatus.ESTIMATED
+    }
+    return ConditionDecision(
+        condition = vote.value,
+        status = status,
+        origin = when {
+            vote.value == null && choices.isEmpty() -> ConditionOrigin.NONE
+            snapshots.size == 1 && winners.size == 1 -> winners[0].origin
+            else -> ConditionOrigin.MODEL_CONSENSUS
+        },
+        coverage = if (snapshots.size == 1 && winners.size == 1)
+            winners.single().coverage else snapshots.count { it.condition != null }.toDouble() / snapshots.size,
+        agreement = vote.percent?.div(100.0),
+        alternatives = if (vote.value == null) choices else emptyList(),
+        reasons = buildSet {
+            winners.forEach { addAll(it.reasons) }
+            if (status == ConditionStatus.AMBIGUOUS) add(ConditionReason.MODEL_DISAGREEMENT)
+            if (status == ConditionStatus.UNAVAILABLE) add(ConditionReason.MISSING_DATA)
+        },
+        notablePhenomenon = winners.mapNotNull { it.notablePhenomenon }
+            .maxByOrNull { it.severityRank }
     )
 }
 

@@ -79,7 +79,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
-import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.ui.components.ConditionStatusIcon
+import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
@@ -293,6 +294,9 @@ internal fun SimplifiedTimelineCard(
                         )
                     }
                 }
+                // Explanations follow the chart, rather than interrupting its controls.
+                // The convergence hint is shown first when there is disagreement.
+                ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
     }
@@ -696,21 +700,22 @@ private fun TimelinePointColumn(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(modifier = Modifier.height(if (mode == DisplayMode.DAILY) 48.dp else 34.dp), contentAlignment = Alignment.Center) {
-                if (mode == DisplayMode.DAILY && (point.dayCondition != null || point.nightCondition != null)) {
-                    DayNightConditionIcons(point.dayCondition, point.nightCondition)
-                } else point.condition?.let { condition ->
-                    WeatherIconDecorative(
-                        condition = condition,
+                if (mode == DisplayMode.DAILY) {
+                    DayNightConditionIcons(
+                        point.dayCondition, point.nightCondition,
+                        dayDiagnostic = point.dayConditionDiagnostic,
+                        nightDiagnostic = point.nightConditionDiagnostic
+                    )
+                } else {
+                    ConditionStatusIcon(
+                        condition = point.condition,
+                        decision = point.conditionDiagnostic,
                         size = 32.dp,
-                        tint = if (point.isNight == true && condition == com.meteocompare.app.domain.model.WeatherCondition.CLEAR)
-                            Color.Unspecified else condition.semanticTint(),
+                        tint = if (point.isNight == true && point.condition == com.meteocompare.app.domain.model.WeatherCondition.CLEAR)
+                            Color.Unspecified else point.condition?.semanticTint() ?: Color.Unspecified,
                         isNight = point.isNight == true
                     )
-                } ?: Text(
-                    text = "—",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                }
             }
             UvIndexCompact(point.uvIndex)
         }

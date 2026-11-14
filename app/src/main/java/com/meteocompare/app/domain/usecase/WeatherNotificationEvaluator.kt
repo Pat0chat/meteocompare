@@ -63,6 +63,7 @@ class WeatherNotificationEvaluator @Inject constructor(
             date = date,
             isToday = date == today,
             condition = values.condition,
+            conditionDecision = values.conditionDecision,
             tempMin = values.tempMin,
             tempMax = values.tempMax,
             precipitationProbabilityPercent = values.precipitationProbabilityPercent,

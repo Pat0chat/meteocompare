@@ -11,6 +11,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -29,6 +30,7 @@ internal object WidgetHeatmapForecastRenderer {
         precipProbabilities: List<Int?>,
         precipAmountsMm: List<Double?> = emptyList(),
         conditions: List<WeatherCondition?> = emptyList(),
+        conditionDiagnostics: List<ConditionDecision> = emptyList(),
         nightFlags: List<Boolean?> = emptyList(),
         precipColorArgb: Int,
         textColorArgb: Int,
@@ -156,6 +158,7 @@ internal object WidgetHeatmapForecastRenderer {
                 drawConditionBadge(
                     canvas = canvas,
                     condition = conditions.getOrNull(index),
+                    decision = conditionDiagnostics.getOrNull(index),
                     centerX = centerX,
                     top = tempTop + tempBandHeight * 0.05f,
                     bandHeight = tempBandHeight,
@@ -304,13 +307,14 @@ internal object WidgetHeatmapForecastRenderer {
     private fun drawConditionBadge(
         canvas: Canvas,
         condition: WeatherCondition?,
+        decision: ConditionDecision?,
         centerX: Float,
         top: Float,
         bandHeight: Float,
         profile: MiniForecastSizeProfile,
         isNight: Boolean = false
     ) {
-        if (condition == null) return
+        if (condition == null && decision?.alternatives.isNullOrEmpty()) return
         val iconSize = when (profile) {
             MiniForecastSizeProfile.COMPACT_2X2 -> (bandHeight * 0.23f)
             MiniForecastSizeProfile.MEDIUM_3X2 -> (bandHeight * 0.25f)
@@ -318,7 +322,7 @@ internal object WidgetHeatmapForecastRenderer {
         }.roundToInt().coerceAtLeast(12)
 
         val badgeHeight = (iconSize * 1.28f).coerceAtLeast(iconSize + 6f)
-        val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize, isNight = isNight)
+        val bitmap = WidgetWeatherIconRenderer.render(condition, iconSize, isNight = isNight, decision = decision)
         val iconLeft = centerX - iconSize / 2f
         val iconTop = top + (badgeHeight - iconSize) / 2f
         canvas.drawBitmap(bitmap, iconLeft, iconTop, null)

@@ -137,6 +137,8 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.ui.components.ConditionStatusIcon
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
@@ -880,6 +882,7 @@ internal fun CityCard(
                                         apparentTemp = forecast.apparentTemp,
                                         dewPointC = forecast.currentDewPointC,
                                         currentCondition = forecast.currentCondition,
+                                        currentConditionDecision = forecast.currentConditionDecision,
                                         currentCloudCover = forecast.currentCloudCover,
                                         uvIndex = uv,
                                         fetchedAt = forecast.fetchedAt,
@@ -887,6 +890,7 @@ internal fun CityCard(
                                         next24hPrecipProb = forecast.next24hPrecipProb,
                                         next24hPrecipMm = forecast.next24hPrecipMm,
                                         next24hConditions = forecast.next24hConditions,
+                                        next24hConditionDiagnostics = forecast.next24hConditionDiagnostics,
                                         next24hSunshineHours = forecast.next24hSunshineHours,
                                         next12hScenarios = forecast.next12hScenarios,
                                         hourlyStartTime = forecast.hourlyStartTime,
@@ -1062,22 +1066,12 @@ private fun CompactCityCardContent(
                     .testTag("$TAG_CITY_CARD_COMPACT_CONDITION${state.city.id}"),
                 contentAlignment = Alignment.Center
             ) {
-                if (loaded?.currentCondition != null) {
-                    AnimatedWeatherIcon(
-                        condition = loaded.currentCondition,
-                        size = 40.dp,
-                        animated = false,
-                        tint = Color.Unspecified,
-                        isNight = isNight
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.Thermostat,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                ConditionStatusIcon(
+                    condition = loaded?.currentCondition,
+                    decision = loaded?.currentConditionDecision,
+                    size = 40.dp,
+                    isNight = isNight
+                )
             }
             Spacer(Modifier.width(16.dp))
             Text(
@@ -1355,6 +1349,7 @@ private fun CityCardLoaded(
     apparentTemp: Double?,
     dewPointC: Double?,
     currentCondition: WeatherCondition?,
+    currentConditionDecision: ConditionDecision? = null,
     currentCloudCover: Int?,
     uvIndex: Double?,
     fetchedAt: Instant?,
@@ -1362,6 +1357,7 @@ private fun CityCardLoaded(
     next24hPrecipProb: List<Int?>,
     next24hPrecipMm: List<Double?>,
     next24hConditions: List<WeatherCondition?>,
+    next24hConditionDiagnostics: List<ConditionDecision> = emptyList(),
     next24hSunshineHours: List<Double?> = emptyList(),
     next12hScenarios: List<WeatherScenario>,
     hourlyStartTime: LocalDateTime?,
@@ -1398,6 +1394,7 @@ private fun CityCardLoaded(
             currentTemp = currentTemp,
             apparentTemp = apparentTemp,
             currentCondition = currentCondition,
+            currentConditionDecision = currentConditionDecision,
             currentCloudCover = currentCloudCover,
             agreementPercent = today.overallPercent,
             accentColor = accentColor,
@@ -1430,6 +1427,7 @@ private fun CityCardLoaded(
                 hourlyPrecipProb = next24hPrecipProb,
                 hourlyPrecipMm = next24hPrecipMm,
                 hourlyConditions = next24hConditions,
+                conditionDiagnostics = next24hConditionDiagnostics,
                 startTime = hourlyStartTime,
                 startInstant = hourlyStartInstant,
                 timezone = zone,
@@ -1465,6 +1463,7 @@ private fun CurrentWeatherHero(
     currentTemp: Double?,
     apparentTemp: Double?,
     currentCondition: WeatherCondition?,
+    currentConditionDecision: ConditionDecision? = null,
     currentCloudCover: Int?,
     agreementPercent: Int?,
     accentColor: Color,
@@ -1492,22 +1491,12 @@ private fun CurrentWeatherHero(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (currentCondition != null) {
-                    AnimatedWeatherIcon(
-                        condition = currentCondition,
-                        size = 60.dp,
-                        animated = true,
-                        tint = Color.Unspecified,
-                        isNight = isNight
-                    )
-                } else {
-                    Icon(
-                        Icons.Outlined.Thermostat,
-                        contentDescription = null,
-                        modifier = Modifier.size(42.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                ConditionStatusIcon(
+                    condition = currentCondition,
+                    decision = currentConditionDecision,
+                    size = 58.dp,
+                    isNight = isNight
+                )
             }
 
             Spacer(Modifier.width(10.dp))

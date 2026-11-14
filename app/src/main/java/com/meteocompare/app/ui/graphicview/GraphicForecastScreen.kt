@@ -104,9 +104,9 @@ import com.meteocompare.app.ui.citydetail.resolveCityZone
 import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
-import com.meteocompare.app.ui.components.StaticWeatherIconStrip
+import com.meteocompare.app.ui.components.ConditionStatusIcon
+import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.ui.components.windArrowRotation
-import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
@@ -383,6 +383,8 @@ internal fun GraphicForecastContent(
             agreementPalette = agreementPalette,
             horizontalScroll = horizontalScroll
         )
+        // Contextual legend belongs beneath the graphic and above data attribution.
+        ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             OpenMeteoAttribution(home = false)
         }
@@ -668,7 +670,10 @@ private fun GraphicSelectionHeader(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             ) {
                 Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                    WeatherIconDecorative(point.condition, size = 32.dp, isNight = isNight)
+                    ConditionStatusIcon(
+                        point.condition, point.conditionDiagnostic,
+                        size = 32.dp, isNight = isNight
+                    )
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -1262,19 +1267,28 @@ private fun GraphicConditionLane(
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .testTag(TAG_GRAPHIC_UV_LANE)
     ) {
-        StaticWeatherIconStrip(
-            conditions = renderData.conditions,
-            slotWidth = GraphicHourWidth,
-            iconSize = 25.dp,
-            visibleRange = visibleRange,
-            daylight = renderData.daylight,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(30.dp)
-                .align(Alignment.TopStart)
-                .padding(top = 3.dp)
-                .testTag(TAG_GRAPHIC_CONDITION_ICON)
-        )
+        // Only the viewport is composed. Unlike the legacy canvas strip, the
+        // icons preserve alternatives, unknowns and a tappable diagnosis.
+        visibleRange.forEach { index ->
+            points.getOrNull(index)?.let { point ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = GraphicHourWidth * index.toFloat())
+                        .width(GraphicHourWidth)
+                        .height(30.dp)
+                        .testTag(TAG_GRAPHIC_CONDITION_ICON),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ConditionStatusIcon(
+                        condition = point.condition,
+                        decision = point.conditionDiagnostic,
+                        size = 25.dp,
+                        isNight = renderData.daylight.getOrNull(index) == false
+                    )
+                }
+            }
+        }
         // Only visible indices are composed, even for a 240-hour timeline.
         visibleRange.forEach { index ->
             points.getOrNull(index)?.uvIndex?.let { uv ->

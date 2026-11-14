@@ -137,11 +137,12 @@ import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.ui.components.ConditionStatusIcon
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.ui.accessibility.A11yFormatter
-import com.meteocompare.app.ui.components.AnimatedWeatherIcon
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.AppToastEffect
@@ -265,6 +266,7 @@ private fun CityDetailLoadedStateBridge(
         hourlyWindBands = loaded.hourlyWindBands,
         currentTemp = loaded.currentTemp,
         currentCondition = loaded.currentCondition,
+        currentConditionDecision = loaded.currentConditionDecision,
         currentCloudCover = loaded.currentCloudCover,
         dailyConditions = loaded.dailyConditions,
         normals = loaded.normals,
@@ -345,6 +347,7 @@ internal fun CityDetailContent(
             hourlyWindBands = loaded.hourlyWindBands,
             currentTemp = loaded.currentTemp,
             currentCondition = loaded.currentCondition,
+            currentConditionDecision = loaded.currentConditionDecision,
             currentCloudCover = loaded.currentCloudCover,
             dailyConditions = loaded.dailyConditions,
             normals = loaded.normals,
@@ -623,6 +626,7 @@ private fun LoadedView(
     hourlyWindBands: List<HourlyConfidenceBand>,
     currentTemp: Double?,
     currentCondition: WeatherCondition?,
+    currentConditionDecision: ConditionDecision? = null,
     currentCloudCover: Int?,
     dailyConditions: List<DayConditionsRow>,
     normals: Map<Int, DayNormals>?,
@@ -853,6 +857,7 @@ private fun LoadedView(
                     currentTemp = currentTemp,
                     currentApparentTemp = currentApparentForSummary,
                     currentCondition = currentCondition,
+                    currentConditionDecision = currentConditionDecision,
                     currentCloudCover = currentCloudCover,
                     uvIndex = uvForecast?.at(presentationNow),
                     fetchedAt = fetchedAt,
@@ -1681,6 +1686,7 @@ internal fun TodaySummaryCard(
     currentTemp: Double?,
     currentApparentTemp: Double? = null,
     currentCondition: WeatherCondition? = null,
+    currentConditionDecision: ConditionDecision? = null,
     currentCloudCover: Int? = null,
     uvIndex: Double? = null,
     fetchedAt: Instant? = null,
@@ -1824,23 +1830,12 @@ internal fun TodaySummaryCard(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (currentCondition != null) {
-                                AnimatedWeatherIcon(
-                                    condition = currentCondition,
-                                    size = 56.dp,
-                                    animated = true,
-                                    motionScale = 2.0f,
-                                    tint = Color.Unspecified,
-                                    isNight = currentIsNight
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Outlined.Thermostat,
-                                    contentDescription = null,
-                                    tint = weatherAccent,
-                                    modifier = Modifier.size(38.dp)
-                                )
-                            }
+                            ConditionStatusIcon(
+                                condition = currentCondition,
+                                decision = currentConditionDecision,
+                                size = 55.dp,
+                                isNight = currentIsNight
+                            )
                         }
 
                         Spacer(Modifier.width(16.dp))

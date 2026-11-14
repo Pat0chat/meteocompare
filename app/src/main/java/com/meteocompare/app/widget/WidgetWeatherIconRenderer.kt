@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionStatus
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -18,7 +20,7 @@ import kotlin.math.sin
  */
 internal object WidgetWeatherIconRenderer {
 
-    fun render(condition: WeatherCondition?, sizePx: Int, isNight: Boolean = false): Bitmap {
+    fun render(condition: WeatherCondition?, sizePx: Int, isNight: Boolean = false, decision: ConditionDecision? = null): Bitmap {
         require(sizePx > 0) { "sizePx must be > 0" }
 
         val bitmap = createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
@@ -100,6 +102,36 @@ internal object WidgetWeatherIconRenderer {
             WeatherCondition.UNKNOWN, null -> drawUnknown(canvas, scale, palette.outline)
         }
 
+        // Compact, portable diagnostic: Glance and bitmap forecasts cannot open
+        // the Compose explanation dialog, but must not silently erase the status.
+        val status = decision?.status
+        if (status == ConditionStatus.AMBIGUOUS && decision != null && decision.alternatives.size >= 2) {
+            val iconSize = (sizePx * 0.56f).toInt().coerceAtLeast(1)
+            decision.alternatives.take(2).forEachIndexed { index, alternative ->
+                val icon = render(alternative, iconSize, isNight)
+                canvas.drawBitmap(icon, index * (sizePx - iconSize).toFloat(), (sizePx - iconSize) / 2f, null)
+            }
+        }
+        val marker = when (status) {
+            ConditionStatus.ESTIMATED -> "≈"
+            ConditionStatus.AMBIGUOUS -> "≠"
+            ConditionStatus.INCOMPLETE -> "◔"
+            ConditionStatus.UNAVAILABLE -> "—"
+            else -> null
+        }
+        if (marker != null && sizePx >= 14) {
+            val radius = sizePx * 0.23f
+            val cx = sizePx - radius
+            val cy = sizePx - radius
+            canvas.drawCircle(cx, cy, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF243C50.toInt() })
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = 0xFFFFFFFF.toInt()
+                textAlign = Paint.Align.CENTER
+                textSize = sizePx * 0.28f
+                isFakeBoldText = true
+            }
+            canvas.drawText(marker, cx, cy - (paint.ascent() + paint.descent()) / 2f, paint)
+        }
         return bitmap
     }
 

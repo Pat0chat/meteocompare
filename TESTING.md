@@ -20,6 +20,19 @@ python -m unittest scripts.tests.test_weather_regression_corpus -v
 Voir [documentation complète](docs/weather-regression-corpus.md), notamment
 pour les limites de couverture et l'ajout de nouveaux scénarios.
 
+**Windows / Python :** si `python` déclenche le raccourci Microsoft Store,
+utiliser le lanceur installé (`py -3` ou `py -3.13`) :
+
+```powershell
+py -3 scripts/generate_weather_regression_corpus.py --check
+py -3 -m unittest discover -s scripts/tests -p "test_*.py" -v
+```
+
+Les fichiers de référence sont conservés avec des fins de ligne LF via
+`.gitattributes`. Les tests de SHA-256 et le mode `--check` normalisent uniquement
+les fins de ligne Windows CRLF, sans régénérer ni modifier le corpus et sans
+masquer une modification du contenu des scénarios.
+
 ## Pyramide de tests
 
 ### Tests JVM (`app/src/test`)

@@ -857,6 +857,7 @@ class CityDetailViewModel @Inject constructor(
         val hourly = confidenceCalculator.hourlyTemperatureConfidence(forecast, engineContext = engineContext)
         val hourlyPrecip = confidenceCalculator.hourlyPrecipitationConfidence(forecast, engineContext = engineContext)
         val hourlyWind = confidenceCalculator.hourlyWindConfidence(forecast, engineContext = engineContext)
+        val currentConditionDecision = confidenceCalculator.currentWeatherDecision(forecast, calculationNow, engineContext)
         CityDetailUiState.Loaded(
             forecast = forecast,
             weeklyConfidence = weekly,
@@ -864,7 +865,8 @@ class CityDetailViewModel @Inject constructor(
             hourlyPrecipBands = hourlyPrecip,
             hourlyWindBands = hourlyWind,
             currentTemp = confidenceCalculator.currentTemperature(forecast, calculationNow, engineContext),
-            currentCondition = confidenceCalculator.currentWeatherCondition(forecast, calculationNow, engineContext),
+            currentCondition = currentConditionDecision.condition,
+            currentConditionDecision = currentConditionDecision,
             currentCloudCover = confidenceCalculator.currentCloudCover(forecast, calculationNow, engineContext),
             dailyConditions = confidenceCalculator.dailyConditionsByModel(forecast),
             normals = normals,
