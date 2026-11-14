@@ -1,0 +1,1 @@
+Daha anlaşılır hava durumu: birleşik tahmin motoru ve açıklanan beş durum (desteklenen, tahmini, alternatifler, kısmi, kullanılamıyor). Görsel ayrıntılar ve daha büyük alternatif simgeler. Zaman çizelgesi ve Grafik görünümünde hizalı, iki satırlı ve sade arka planlı açıklama. Ekranlar ve widget'lar arasında tutarlılık ve geliştirilmiş testler.

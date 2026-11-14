@@ -2,6 +2,7 @@ package com.meteocompare.app.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,6 +18,8 @@ import com.meteocompare.app.domain.util.ConditionStatus
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
+import kotlin.math.abs
 
 /** Instrumented UI contract: run with :app:connectedDebugAndroidTest on an emulator. */
 class ConditionStatusIconTest {
@@ -127,6 +130,21 @@ class ConditionStatusIconTest {
         composeRule.onNodeWithText(context.getString(R.string.condition_legend_not_probability))
             .assertExists()
     }
+    @Test
+    fun legend_symbols_and_labels_have_aligned_columns() {
+        composeRule.setContent { MeteoCompareTheme { ConditionStatusLegend() } }
+        fun xFor(tag: String) = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot().left.value
+        fun aligned(first: String, second: String) =
+            assertTrue("Misaligned status labels: $first / $second",
+                abs(xFor(first) - xFor(second)) < 0.5f)
+
+        aligned("legend_symbol_ESTIMATED", "legend_symbol_INCOMPLETE")
+        aligned("legend_label_ESTIMATED", "legend_label_INCOMPLETE")
+        aligned("legend_symbol_AMBIGUOUS", "legend_symbol_UNAVAILABLE")
+        aligned("legend_label_AMBIGUOUS", "legend_label_UNAVAILABLE")
+    }
+
     @Test
     fun dialog_header_close_works_with_scrollable_diagnostics() {
         composeRule.setContent {

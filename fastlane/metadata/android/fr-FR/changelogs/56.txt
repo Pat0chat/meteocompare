@@ -1,0 +1,1 @@
+Conditions météo plus compréhensibles : moteur unifié, cinq états expliqués (étayée, estimée, alternatives, partielle, indisponible), détails visuels et icônes alternatives agrandies. Légende alignée sur deux lignes dans Chronologie et Chart View, avec fond discret. Cohérence accrue entre écrans, widgets et notifications. Tests de régression et compatibilité Windows renforcés.

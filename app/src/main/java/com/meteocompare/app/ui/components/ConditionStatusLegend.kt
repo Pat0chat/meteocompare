@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -40,81 +41,96 @@ import com.meteocompare.app.domain.util.ConditionStatus
 internal fun ConditionStatusLegend(modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     val accessibleSummary = stringResource(R.string.condition_legend_summary)
-    // This help is already inside the host timeline/table surface: no nested
-    // cards or tinted legend pills. Keep one accessible tap target and two
-    // deliberately grouped rows so the explanation remains easy to scan.
-    Column(
+    // One themed surface, no nested cards: the two columns reserve exactly
+    // the same space for symbol and label on every row. This also keeps the
+    // alignment stable across translations and larger accessibility fonts.
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
             .testTag("condition_status_legend")
-            .clickable(role = Role.Button, onClick = { open = true })
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .clickable(role = Role.Button, onClick = { open = true }),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(
-                Icons.Outlined.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                stringResource(R.string.condition_legend_title),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2
-            )
-            Text(
-                stringResource(R.string.condition_legend_help),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
         Column(
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = accessibleSummary },
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().testTag("condition_legend_first_row"),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                LegendChip(ConditionStatus.ESTIMATED, R.string.condition_legend_estimated_short,
-                    Modifier.weight(1f))
-                LegendChip(ConditionStatus.AMBIGUOUS, R.string.condition_legend_alternatives_short,
-                    Modifier.weight(1f))
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    stringResource(R.string.condition_legend_title),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+                Text(
+                    stringResource(R.string.condition_legend_help),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().testTag("condition_legend_second_row"),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = accessibleSummary },
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                LegendChip(ConditionStatus.INCOMPLETE, R.string.condition_legend_partial_short,
-                    Modifier.weight(1f))
-                LegendChip(ConditionStatus.UNAVAILABLE, R.string.condition_legend_unavailable_short,
-                    Modifier.weight(1f))
+                Row(
+                    modifier = Modifier.fillMaxWidth().testTag("condition_legend_first_row"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LegendChip(ConditionStatus.ESTIMATED, R.string.condition_legend_estimated_short,
+                        Modifier.weight(1f))
+                    LegendChip(ConditionStatus.AMBIGUOUS, R.string.condition_legend_alternatives_short,
+                        Modifier.weight(1f))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().testTag("condition_legend_second_row"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LegendChip(ConditionStatus.INCOMPLETE, R.string.condition_legend_partial_short,
+                        Modifier.weight(1f))
+                    LegendChip(ConditionStatus.UNAVAILABLE, R.string.condition_legend_unavailable_short,
+                        Modifier.weight(1f))
+                }
             }
         }
     }
     if (open) ConditionLegendDialog(onDismiss = { open = false })
 }
 
-/** Flat labels: the accent stays on the symbol rather than on a nested card. */
+/** Fixed-size symbol column makes all four labels start at the same offset. */
 @Composable
 private fun LegendChip(status: ConditionStatus, labelRes: Int, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier.padding(horizontal = 2.dp, vertical = 1.dp),
+        modifier = modifier.heightIn(min = 36.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(statusSymbol(status), color = statusAccent(status), fontSize = 21.sp,
-            lineHeight = 22.sp, fontWeight = FontWeight.ExtraBold)
-        Text(stringResource(labelRes), style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+        Box(
+            Modifier.width(30.dp).testTag("legend_symbol_${status.name}"),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(statusSymbol(status), color = statusAccent(status), fontSize = 21.sp,
+                lineHeight = 24.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        Text(
+            stringResource(labelRes),
+            modifier = Modifier.weight(1f).testTag("legend_label_${status.name}"),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2
+        )
     }
 }
 

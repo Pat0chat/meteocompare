@@ -1,0 +1,1 @@
+Condizioni meteo più chiare: motore unificato e cinque stati spiegati (attendibile, stimata, alternative, parziale, non disponibile). Dettagli visivi e icone alternative più grandi. Legenda su due righe allineate con sfondo discreto in Cronologia e Chart View. Maggiore coerenza tra schermate, widget e notifiche e più test di regressione.

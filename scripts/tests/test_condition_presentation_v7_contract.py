@@ -1,4 +1,4 @@
-"""V7 placement, no nested legend cards, and portable regression corpus checks."""
+"""V7 placements and portable regression corpus checks, with a single themed legend surface."""
 from pathlib import Path
 import hashlib
 import json
@@ -11,11 +11,13 @@ SRC = ROOT / 'app/src/main/java/com/meteocompare/app/ui'
 
 
 class ConditionPresentationV7Contract(unittest.TestCase):
-    def test_compact_legend_is_flat_and_has_two_fixed_rows(self):
+    def test_compact_legend_has_one_surface_and_two_fixed_rows(self):
         code = (SRC / 'components/ConditionStatusLegend.kt').read_text(encoding='utf-8')
         compact = code.split('internal fun ConditionStatusLegend', 1)[1].split(
             'private fun ConditionLegendDialog', 1)[0]
-        self.assertNotIn('Surface(', compact)
+        self.assertEqual(1, compact.count('Surface('))
+        self.assertIn('color = MaterialTheme.colorScheme.surfaceContainer', compact)
+        self.assertIn('Modifier.width(30.dp).testTag("legend_symbol_${status.name}")', compact)
         self.assertIn('.clickable(role = Role.Button, onClick = { open = true })', compact)
         self.assertIn('testTag("condition_legend_first_row")', compact)
         self.assertIn('testTag("condition_legend_second_row")', compact)
@@ -39,7 +41,7 @@ class ConditionPresentationV7Contract(unittest.TestCase):
         self.assertNotIn('ConditionStatusLegend(', header)
 
     def test_crlf_only_normalization_preserves_frozen_golden_hashes(self):
-        from test_weather_regression_corpus import canonical_fixture_bytes
+        from scripts.tests.test_weather_regression_corpus import canonical_fixture_bytes
         corpus = ROOT / 'app/src/test/resources/weather_regression/v1'
         manifest = json.loads((corpus / 'manifest.json').read_text(encoding='utf-8'))
         for name, entry in manifest['files'].items():
