@@ -20,11 +20,13 @@ class ConditionPresentationV5Contract(unittest.TestCase):
         self.assertIn('ConditionStatusIcon(', strip)
         self.assertNotIn('ConditionStatusLegend(', screen)
 
-    def test_chronology_legend_precedes_both_timeline_layouts(self):
+    def test_chronology_legend_follows_timeline_and_convergence_hint(self):
         timeline = kotlin('ui/citydetail/SimplifiedTimeline.kt')
         legend = timeline.index('ConditionStatusLegend(Modifier.padding')
         layout = timeline.index('when (layout) {', timeline.index('if (expanded) {'))
-        self.assertLess(legend, layout)
+        convergence = timeline.index('R.string.timeline_disagreement_hint')
+        self.assertLess(layout, convergence)
+        self.assertLess(convergence, legend)
         self.assertEqual(1, timeline.count('ConditionStatusLegend('))
         self.assertIn('ConditionStatusIcon(', kotlin('ui/citydetail/ChronoTimeline.kt'))
 

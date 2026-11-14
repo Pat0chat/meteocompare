@@ -10,6 +10,14 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / 'app/src/test/resources/weather_regression/v1'
 
 
+def canonical_fixture_bytes(content: bytes) -> bytes:
+    """Allow Windows git CRLF checkout without weakening golden SHA-256 checks."""
+    normalized = content.replace(b'\r\n', b'\n')
+    if b'\r' in normalized:
+        raise ValueError('Unexpected bare carriage return in fixture')
+    return normalized
+
+
 class WeatherRegressionCorpusIntegrityTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -18,7 +26,7 @@ class WeatherRegressionCorpusIntegrityTest(unittest.TestCase):
     def test_all_fixture_files_have_expected_hash_and_unique_ids(self):
         for name, expected in self.manifest['files'].items():
             with self.subTest(name=name):
-                content = (DATA / name).read_bytes()
+                content = canonical_fixture_bytes((DATA / name).read_bytes())
                 self.assertEqual(hashlib.sha256(content).hexdigest(), expected['sha256'])
                 lines = content.decode('utf-8').splitlines()
                 self.assertEqual(len(lines) - 1, expected['cases'])

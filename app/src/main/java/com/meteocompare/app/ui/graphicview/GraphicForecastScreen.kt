@@ -383,6 +383,8 @@ internal fun GraphicForecastContent(
             agreementPalette = agreementPalette,
             horizontalScroll = horizontalScroll
         )
+        // Contextual legend belongs beneath the graphic and above data attribution.
+        ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             OpenMeteoAttribution(home = false)
         }
@@ -628,8 +630,6 @@ private fun GraphicHeaderCard(
                 )
                 Switch(checked = showAgreement, onCheckedChange = onShowAgreementChange)
             }
-
-            ConditionStatusLegend()
 
             Text(
                 stringResource(R.string.graphic_view_touch_hint),

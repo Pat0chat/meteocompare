@@ -222,9 +222,6 @@ internal fun SimplifiedTimelineCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                // Keep the explanation with the timeline controls, before either layout.
-                ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-
                 when (layout) {
                     TimelineLayout.COLUMNS -> LazyRow(
                         state = listState,
@@ -297,6 +294,9 @@ internal fun SimplifiedTimelineCard(
                         )
                     }
                 }
+                // Explanations follow the chart, rather than interrupting its controls.
+                // The convergence hint is shown first when there is disagreement.
+                ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
     }

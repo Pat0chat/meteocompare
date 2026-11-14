@@ -1,0 +1,62 @@
+"""V7 placement, no nested legend cards, and portable regression corpus checks."""
+from pathlib import Path
+import hashlib
+import json
+import subprocess
+import sys
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / 'app/src/main/java/com/meteocompare/app/ui'
+
+
+class ConditionPresentationV7Contract(unittest.TestCase):
+    def test_compact_legend_is_flat_and_has_two_fixed_rows(self):
+        code = (SRC / 'components/ConditionStatusLegend.kt').read_text(encoding='utf-8')
+        compact = code.split('internal fun ConditionStatusLegend', 1)[1].split(
+            'private fun ConditionLegendDialog', 1)[0]
+        self.assertNotIn('Surface(', compact)
+        self.assertIn('.clickable(role = Role.Button, onClick = { open = true })', compact)
+        self.assertIn('testTag("condition_legend_first_row")', compact)
+        self.assertIn('testTag("condition_legend_second_row")', compact)
+        self.assertIn('fontSize = 21.sp', compact)
+
+    def test_timeline_legend_is_below_convergence_explanation(self):
+        source = (SRC / 'citydetail/SimplifiedTimeline.kt').read_text(encoding='utf-8')
+        self.assertLess(source.index('R.string.timeline_disagreement_hint'),
+                        source.index('ConditionStatusLegend('))
+        self.assertLess(source.index('when (layout) {', source.index('if (expanded) {')),
+                        source.index('ConditionStatusLegend('))
+
+    def test_chart_legend_is_below_plot_above_open_meteo(self):
+        source = (SRC / 'graphicview/GraphicForecastScreen.kt').read_text(encoding='utf-8')
+        content = source.split('internal fun GraphicForecastContent(', 1)[1].split(
+            'private fun GraphicChartPanel(', 1)[0]
+        self.assertLess(content.index('GraphicChartPanel('), content.index('ConditionStatusLegend('))
+        self.assertLess(content.index('ConditionStatusLegend('), content.index('OpenMeteoAttribution('))
+        header = source.split('private fun GraphicHeaderCard(', 1)[1].split(
+            'private fun GraphicSelectionHeader(', 1)[0]
+        self.assertNotIn('ConditionStatusLegend(', header)
+
+    def test_crlf_only_normalization_preserves_frozen_golden_hashes(self):
+        from test_weather_regression_corpus import canonical_fixture_bytes
+        corpus = ROOT / 'app/src/test/resources/weather_regression/v1'
+        manifest = json.loads((corpus / 'manifest.json').read_text(encoding='utf-8'))
+        for name, entry in manifest['files'].items():
+            with self.subTest(name=name):
+                raw = canonical_fixture_bytes((corpus / name).read_bytes())
+                crlf = raw.replace(b'\n', b'\r\n')
+                self.assertEqual(hashlib.sha256(canonical_fixture_bytes(crlf)).hexdigest(),
+                                 entry['sha256'])
+        self.assertRaises(ValueError, canonical_fixture_bytes, b'bad\rcontents')
+
+    def test_generator_check_does_not_alter_fixtures(self):
+        before = (ROOT / 'app/src/test/resources/weather_regression/v1/manifest.json').read_bytes()
+        subprocess.run([sys.executable, 'scripts/generate_weather_regression_corpus.py', '--check'],
+                       cwd=ROOT, check=True, capture_output=True, text=True)
+        after = (ROOT / 'app/src/test/resources/weather_regression/v1/manifest.json').read_bytes()
+        self.assertEqual(before, after)
+
+
+if __name__ == '__main__':
+    unittest.main()

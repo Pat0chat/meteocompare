@@ -55,8 +55,9 @@ class ConditionStatusV3ContractTest(unittest.TestCase):
                 self.assertIn(term, source, f'{filename} does not include {term}')
 
     def test_status_corpus_is_frozen_and_has_expected_timezone_coverage(self):
-        data = (FIXTURE / 'day_status.tsv').read_bytes()
+        data = (FIXTURE / 'day_status.tsv').read_bytes().replace(b'\r\n', b'\n')
         manifest = json.loads((FIXTURE / 'manifest.json').read_text(encoding='utf-8'))
+        self.assertNotIn(b'\r', data, 'Unexpected bare carriage return in status corpus')
         self.assertEqual(manifest['sha256'], hashlib.sha256(data).hexdigest())
         cases = list(csv.DictReader(data.decode('utf-8').splitlines(), delimiter='\t'))
         self.assertEqual(manifest['cases'], len(cases))

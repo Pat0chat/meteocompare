@@ -23,8 +23,8 @@ class ConditionPresentationV6Contract(unittest.TestCase):
                          re.findall(r'LegendChip\(ConditionStatus\.(\w+)', second))
         self.assertIn('Modifier.weight(1f)', first)
         self.assertIn('Modifier.weight(1f)', second)
-        self.assertIn('fontSize = 19.sp', code)
-        self.assertIn('maxLines = 1, overflow = TextOverflow.Ellipsis', code)
+        self.assertIn('fontSize = 21.sp', code)
+        self.assertIn('maxLines = 2', code)
 
     def test_short_legend_labels_translated_and_nonblank_in_six_languages(self):
         keys = {'condition_legend_estimated_short', 'condition_legend_alternatives_short',
