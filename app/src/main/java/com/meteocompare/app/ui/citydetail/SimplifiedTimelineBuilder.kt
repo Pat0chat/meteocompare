@@ -291,33 +291,10 @@ private fun buildDailyTimeline(
         val snapshots = indexed.mapNotNull { it[date] }
         val solar = forecastSolarWindow(forecast, date)
         val nextSolar = forecastSolarWindow(forecast, date.plusDays(1))
-        fun periodConsensus(period: DailyConditionPeriod): ConditionDecision {
-            val byModel = forecast.seriesByModel.map { (model, series) ->
-                model to ConditionDecisionEngine.period(series, date, zone, period, solar, nextSolar)
-            }
-            val native = byModel.mapNotNull { (model, decision) ->
-                decision.condition?.takeIf {
-                    decision.status == ConditionStatus.RELIABLE && decision.origin == ConditionOrigin.HOURLY_DOMINANT
-                }?.let { ForecastConsensus.Entry(model, it) }
-            }
-            val derived = byModel.mapNotNull { (model, decision) ->
-                decision.condition?.takeUnless {
-                    decision.status == ConditionStatus.RELIABLE && decision.origin == ConditionOrigin.HOURLY_DOMINANT
-                }?.let { ForecastConsensus.Entry(model, it) }
-            }
-            val result = WeatherConditionConsensus.resolveDecision(
-                nativeEntries = native, derivedEntries = derived,
-                supportModels = byModel.map { it.first }
+        fun periodConsensus(period: DailyConditionPeriod): ConditionDecision =
+            com.meteocompare.app.domain.util.ForecastConditionResolver.periodConsensus(
+                forecast, date, zone, period, solar, nextSolar
             )
-            val winners = byModel.map { it.second }.filter { it.condition != null && it.condition == result.condition }
-            val partial = winners.any { it.status == ConditionStatus.INCOMPLETE }
-            return result.copy(
-                status = if (result.condition != null && partial) ConditionStatus.INCOMPLETE else result.status,
-                reasons = result.reasons + winners.flatMap { it.reasons },
-                notablePhenomenon = winners.mapNotNull { it.notablePhenomenon }
-                    .maxByOrNull { it.severityRank }
-            )
-        }
         val dayDecision = periodConsensus(DailyConditionPeriod.DAY)
         val nightDecision = periodConsensus(DailyConditionPeriod.NIGHT)
         val dayCondition = dayDecision.condition
@@ -332,13 +309,27 @@ private fun buildDailyTimeline(
                 ?.takeIf { it in 1..7 },
             engineContext = engineContext
         )
-        // A daily row with only a valid day/night condition is still a useful
-        // forecast. A missing daily-axis snapshot must not erase those periods.
-        if (base != null || dayCondition != null || nightCondition != null ||
+        // Full-day is resolved by exactly the same per-model period engine as
+        // Engine Comparison. Numeric clouds may depend on the selected engine;
+        // they refine the sky vote but never invent precipitation.
+        val fullDayDecision = com.meteocompare.app.domain.util.ForecastConditionResolver.periodConsensus(
+            forecast = forecast,
+            date = date,
+            zone = zone,
+            cloudCoverPercent = base?.cloudCoverPercent?.toDouble(),
+            cloudCoverFamilyCount = snapshots.filter { it.cloudCover != null }
+                .map { ForecastConsensus.groupFor(it.model) }.distinct().size
+        )
+        // A daily row with only a valid condition, day or night, remains useful
+        // even when the daily numeric axis is absent or incomplete.
+        if (base != null || fullDayDecision.condition != null ||
+            dayCondition != null || nightCondition != null ||
             dayDecision.status != ConditionStatus.UNAVAILABLE ||
             nightDecision.status != ConditionStatus.UNAVAILABLE) {
             (base ?: SimplifiedTimelinePoint(date = date)).copy(
                 estimatedSunHours = estimatedSunshineHours(forecast, date),
+                condition = fullDayDecision.condition,
+                conditionDiagnostic = fullDayDecision,
                 dayCondition = dayCondition,
                 dayConditionDiagnostic = dayDecision,
                 nightCondition = nightCondition,

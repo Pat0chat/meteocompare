@@ -12,8 +12,6 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.domain.model.effectiveCloudCover
-import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
@@ -22,7 +20,6 @@ import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.util.dailyPeriodMetrics
 import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionDecisionEngine
-import com.meteocompare.app.domain.util.ConditionStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -194,94 +191,21 @@ class ConfidenceCalculator @Inject constructor(
         ).central
     }
 
-    /**
-     * Condition météo "maintenant" — consensus hiérarchique.
-     *
-     * Les codes WMO sont résolus par consensus hiérarchique : occurrence de
-     * précipitation, sous-famille météorologique, puis feuille précise. La
-     * branche SKY utilise la nébulosité centrale du moteur V3 sélectionné.
-     * Cette structure évite toute fragmentation artificielle entre sous-types
-     * proches (ciel, pluie liquide, neige…), pas seulement OVERCAST.
-     *
-     * La nébulosité horaire n'est jamais calibrée avec l'historique J+1.
-     */
+    /** One condition pipeline for every current-hour consumer.
+     * The old local consensus duplicated ForecastAggregates and could disagree
+     * with the mini-strip at the very same timestamp. */
+    fun currentWeatherDecision(
+        forecast: CityForecast,
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): ConditionDecision = com.meteocompare.app.domain.util.ForecastAggregates
+        .currentConditionDecision(forecast, now, engineContext)
+
     fun currentWeatherCondition(
         forecast: CityForecast,
         now: Instant = Instant.now(),
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
-    ): WeatherCondition? {
-        val nativeConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
-        val derivedConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
-        val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
-        val supportModels = linkedSetOf<WeatherModel>()
-
-        val target = HourlySampling.anchor(forecast, now)
-        forecast.seriesByModel.forEach { (model, series) ->
-            val idx = exactCurrentIndex(series, target) ?: return@forEach
-            series.resolveHourlyCondition(idx)?.let { derived ->
-                derivedConditionEntries += ForecastConsensus.Entry(model, derived)
-            }
-            WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
-                ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                ?.let { native ->
-                    val adjusted = if (native == WeatherCondition.OVERCAST)
-                        series.resolveHourlyCondition(idx) ?: native else native
-                    nativeConditionEntries += ForecastConsensus.Entry(model, adjusted)
-                    supportModels += model
-                }
-            if (series.hourly.temperature2m.getOrNull(idx)?.isFinite() == true) supportModels += model
-            val amount = series.hourly.precipitation.getOrNull(idx)
-            val probability = series.hourly.precipitationProbability.getOrNull(idx)
-            if (amount?.isFinite() == true || probability?.let { it in 0..100 } == true) {
-                supportModels += model
-            }
-            series.hourly.effectiveCloudCover(idx)
-                ?.let {
-                    cloudSamples += model to it.toDouble()
-                    supportModels += model
-                }
-        }
-
-        // Temperature and precipitation medians no longer create condition
-        // categories: mixing central values from different models would be
-        // scientifically unjustified. Only coherent per-model decisions vote.
-        val cloudCentral = engineContinuous(
-            samples = cloudSamples,
-            thresholds = Thresholds(10.0, 50.0),
-            engineContext = engineContext,
-            variable = ForecastEngineVariable.CLOUD,
-            allowCalibration = false,
-            min = 0.0,
-            max = 100.0
-        ).central
-        val aggregate = WeatherConditionConsensus.resolveAggregate(
-            nativeEntries = nativeConditionEntries,
-            temperatureCentralC = null,
-            precipitationCentralMm = null,
-            cloudCoverPercent = cloudCentral,
-            cloudCoverFamilyCount = cloudSamples.map { ForecastConsensus.groupFor(it.first) }.distinct().size,
-            supportModels = supportModels,
-            localWeights = localWeights(nativeConditionEntries.map { it.model }),
-            derivedEntries = derivedConditionEntries
-        ).vote.value
-        // When NO model supplies a WMO code, the ordinary cloud-cover fallback
-        // can only infer OVERCAST from 98% total clouds. In that precise case,
-        // preserve the same-model solar/layer refinement already used by hourly
-        // timelines. Never override rain, fog or an actual WMO consensus.
-        if (nativeConditionEntries.isEmpty() &&
-            aggregate == WeatherCondition.OVERCAST &&
-            (cloudCentral ?: 0.0) >= 90.0
-        ) {
-            return WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
-                original = aggregate,
-                nativeWmoAvailable = false,
-                cloudCoverPercent = cloudCentral,
-                resolvedPerModel = derivedConditionEntries,
-                localWeights = localWeights(derivedConditionEntries.map { it.model })
-            )
-        }
-        return aggregate
-    }
+    ): WeatherCondition? = currentWeatherDecision(forecast, now, engineContext).condition
 
     /**
      * Couverture nuageuse "maintenant" — médiane pondérée consensus robuste
@@ -478,10 +402,6 @@ class ConfidenceCalculator @Inject constructor(
                 daytimeDiagnosticsByModel = daytimeDiagnostics,
                 nighttimeDiagnosticsByModel = nighttimeDiagnostics
             )
-        }.filter { row ->
-            row.byModel.isNotEmpty() || row.diagnosticsByModel.values.any {
-                it.status == ConditionStatus.AMBIGUOUS || it.status == ConditionStatus.INCOMPLETE
-            }
         }
     }
 

@@ -52,6 +52,21 @@ class ConditionDecisionEngineTest {
         assertEquals(true, ConditionReason.PRECEDING_HOUR_PRECIPITATION in result.reasons)
     }
 
+    @Test fun `weak probability does not turn an inferred rain scenario into the main icon`() {
+        val timestamp = listOf(Instant.EPOCH)
+        val hourly = HourlyForecast(
+            timestamps = timestamp, temperature2m = listOf(14.0), precipitation = listOf(0.4),
+            windSpeed10m = emptyList(), precipitationProbability = listOf(20)
+        )
+        val result = ConditionDecisionEngine.hourly(hourly, 0)
+        assertEquals(null, result.condition)
+        assertEquals(ConditionStatus.UNAVAILABLE, result.status)
+        val withCloud = hourly.copy(cloudCover = listOf(0))
+        assertEquals(WeatherCondition.CLEAR, ConditionDecisionEngine.hourly(withCloud, 0).condition)
+        val withNative = hourly.copy(weatherCode = listOf(61))
+        assertEquals(WeatherCondition.RAIN, ConditionDecisionEngine.hourly(withNative, 0).condition)
+    }
+
     @Test fun `near freezing 2m temperature alone cannot prove snow or rain`() {
         val x = source(listOf(Instant.EPOCH), precip = listOf(2.0), temp = listOf(-1.0), cloud = listOf(5))
         val result = ConditionDecisionEngine.hourly(x.hourly, 0)

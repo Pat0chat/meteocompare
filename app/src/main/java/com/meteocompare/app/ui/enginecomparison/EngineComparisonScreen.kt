@@ -84,6 +84,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
+import com.meteocompare.app.ui.components.ConditionStatusIcon
+import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
@@ -974,6 +976,7 @@ private fun EngineDailyComparisonTable(
     Column(
         modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState).width(tableWidth)
     ) {
+        ConditionStatusLegend()
         EngineTableHeader(selectedEngine)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -986,11 +989,6 @@ private fun EngineDailyComparisonTable(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            val conditionValues = ForecastEngine.entries.associateWith { engine ->
-                day.byEngine[engine]?.condition?.let { condition ->
-                    stringResource(weatherConditionLabelRes(condition))
-                } ?: "—"
-            }
 
             ComparisonTableRow(
                 label = stringResource(R.string.engine_metric_temp_min),
@@ -1032,11 +1030,7 @@ private fun EngineDailyComparisonTable(
                 selectedEngine = selectedEngine,
                 values = day.valuesForEngines { value -> formatInteger(value?.cloudPercent, locale, WeatherUnit.PERCENT, units = units) }
             )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_table_condition),
-                selectedEngine = selectedEngine,
-                values = conditionValues
-            )
+            EngineConditionTableRow(day, selectedEngine)
 
             if (dayIndex != days.lastIndex) {
                 HorizontalDivider(
@@ -1047,6 +1041,43 @@ private fun EngineDailyComparisonTable(
             }
         }
     }
+}
+
+/** Condition and its provenance are inspectable directly in engine comparison. */
+@Composable
+private fun EngineConditionTableRow(day: EngineComparisonDay, selectedEngine: ForecastEngine) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        TableCell(
+            text = stringResource(R.string.engine_table_condition),
+            width = 120.dp,
+            emphasized = true
+        )
+        ForecastEngine.entries.forEach { engine ->
+            val value = day.byEngine[engine]
+            val condition = value?.condition
+            val color = if (engine == selectedEngine) engineColor(engine) else null
+            Row(
+                modifier = Modifier.width(125.dp)
+                    .background(color?.copy(alpha = 0.08f) ?: Color.Transparent)
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ConditionStatusIcon(
+                    condition = condition,
+                    decision = value?.conditionDecision,
+                    size = 27.dp
+                )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    text = condition?.let { stringResource(weatherConditionLabelRes(it)) } ?: "—",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color ?: MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
 }
 
 @Composable

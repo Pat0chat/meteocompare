@@ -80,7 +80,13 @@ internal object ConditionDecisionEngine {
             reasons += ConditionReason.INVALID_PHYSICAL_VALUE
         }
         val validPrecipitation = precipitation?.takeIf { it.isFinite() && it in 0.0..1000.0 }
-        if (validPrecipitation != null && validPrecipitation > 0.1) {
+        val occurrenceProbability = hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
+        // An amount exceeding 0.1 mm can represent one possible scenario, not
+        // necessarily the dominant outcome when a native P(rain) is below 50%.
+        // In that case skip the derived wet icon and use independent sky evidence
+        // if available. A native WMO code above always takes precedence.
+        val wetScenarioIsDominant = occurrenceProbability == null || occurrenceProbability >= 50
+        if (validPrecipitation != null && validPrecipitation > 0.1 && wetScenarioIsDominant) {
             // Near freezing, 2m temperature alone cannot establish the precipitation phase.
             // For warm air, a liquid classification is an explicitly marked estimate.
             // At/below +2C return an ambiguous result rather than falsely asserting snow.

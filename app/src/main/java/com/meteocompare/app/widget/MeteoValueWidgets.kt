@@ -49,6 +49,8 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.ui.components.statusLabelRes
 import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
 
 /**
@@ -198,7 +200,7 @@ private fun InsightPillSummary(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (!veryNarrow) {
-                ValueWeatherGlyph(data.currentCondition, 25, isNight = data.currentIsNight == true)
+                ValueWeatherGlyph(data.currentCondition, 25, isNight = data.currentIsNight == true, decision = data.currentConditionDecision)
                 Spacer(GlanceModifier.width(4.dp))
             }
             Text(
@@ -298,7 +300,7 @@ private fun InsightWidgetLayout(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ValueWeatherGlyph(data.currentCondition, if (compact) 36 else 46, isNight = data.currentIsNight == true)
+            ValueWeatherGlyph(data.currentCondition, if (compact) 36 else 46, isNight = data.currentIsNight == true, decision = data.currentConditionDecision)
             Spacer(GlanceModifier.width(8.dp))
             Text(
                 text = formatTemp(data.currentTemp, units = units),
@@ -551,19 +553,21 @@ private fun ValueWidgetError(
 }
 
 @Composable
-private fun ValueWeatherGlyph(condition: WeatherCondition?, sizeDp: Int, isNight: Boolean = false) {
+private fun ValueWeatherGlyph(condition: WeatherCondition?, sizeDp: Int, isNight: Boolean = false, decision: ConditionDecision? = null) {
     val context = LocalContext.current
     val density = context.resources.displayMetrics.density.coerceAtMost(2f)
-    val bitmap = remember(condition, isNight, sizeDp, density) {
+    val bitmap = remember(condition, isNight, sizeDp, density, decision) {
         WidgetWeatherIconRenderer.render(
             condition = condition,
             isNight = isNight,
-            sizePx = (sizeDp * density).toInt().coerceAtLeast(1)
+            sizePx = (sizeDp * density).toInt().coerceAtLeast(1),
+            decision = decision
         )
     }
     Image(
         provider = ImageProvider(bitmap),
-        contentDescription = context.getString(weatherConditionLabelRes(condition)),
+        contentDescription = context.getString(weatherConditionLabelRes(condition)) +
+            (decision?.status?.let { " · " + context.getString(statusLabelRes(it)) } ?: ""),
         modifier = GlanceModifier.width(sizeDp.dp).height(sizeDp.dp)
     )
 }

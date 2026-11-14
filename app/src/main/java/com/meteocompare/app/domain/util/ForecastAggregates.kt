@@ -32,6 +32,15 @@ internal data class HourlyForecastAggregate(
 internal object ForecastAggregates {
     private const val HOME_HOUR_COUNT = 24
 
+    /** Canonical current-hour decision for Home, City Detail, widgets and notifications.
+     * Uses the exact same UTC anchor and per-model decisions as the forecast strip. */
+    fun currentConditionDecision(
+        forecast: CityForecast,
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): ConditionDecision = nextHours(forecast, now, true, engineContext, 1)
+        .conditionDiagnostics.single()
+
     /** Conserve la fenêtre 12 h pour les appels historiques et les scénarios courts. */
     fun next12h(
         forecast: CityForecast,
@@ -84,17 +93,14 @@ internal object ForecastAggregates {
                     precipRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 }
                 if (conditions != null) {
-                    series.resolveHourlyCondition(index)?.let { derived ->
-                        derivedConditionRows += ForecastConsensus.Entry(model, derived)
+                    // Classify once per model. A valid WMO code always stays native;
+                    // same-model variables only supply a fallback when WMO is absent.
+                    val decision = ConditionDecisionEngine.hourly(series.hourly, index)
+                    decision.condition?.let { resolved ->
+                        val row = ForecastConsensus.Entry(model, resolved)
+                        if (decision.origin == ConditionOrigin.HOURLY_WMO) conditionRows += row
+                        else derivedConditionRows += row
                     }
-                    WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(index))
-                        ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                        ?.let { native ->
-                            conditionRows += ForecastConsensus.Entry(
-                                model, if (native == WeatherCondition.OVERCAST)
-                                    series.resolveHourlyCondition(index) ?: native else native
-                            )
-                        }
                     series.hourly.effectiveCloudCover(index)
                         ?.let { cloudRows += ForecastConsensus.Entry(model, it.toDouble()) }
                 }
@@ -143,13 +149,15 @@ internal object ForecastAggregates {
                     addAll(precipRows.map { it.model })
                     addAll(cloudRows.map { it.model })
                     addAll(conditionRows.map { it.model })
+                    addAll(derivedConditionRows.map { it.model })
                 }
                 val result = WeatherConditionConsensus.resolveDecision(
                     nativeEntries = conditionRows,
                     derivedEntries = derivedConditionRows,
                     cloudCoverPercent = cloudCentral,
                     cloudCoverFamilyCount = cloudRows.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
-                    supportModels = supportModels
+                    supportModels = supportModels,
+                    localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD)
                 )
                 diagnostics?.add(result)
                 conditions += result.condition

@@ -9,7 +9,8 @@ import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.ForecastEngineVariable
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
-import com.meteocompare.app.domain.util.resolveDailyCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ForecastConditionResolver
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -34,7 +35,8 @@ data class EngineComparisonValues(
      * Condition quotidienne = consensus hiérarchique des conditions dominantes
      * par modèle. Ne déduit jamais « pluie » d'un simple cumul daily.
      */
-    val condition: WeatherCondition?
+    val condition: WeatherCondition?,
+    val conditionDecision: ConditionDecision? = null
 ) {
     fun value(metric: EngineComparisonMetric): Double? = when (metric) {
         EngineComparisonMetric.TEMP_MAX -> tempMax
@@ -77,7 +79,7 @@ class EngineComparisonBuilder @Inject constructor(
         val today = now.localDateIn(forecast.city.timezone)
         val zone = resolveZoneOrUtc(forecast.city.timezone)
         val dates = forecast.seriesByModel.values
-            .flatMap { it.daily.dates }
+            .flatMap { it.daily.dates + it.hourly.timestamps.map { time -> time.atZone(zone).toLocalDate() } }
             .distinct()
             .sorted()
             .filterNot { it.isBefore(today) }
@@ -122,12 +124,13 @@ class EngineComparisonBuilder @Inject constructor(
         // Un cumul de précipitations daily n'indique pas la fraction du jour
         // durant laquelle il pleut. Chaque moteur utilise les conditions
         // représentatives par modèle, comme la chronologie quotidienne.
-        val condition = inputs.resolvedConditionEntries.takeIf { it.isNotEmpty() }?.let {
-            WeatherConditionConsensus.resolve(
-                entries = it,
-                cloudCoverPercent = cloud.takeIf { inputs.cloudCoverFamilyCount >= 2 }
-            ).value
-        }
+        val conditionDecision = ForecastConditionResolver.periodConsensus(
+            forecast = forecast,
+            date = date,
+            zone = resolveZoneOrUtc(forecast.city.timezone),
+            cloudCoverPercent = cloud,
+            cloudCoverFamilyCount = inputs.cloudCoverFamilyCount
+        )
         return EngineComparisonValues(
             tempMax = day.tempMax?.meanValue,
             tempMin = day.tempMin?.meanValue,
@@ -137,12 +140,12 @@ class EngineComparisonBuilder @Inject constructor(
             windKmh = day.windMax?.meanValue,
             gustKmh = day.windGustMax?.meanValue,
             cloudPercent = cloud,
-            condition = condition
+            condition = conditionDecision.condition,
+            conditionDecision = conditionDecision
         )
     }
 
     private data class EngineComparisonDayInputs(
-        val resolvedConditionEntries: List<ForecastConsensus.Entry<WeatherCondition>>,
         val cloudEntries: List<ForecastConsensus.Entry<Double>>,
         val cloudCoverFamilyCount: Int
     )
@@ -152,7 +155,6 @@ class EngineComparisonBuilder @Inject constructor(
         date: LocalDate,
         zone: java.time.ZoneId
     ): EngineComparisonDayInputs {
-        val resolvedConditions = ArrayList<ForecastConsensus.Entry<WeatherCondition>>(forecast.seriesByModel.size)
         val clouds = ArrayList<ForecastConsensus.Entry<Double>>(forecast.seriesByModel.size)
 
         forecast.seriesByModel.forEach { (model, series) ->
@@ -164,14 +166,9 @@ class EngineComparisonBuilder @Inject constructor(
                 clouds += ForecastConsensus.Entry(model, cloud.toDouble())
             }
 
-            val resolved = series.resolveDailyCondition(date, zone)
-            resolved?.condition?.let { condition ->
-                resolvedConditions += ForecastConsensus.Entry(model, condition)
-            }
         }
 
         return EngineComparisonDayInputs(
-            resolvedConditionEntries = resolvedConditions,
             cloudEntries = clouds,
             cloudCoverFamilyCount = clouds.asSequence()
                 .map { ForecastConsensus.groupFor(it.model) }

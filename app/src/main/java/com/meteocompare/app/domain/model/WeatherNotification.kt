@@ -1,5 +1,6 @@
 package com.meteocompare.app.domain.model
 
+import com.meteocompare.app.domain.util.ConditionDecision
 import java.time.LocalDate
 
 /**
@@ -30,7 +31,9 @@ sealed interface WeatherNotification {
         val precipitationProbabilityPercent: Int?,
         val precipitationAmountMm: Double?,
         val windKmh: Double?,
-        val convergencePercent: Int?
+        val convergencePercent: Int?,
+        /** Exact daily-engine diagnosis; optional for pre-V4 callers. */
+        val conditionDecision: ConditionDecision? = null
     ) : WeatherNotification {
         override val dedupKey: String get() = "daily|${city.id}|$date"
     }
