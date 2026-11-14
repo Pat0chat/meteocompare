@@ -1158,4 +1158,8 @@ Daten</string>
     <string name="summary_cloud_layers_solar_minutes">Sonnenprognose: %1$d Min.</string>
     <string name="summary_cloud_layers_dni">Direkte Strahlung: %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Für diese Stunde sind keine Wolkenschichtdaten vorhanden.</string>
+    <string name="condition_diagnostic_ambiguous">Widersprüchliche Modelle oder Variablen: kein sicher vorherrschendes Wetter.</string>
+    <string name="condition_diagnostic_incomplete">Zeitraum unvollständig abgedeckt: Wetterzustand nicht bestimmbar.</string>
+    <string name="condition_diagnostic_unavailable">Nicht genügend Daten zur Bestimmung des Wetters.</string>
+    <string name="condition_diagnostic_daily_maximum">Täglicher Wettercode: stärkstes Ereignis, nicht das vorherrschende Wetter.</string>
 </resources>

@@ -139,9 +139,11 @@ def daily_rows():
                     mode=f'FIRST_{count}')
                 add(f'sparse-nodaily-{zone}-{day}-{count}-{daily}', zone, day,
                     [0] * length, None, None, 'NONE', mode=f'FIRST_{count}')
-        # Missing 5 middle hours: no fabricated daily rain from a severe native code.
+        # A 5-hour internal gap cannot overturn 18/23, 19/24 or 20/25
+        # hours of native CLEAR. This is an irreversible leaf majority, not
+        # interpolation and not the daily *most severe* WMO rain code.
         add(f'middle-gap-{zone}-{day}', zone, day, [0] * length,
-            61, None, 'NONE', mode='GAP_5')
+            61, 'CLEAR', 'HOURLY_WMO', mode='GAP_5')
         add(f'duplicate-native-{zone}-{day}', zone, day,
             [0] * (length - 1) + [61], 61, 'CLEAR', mode='DUP_NATIVE')
         for cloud in (0, 19, 20, 44, 45, 89, 90, 98, 100):

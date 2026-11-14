@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -27,7 +29,11 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.domain.util.resolveHourlyCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionDecisionEngine
+import com.meteocompare.app.domain.util.ConditionOrigin
+import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.ui.components.WeatherIconDecorative
@@ -68,17 +74,13 @@ fun HourlyWeatherByModelTable(
                     val idx = series.hourly.timestamps.indexOf(ts)
                     if (idx < 0) return@mapNotNull null
 
-                    val direct = WeatherCondition
-                        .fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
-                        ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                    val inferred = direct == null
-                    val condition = series.resolveHourlyCondition(idx) ?: return@mapNotNull null
-
+                    val diagnosis = ConditionDecisionEngine.hourly(series.hourly, idx)
                     model to HourCellData(
-                        condition = condition,
+                        condition = diagnosis.condition,
                         precipProbability = series.hourly.precipitationProbability.getOrNull(idx),
-                        cloudCover = series.hourly.cloudCover.getOrNull(idx),
-                        isInferred = inferred
+                        cloudCover = series.hourly.effectiveCloudCover(idx),
+                        isInferred = diagnosis.origin != ConditionOrigin.HOURLY_WMO,
+                        diagnosis = diagnosis
                     )
                 }.toMap()
             }
@@ -247,7 +249,7 @@ private fun TimeHeaderCell(
 }
 
 private data class HourCellData(
-    val condition: WeatherCondition,
+    val condition: WeatherCondition?,
     val precipProbability: Int?,
     val cloudCover: Int?,
     /**
@@ -255,7 +257,8 @@ private data class HourCellData(
      * du même modèle (précip/temp ou cloud_cover), faute de code WMO direct.
      * L'UI l'atténue légèrement pour rendre cette provenance visible.
      */
-    val isInferred: Boolean = false
+    val isInferred: Boolean = false,
+    val diagnosis: ConditionDecision? = null
 )
 
 @Composable
@@ -282,6 +285,16 @@ private fun HourIconCell(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        } else if (cell.condition == null) {
+            val symbol = if (cell.diagnosis?.status == ConditionStatus.AMBIGUOUS) "≠" else "—"
+            val explanation = when (cell.diagnosis?.status) {
+                ConditionStatus.AMBIGUOUS -> stringResource(R.string.condition_diagnostic_ambiguous)
+                ConditionStatus.INCOMPLETE -> stringResource(R.string.condition_diagnostic_incomplete)
+                else -> stringResource(R.string.condition_diagnostic_unavailable)
+            }
+            Text(symbol, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { contentDescription = explanation })
         } else {
             // Marqueur visuel d'inférence : la condition vient uniquement des
             // variables du MÊME modèle. 65 % reste visible sur fond clair/sombre

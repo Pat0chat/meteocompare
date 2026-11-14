@@ -659,6 +659,30 @@ class WeatherConditionTest {
         assertTrue(WeatherModel.AROME_FRANCE_HD !in row.inferredByModel)
     }
 
+    @Test
+    fun `daily comparison retains hourly-only dates and explains missing period`() {
+        val date = LocalDate.of(2026, 6, 30)
+        val start = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val hours = List(24) { start.plusSeconds(it * 3600L) }
+        val series = ForecastSeries(
+            WeatherModel.GFS,
+            HourlyForecast(
+                timestamps = hours,
+                temperature2m = List(24) { 15.0 },
+                precipitation = List(24) { 0.0 },
+                windSpeed10m = List(24) { 6.0 },
+                weatherCode = List(24) { 0 }
+            ),
+            emptyDaily()
+        )
+        val forecast = CityForecast(paris.copy(timezone = "UTC"), mapOf(WeatherModel.GFS to series))
+        val row = calculator.dailyConditionsByModel(forecast).single()
+        assertEquals(date, row.date)
+        assertEquals(WeatherCondition.CLEAR, row.byModel[WeatherModel.GFS])
+        assertEquals(1.0, row.diagnosticsByModel[WeatherModel.GFS]?.coverage)
+        assertTrue(row.daytimeDiagnosticsByModel.containsKey(WeatherModel.GFS))
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun emptyHourly() = HourlyForecast(

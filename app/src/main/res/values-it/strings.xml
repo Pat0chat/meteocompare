@@ -1164,4 +1164,8 @@ dato</string>
     <string name="summary_cloud_layers_solar_minutes">Sole previsto: %1$d min</string>
     <string name="summary_cloud_layers_dni">Irraggiamento diretto: %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Nessun dato sugli strati nuvolosi per questa ora.</string>
+    <string name="condition_diagnostic_ambiguous">Modelli o variabili in disaccordo: nessuna condizione dominante certa.</string>
+    <string name="condition_diagnostic_incomplete">Copertura del periodo incompleta: condizione non determinabile.</string>
+    <string name="condition_diagnostic_unavailable">Dati insufficienti per determinare le condizioni.</string>
+    <string name="condition_diagnostic_daily_maximum">Codice meteo giornaliero: evento più intenso, non condizione dominante.</string>
 </resources>

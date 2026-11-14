@@ -20,7 +20,8 @@ internal data class HourlyForecastAggregate(
     val precipitationAmountsMm: List<Double?>,
     val conditions: List<WeatherCondition?>,
     /** Consensus cloud cover, available when conditions were requested. */
-    val cloudCoverPercents: List<Int?> = emptyList()
+    val cloudCoverPercents: List<Int?> = emptyList(),
+    val conditionDiagnostics: List<ConditionDecision> = emptyList()
 )
 
 /**
@@ -59,6 +60,7 @@ internal object ForecastAggregates {
         val amounts = ArrayList<Double?>(hourCount)
         val conditions = if (includeConditions) ArrayList<WeatherCondition?>(hourCount) else null
         val clouds = if (includeConditions) ArrayList<Int?>(hourCount) else null
+        val diagnostics = if (includeConditions) ArrayList<ConditionDecision>(hourCount) else null
         val startInstant = HourlySampling.anchor(forecast, now)
 
         repeat(hourCount) { hourOffset ->
@@ -142,35 +144,21 @@ internal object ForecastAggregates {
                     addAll(cloudRows.map { it.model })
                     addAll(conditionRows.map { it.model })
                 }
-                val baseCondition = WeatherConditionConsensus.resolveAggregate(
+                val result = WeatherConditionConsensus.resolveDecision(
                     nativeEntries = conditionRows,
-                    temperatureCentralC = temperatureCentral,
-                    precipitationCentralMm = precipitation.centralAmountMm,
+                    derivedEntries = derivedConditionRows,
                     cloudCoverPercent = cloudCentral,
                     cloudCoverFamilyCount = cloudRows.map { ForecastConsensus.groupFor(it.model) }.distinct().size,
-                    supportModels = supportModels,
-                    derivedEntries = derivedConditionRows
-                ).vote.value
-                // The Home mini strip previously lost VEILED when weather_code
-                // was absent, even though the model's hourly layers + solar
-                // data could identify a veil. Align with Today Summary and the
-                // hourly timeline; never replace an actual native WMO vote.
-                conditions += if (conditionRows.isEmpty() &&
-                    baseCondition == WeatherCondition.OVERCAST &&
-                    cloudCentral?.let { it >= 90.0 } == true
-                ) {
-                    WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
-                        original = baseCondition,
-                        nativeWmoAvailable = false,
-                        cloudCoverPercent = cloudCentral,
-                        resolvedPerModel = derivedConditionRows
-                    )
-                } else baseCondition
+                    supportModels = supportModels
+                )
+                diagnostics?.add(result)
+                conditions += result.condition
             }
         }
 
         return HourlyForecastAggregate(
-            startInstant, temperatures, probabilities, amounts, conditions.orEmpty(), clouds.orEmpty()
+            startInstant, temperatures, probabilities, amounts, conditions.orEmpty(), clouds.orEmpty(),
+            diagnostics.orEmpty()
         )
     }
 

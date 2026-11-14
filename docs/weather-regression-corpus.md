@@ -86,6 +86,14 @@ un succès Python/Kotlin local comme preuve de la réussite des AndroidTests.**
 - Éviter les fichiers géants de réponses météo réelles avec des
   identifiants de localisation, des clés API ou des données personnelles.
 
+**Révision documentée du contrat (moteur conditions phase 2, novembre 2026) :**
+les sept cas `middle-gap-*` ont changé de `NONE` à `HOURLY_WMO/CLEAR`.
+Dans les jours de 23/24/25 heures, les 5 heures manquantes ne peuvent
+plus renverser la majorité des 18/19/20 heures réellement `CLEAR`.
+Il s'agit d'une preuve arithmétique et non d'une interpolation ; le
+WMO `daily` = `RAIN` demeure le phénomène le plus sévère, pas dominant.
+Tous les autres oracles existants sont inchangés.
+
 **Versionnement :** ne pas modifier un scénario v1 pour masquer une régression.
 Si la définition métier change intentionnellement, expliquer et réviser le
 contrat, ou créer `v2/` pour une rupture majeure.

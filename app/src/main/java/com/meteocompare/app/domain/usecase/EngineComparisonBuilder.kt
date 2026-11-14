@@ -164,9 +164,6 @@ class EngineComparisonBuilder @Inject constructor(
                 clouds += ForecastConsensus.Entry(model, cloud.toDouble())
             }
 
-            val index = series.daily.dates.indexOf(date)
-            if (index < 0) return@forEach
-
             val resolved = series.resolveDailyCondition(date, zone)
             resolved?.condition?.let { condition ->
                 resolvedConditions += ForecastConsensus.Entry(model, condition)

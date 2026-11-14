@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -31,6 +33,9 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.domain.util.ConditionOrigin
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
@@ -117,6 +122,7 @@ fun WeatherByModelTable(
                                 Box(modifier = Modifier.weight(1f)) {
                                     IconCell(
                                         condition = day,
+                                        diagnostic = row.daytimeDiagnosticsByModel[model],
                                         extras = row.daytimeExtrasByModel[model],
                                         isInferred = model in row.daytimeInferredByModel,
                                         background = palette.dataRowBackground(modelIndex, isToday),
@@ -128,6 +134,7 @@ fun WeatherByModelTable(
                                 Box(modifier = Modifier.weight(1f)) {
                                     IconCell(
                                         condition = night,
+                                        diagnostic = row.nighttimeDiagnosticsByModel[model],
                                         extras = row.nighttimeExtrasByModel[model],
                                         isInferred = model in row.nighttimeInferredByModel,
                                         background = palette.dataRowBackground(modelIndex, isToday),
@@ -140,6 +147,7 @@ fun WeatherByModelTable(
                         } else {
                             IconCell(
                                 condition = row.byModel[model],
+                                diagnostic = row.diagnosticsByModel[model],
                                 extras = row.extrasByModel[model],
                                 isInferred = model in row.inferredByModel,
                                 background = palette.dataRowBackground(modelIndex, isToday),
@@ -196,6 +204,7 @@ private fun HeaderCell(
 @Composable
 private fun IconCell(
     condition: WeatherCondition?,
+    diagnostic: ConditionDecision? = null,
     extras: DayCellExtras?,
     isInferred: Boolean,
     background: Color,
@@ -237,12 +246,22 @@ private fun IconCell(
                 contentAlignment = Alignment.Center
             ) {
                 if (condition == null) {
-                    Text("—", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val symbol = if (diagnostic?.status == ConditionStatus.AMBIGUOUS) "≠" else "—"
+                    val explanation = when (diagnostic?.status) {
+                        ConditionStatus.AMBIGUOUS -> stringResource(R.string.condition_diagnostic_ambiguous)
+                        ConditionStatus.INCOMPLETE -> stringResource(R.string.condition_diagnostic_incomplete)
+                        else -> stringResource(R.string.condition_diagnostic_unavailable)
+                    }
+                    Text(symbol, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.semantics { contentDescription = explanation })
                 } else {
                     // Atténuation réservée aux conditions dérivées, pas aux
                     // codes WMO horaires natifs agrégés.
-                    val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
+                    val maximumLabel = if (diagnostic?.origin == ConditionOrigin.DAILY_WMO_MAXIMUM)
+                        stringResource(R.string.condition_diagnostic_daily_maximum) else null
+                    val contentModifier = (if (isInferred) Modifier.alpha(0.55f) else Modifier)
+                        .then(if (maximumLabel == null) Modifier else Modifier.semantics { contentDescription = maximumLabel })
                     Column(
                         modifier = contentModifier,
                         horizontalAlignment = Alignment.CenterHorizontally,

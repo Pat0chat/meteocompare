@@ -1176,4 +1176,8 @@
     <string name="summary_cloud_layers_solar_minutes">Soleil prévu : %1$d min</string>
     <string name="summary_cloud_layers_dni">Rayonnement direct : %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Pas de données nuageuses disponibles à cette heure.</string>
+    <string name="condition_diagnostic_ambiguous">Modèles ou variables en désaccord : aucune condition dominante certaine.</string>
+    <string name="condition_diagnostic_incomplete">Période partiellement couverte : condition non déterminable.</string>
+    <string name="condition_diagnostic_unavailable">Pas de données suffisantes pour déterminer les conditions.</string>
+    <string name="condition_diagnostic_daily_maximum">Code météo quotidien : phénomène le plus sévère, et non condition dominante.</string>
 </resources>

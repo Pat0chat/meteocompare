@@ -1172,4 +1172,8 @@
     <string name="summary_cloud_layers_solar_minutes">Tahmini güneşlenme: %1$d dk</string>
     <string name="summary_cloud_layers_dni">Doğrudan ışınım: %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Bu saat için bulut katmanı verisi yok.</string>
+    <string name="condition_diagnostic_ambiguous">Modeller veya değişkenler uyuşmuyor: güvenilir baskın hava durumu yok.</string>
+    <string name="condition_diagnostic_incomplete">Dönem kapsamı eksik: hava durumu belirlenemiyor.</string>
+    <string name="condition_diagnostic_unavailable">Hava durumunu belirlemek için yeterli veri yok.</string>
+    <string name="condition_diagnostic_daily_maximum">Günlük hava durumu kodu: baskın koşul değil, en şiddetli olay.</string>
 </resources>

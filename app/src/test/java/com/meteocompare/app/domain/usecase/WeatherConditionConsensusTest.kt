@@ -366,14 +366,13 @@ class WeatherConditionConsensusTest {
             supportModels = listOf(WeatherModel.GFS, WeatherModel.ICON_EU)
         )
 
-        assertEquals(WeatherCondition.DRIZZLE, result.vote.value)
+        // The two medians can come from DIFFERENT models; without a same-model
+        // condition no liquid/solid/sky diagnosis is scientifically defensible.
+        assertEquals(null, result.vote.value)
         assertEquals(null, result.vote.percent)
-        assertEquals(2, result.vote.modelCount)
-        assertEquals(2, result.vote.familyCount)
-        assertEquals(
-            WeatherConditionConsensus.AggregateSource.AGGREGATED_VARIABLES,
-            result.source
-        )
+        assertEquals(0, result.vote.modelCount)
+        assertEquals(0, result.vote.familyCount)
+        assertEquals(WeatherConditionConsensus.AggregateSource.NONE, result.source)
     }
 
     @Test

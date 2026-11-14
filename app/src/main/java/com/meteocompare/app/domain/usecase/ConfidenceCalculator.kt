@@ -17,10 +17,12 @@ import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
-import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.DailyConditionPeriod
 import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.util.dailyPeriodMetrics
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionDecisionEngine
+import com.meteocompare.app.domain.util.ConditionStatus
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -423,7 +425,7 @@ class ConfidenceCalculator @Inject constructor(
     fun dailyConditionsByModel(forecast: CityForecast): List<DayConditionsRow> {
         val zone = com.meteocompare.app.core.util.resolveZoneOrUtc(forecast.city.timezone)
         val allDates = forecast.seriesByModel.values
-            .flatMap { it.daily.dates }
+            .flatMap { it.daily.dates + it.hourly.timestamps.map { instant -> instant.atZone(zone).toLocalDate() } }
             .distinct()
             .sorted()
 
@@ -437,26 +439,32 @@ class ConfidenceCalculator @Inject constructor(
             val nighttimeInferred = mutableSetOf<WeatherModel>()
             val daytimeExtras = mutableMapOf<WeatherModel, DayCellExtras>()
             val nighttimeExtras = mutableMapOf<WeatherModel, DayCellExtras>()
+            val fullDiagnostics = mutableMapOf<WeatherModel, ConditionDecision>()
+            val daytimeDiagnostics = mutableMapOf<WeatherModel, ConditionDecision>()
+            val nighttimeDiagnostics = mutableMapOf<WeatherModel, ConditionDecision>()
             val solar = forecastSolarWindow(forecast, date)
             val nextSolar = forecastSolarWindow(forecast, date.plusDays(1))
 
             forecast.seriesByModel.forEach { (model, series) ->
                 val idx = series.daily.dates.indexOf(date)
-                if (idx < 0) return@forEach
 
-                series.resolveDailyCondition(date, zone)?.let { resolved ->
-                    byModel[model] = resolved.condition
-                    if (resolved.inferred) inferredModels += model
-                }
-
-                series.resolveDailyCondition(date, zone, DailyConditionPeriod.DAY, solar)?.let { resolved ->
-                    daytimeByModel[model] = resolved.condition
-                    if (resolved.inferred) daytimeInferred += model
-                }
-                series.resolveDailyCondition(date, zone, DailyConditionPeriod.NIGHT, solar, nextSolar)?.let { resolved ->
-                    nighttimeByModel[model] = resolved.condition
-                    if (resolved.inferred) nighttimeInferred += model
-                }
+                val full = ConditionDecisionEngine.period(series, date, zone)
+                val dayDecision = ConditionDecisionEngine.period(
+                    series, date, zone, DailyConditionPeriod.DAY, solar)
+                val nightDecision = ConditionDecisionEngine.period(
+                    series, date, zone, DailyConditionPeriod.NIGHT, solar, nextSolar)
+                fullDiagnostics[model] = full
+                daytimeDiagnostics[model] = dayDecision
+                nighttimeDiagnostics[model] = nightDecision
+                full.condition?.let { byModel[model] = it }
+                dayDecision.condition?.let { daytimeByModel[model] = it }
+                nightDecision.condition?.let { nighttimeByModel[model] = it }
+                if (full.condition != null && full.origin == com.meteocompare.app.domain.util.ConditionOrigin.SAME_MODEL_VARIABLES)
+                    inferredModels += model
+                if (dayDecision.condition != null && dayDecision.origin == com.meteocompare.app.domain.util.ConditionOrigin.SAME_MODEL_VARIABLES)
+                    daytimeInferred += model
+                if (nightDecision.condition != null && nightDecision.origin == com.meteocompare.app.domain.util.ConditionOrigin.SAME_MODEL_VARIABLES)
+                    nighttimeInferred += model
 
                 series.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)?.let {
                     daytimeExtras[model] = DayCellExtras(it.precipitationProbabilityMax, it.cloudCoverMean)
@@ -465,7 +473,8 @@ class ConfidenceCalculator @Inject constructor(
                     nighttimeExtras[model] = DayCellExtras(it.precipitationProbabilityMax, it.cloudCoverMean)
                 }
 
-                val precipProb = series.daily.precipitationProbabilityMax.getOrNull(idx)
+                val precipProb = idx.takeIf { it >= 0 }
+                    ?.let { series.daily.precipitationProbabilityMax.getOrNull(it) }
                     ?.takeIf { it in 0..100 }
                 val cloudMean = series.dailyCloudCoverMean(date, zone)
                 if (precipProb != null || cloudMean != null) {
@@ -486,9 +495,16 @@ class ConfidenceCalculator @Inject constructor(
                 daytimeInferredByModel = daytimeInferred,
                 nighttimeInferredByModel = nighttimeInferred,
                 daytimeExtrasByModel = daytimeExtras,
-                nighttimeExtrasByModel = nighttimeExtras
+                nighttimeExtrasByModel = nighttimeExtras,
+                diagnosticsByModel = fullDiagnostics,
+                daytimeDiagnosticsByModel = daytimeDiagnostics,
+                nighttimeDiagnosticsByModel = nighttimeDiagnostics
             )
-        }.filter { it.byModel.isNotEmpty() }
+        }.filter { row ->
+            row.byModel.isNotEmpty() || row.diagnosticsByModel.values.any {
+                it.status == ConditionStatus.AMBIGUOUS || it.status == ConditionStatus.INCOMPLETE
+            }
+        }
     }
 
     /**
@@ -966,7 +982,11 @@ data class DayConditionsRow(
     val daytimeInferredByModel: Set<WeatherModel> = emptySet(),
     val nighttimeInferredByModel: Set<WeatherModel> = emptySet(),
     val daytimeExtrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap(),
-    val nighttimeExtrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap()
+    val nighttimeExtrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap(),
+    /** Full evidence, including why the condition is absent or only a daily maximum. */
+    val diagnosticsByModel: Map<WeatherModel, ConditionDecision> = emptyMap(),
+    val daytimeDiagnosticsByModel: Map<WeatherModel, ConditionDecision> = emptyMap(),
+    val nighttimeDiagnosticsByModel: Map<WeatherModel, ConditionDecision> = emptyMap()
 )
 
 /**
