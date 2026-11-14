@@ -20,8 +20,8 @@ class ConditionStatusV3ContractTest(unittest.TestCase):
         } | {
             'condition_legend_summary', 'condition_legend_help',
             'condition_legend_title', 'condition_legend_not_probability',
-            'condition_explanation_close', 'condition_explanation_alternatives',
-            'condition_explanation_origin', 'condition_explanation_time_coverage',
+            'condition_explanation_close', 'condition_explanation_alternatives_title',
+            'condition_explanation_source_title', 'condition_explanation_time_coverage',
             'condition_explanation_model_coverage', 'condition_explanation_agreement',
         }
         for folder in ('values', 'values-en', 'values-de', 'values-es', 'values-it', 'values-tr'):
@@ -31,7 +31,8 @@ class ConditionStatusV3ContractTest(unittest.TestCase):
 
     def test_all_five_statuses_have_explicit_visual_contract_and_explanations(self):
         visuals = (MAIN / 'domain/util/ConditionPresentation.kt').read_text(encoding='utf-8')
-        components = (MAIN / 'ui/components/ConditionStatusIcon.kt').read_text(encoding='utf-8')
+        components = '\n'.join((MAIN / ('ui/components/' + name)).read_text(encoding='utf-8') for name in
+            ('ConditionStatusIcon.kt', 'ConditionExplanationDialog.kt', 'ConditionStatusLegend.kt'))
         for state in STATES:
             self.assertIn('ConditionStatus.' + state.upper(), visuals)
             self.assertIn('ConditionStatus.' + state.upper(), components)

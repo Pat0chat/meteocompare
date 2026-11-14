@@ -397,7 +397,6 @@ dato</string>
     <string name="weather_legend_thunderstorm">Temporale</string>
 
     <string name="weather_legend_percent_note" formatted="false">La % sotto un’icona = copertura nuvolosa (nuvoloso/coperto) o probabilità di precipitazione (pioggia/neve/temporale).</string>
-    <string name="weather_legend_inferred_note">Icona attenuata = condizione derivata dalle variabili di questo modello.</string>
 
     <string name="bias_chip_content_description">Questo modello %1$s %2$s di %3$s in media su %4$d giorni. Tocca per i dettagli.</string>
 
@@ -1164,10 +1163,6 @@ dato</string>
     <string name="summary_cloud_layers_solar_minutes">Sole previsto: %1$d min</string>
     <string name="summary_cloud_layers_dni">Irraggiamento diretto: %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Nessun dato sugli strati nuvolosi per questa ora.</string>
-    <string name="condition_diagnostic_ambiguous">Modelli o variabili in disaccordo: nessuna condizione dominante certa.</string>
-    <string name="condition_diagnostic_incomplete">Copertura del periodo incompleta: condizione non determinabile.</string>
-    <string name="condition_diagnostic_unavailable">Dati insufficienti per determinare le condizioni.</string>
-    <string name="condition_diagnostic_daily_maximum">Codice meteo giornaliero: evento più intenso, non condizione dominante.</string>
 
     <!-- Condition engine V3: status, provenance, diagnostics and legend. -->
     <string name="condition_status_reliable">Previsione supportata</string>
@@ -1176,40 +1171,44 @@ dato</string>
     <string name="condition_status_incomplete">Copertura parziale ◔</string>
     <string name="condition_status_unavailable">Non disponibile —</string>
     <string name="condition_status_not_specified">Origine sconosciuta</string>
-    <string name="condition_status_reliable_desc">Condition supported by native weather codes or a consistent dominant condition across the full period. This does not guarantee the forecast will occur.</string>
-    <string name="condition_status_estimated_desc">Condition inferred from variables belonging to one model, or from a consensus using estimates. ≈ indicates an inference.</string>
-    <string name="condition_status_ambiguous_desc">Several conditions are plausible; there is no certain dominant condition. Small icons show alternatives and ≠ indicates disagreement.</string>
+    <string name="condition_status_reliable_desc">Condizione supportata da codici meteo originali o da una dominante coerente per tutto il periodo. Non garantisce che la previsione si avveri.</string>
+    <string name="condition_status_estimated_desc">Condizione ricavata da variabili dello stesso modello o da un consenso con stime. ≈ indica una stima.</string>
+    <string name="condition_status_ambiguous_desc">Più condizioni sono plausibili, senza una dominante certa. Le piccole icone mostrano alternative e ≠ segnala il disaccordo.</string>
     <string name="condition_status_incomplete_desc">Mancano alcune ore o parti del periodo. Un’icona può apparire se esiste una maggioranza dimostrabile o campioni sufficientemente rappresentativi. ◔ indica copertura parziale.</string>
-    <string name="condition_status_unavailable_desc">Insufficient data to identify a weather condition. — means no usable forecast is available.</string>
-    <string name="condition_explanation_forecast">Condition: %1$s</string>
-    <string name="condition_explanation_alternatives">Alternatives: %1$s</string>
-    <string name="condition_explanation_origin">Source: %1$s</string>
-    <string name="condition_explanation_model_coverage">Models with a condition: %1$d %%</string>
-    <string name="condition_explanation_time_coverage">Period covered: %1$d %%</string>
-    <string name="condition_explanation_agreement">Model agreement: %1$d %% (not calibrated)</string>
-    <string name="condition_explanation_notable">Notable phenomenon: %1$s</string>
+    <string name="condition_status_unavailable_desc">Dati insufficienti per identificare la condizione meteo. — significa che non ci sono previsioni utilizzabili.</string>
+    <string name="condition_explanation_model_coverage">Modelli con condizione: %1$d %%</string>
+    <string name="condition_explanation_time_coverage">Periodo coperto: %1$d %%</string>
+    <string name="condition_explanation_agreement">Accordo tra modelli: %1$d %% (non calibrato)</string>
+    <string name="condition_explanation_notable">Fenomeno rilevante: %1$s</string>
     <string name="condition_explanation_close">Chiudi</string>
-    <string name="condition_origin_wmo">Native hourly WMO code</string>
-    <string name="condition_origin_variables">Same-model weather variables</string>
-    <string name="condition_origin_hourly">Dominant hourly condition</string>
-    <string name="condition_origin_daily_max">Daily WMO code (most severe event)</string>
-    <string name="condition_origin_consensus">Multi-model consensus</string>
-    <string name="condition_origin_none">No usable source</string>
-    <string name="condition_reason_missing">Missing weather data</string>
-    <string name="condition_reason_invalid">Invalid weather code or physical value</string>
-    <string name="condition_reason_clouds">Some cloud layers are missing</string>
-    <string name="condition_reason_precip">Precipitation accumulated during the preceding hour</string>
-    <string name="condition_reason_phase">Rain/snow phase is uncertain</string>
-    <string name="condition_reason_partial">Partial period coverage</string>
-    <string name="condition_reason_majority">Majority proven despite missing hours</string>
-    <string name="condition_reason_representative">Sufficiently representative hourly samples</string>
-    <string name="condition_reason_no_dominant">No proven dominant condition</string>
-    <string name="condition_reason_sun">Sunrise or sunset data missing</string>
-    <string name="condition_reason_disagreement">Models disagree</string>
-    <string name="condition_reason_daily_max">Daily code need not represent dominant weather</string>
+    <string name="condition_origin_wmo">Codice WMO orario originale</string>
+    <string name="condition_origin_variables">Variabili dello stesso modello</string>
+    <string name="condition_origin_hourly">Condizione oraria dominante</string>
+    <string name="condition_origin_daily_max">Codice WMO giornaliero (fenomeno più intenso)</string>
+    <string name="condition_origin_consensus">Consenso tra modelli</string>
+    <string name="condition_origin_none">Nessuna fonte utilizzabile</string>
+    <string name="condition_reason_missing">Dati meteorologici mancanti</string>
+    <string name="condition_reason_invalid">Codice o valore meteorologico non valido</string>
+    <string name="condition_reason_clouds">Mancano alcuni strati nuvolosi</string>
+    <string name="condition_reason_precip">Precipitazioni accumulate nell’ora precedente</string>
+    <string name="condition_reason_phase">Tipo di precipitazione pioggia/neve incerto</string>
+    <string name="condition_reason_partial">Copertura parziale del periodo</string>
+    <string name="condition_reason_majority">Maggioranza dimostrata nonostante le ore mancanti</string>
+    <string name="condition_reason_representative">Campioni orari sufficientemente rappresentativi</string>
+    <string name="condition_reason_no_dominant">Nessuna condizione dominante dimostrata</string>
+    <string name="condition_reason_sun">Mancano dati su alba o tramonto</string>
+    <string name="condition_reason_disagreement">I modelli non concordano</string>
+    <string name="condition_reason_daily_max">Il codice giornaliero non rappresenta necessariamente la condizione dominante</string>
     <string name="condition_legend_summary">≈ Stimata · ≠ Alternative · ◔ Parziale · — Nessun dato</string>
     <string name="condition_legend_help">Spiegazione</string>
     <string name="condition_legend_title">Capire le condizioni meteo</string>
-    <string name="condition_legend_not_probability">These labels describe origin and data coverage, not a calibrated probability of accuracy. Tap any icon to see its sources and limitations.</string>
+    <string name="condition_legend_not_probability">Queste etichette descrivono origine e copertura dei dati, non una probabilità calibrata di correttezza. Tocca un’icona per conoscere fonti e limiti.</string>
     <string name="condition_status_not_specified_desc">Questa icona non include dettagli sulla fonte e non garantisce l’accuratezza della previsione.</string>
+    <!-- Themed condition explanation and contextual legend (V5). -->
+    <string name="condition_detail_title">Dettagli delle previsioni</string>
+    <string name="condition_explanation_no_condition">Condizione indeterminata</string>
+    <string name="condition_explanation_data_title">Dati e provenienza</string>
+    <string name="condition_explanation_source_title">Metodo di calcolo</string>
+    <string name="condition_explanation_alternatives_title">Scenari possibili</string>
+    <string name="condition_explanation_reasons_title">Perché questo stato?</string>
 </resources>

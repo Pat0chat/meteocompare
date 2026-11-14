@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
@@ -57,7 +58,8 @@ class ConditionStatusIconTest {
         statuses.forEach { (_, title) ->
             composeRule.onNodeWithContentDescription(context.getString(title), substring = true)
                 .assertIsDisplayed().performClick()
-            composeRule.onNodeWithText(context.getString(title), useUnmergedTree = true)
+            composeRule.onNodeWithTag("condition_explanation_dialog").assertIsDisplayed()
+            composeRule.onNodeWithText(context.getString(title), substring = true, useUnmergedTree = true)
                 .assertIsDisplayed()
             composeRule.onNodeWithText(context.getString(R.string.condition_explanation_close))
                 .performClick()
@@ -80,6 +82,9 @@ class ConditionStatusIconTest {
             substring = true).performClick()
         composeRule.onNodeWithText(context.getString(R.string.condition_explanation_time_coverage, 63))
             .assertIsDisplayed()
+        composeRule.onNodeWithTag("condition_coverage").assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.condition_explanation_reasons_title))
+            .assertExists()
     }
 
     @Test
@@ -93,22 +98,72 @@ class ConditionStatusIconTest {
         }
         composeRule.onNodeWithContentDescription(context.getString(R.string.condition_status_ambiguous),
             substring = true).performClick()
-        composeRule.onNodeWithText(context.getString(R.string.condition_explanation_alternatives,
-            context.getString(com.meteocompare.app.core.locale.weatherConditionLabelRes(WeatherCondition.CLEAR)) +
-                " / " + context.getString(com.meteocompare.app.core.locale.weatherConditionLabelRes(WeatherCondition.RAIN))))
+        composeRule.onNodeWithText(context.getString(R.string.condition_explanation_alternatives_title))
             .assertIsDisplayed()
+        composeRule.onNodeWithText(context.getString(
+            com.meteocompare.app.core.locale.weatherConditionLabelRes(WeatherCondition.CLEAR)
+        )).assertExists()
+        composeRule.onNodeWithText(context.getString(
+            com.meteocompare.app.core.locale.weatherConditionLabelRes(WeatherCondition.RAIN)
+        )).assertExists()
     }
 
     @Test
     fun legend_explains_all_five_statuses() {
         composeRule.setContent { MeteoCompareTheme { ConditionStatusLegend() } }
-        composeRule.onNodeWithText(context.getString(R.string.condition_legend_help)).performClick()
+        composeRule.onNodeWithTag("condition_status_legend").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("condition_legend_dialog").assertIsDisplayed()
         listOf(R.string.condition_status_reliable, R.string.condition_status_estimated,
             R.string.condition_status_ambiguous, R.string.condition_status_incomplete,
             R.string.condition_status_unavailable).forEach {
-            composeRule.onNodeWithText(context.getString(it), useUnmergedTree = true).assertExists()
+            composeRule.onNodeWithText(context.getString(it), substring = true, useUnmergedTree = true).assertExists()
         }
         composeRule.onNodeWithText(context.getString(R.string.condition_legend_not_probability))
             .assertExists()
     }
+    @Test
+    fun dialog_header_close_works_with_scrollable_diagnostics() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(
+                    WeatherCondition.RAIN,
+                    ConditionDecision(
+                        WeatherCondition.RAIN,
+                        ConditionStatus.INCOMPLETE,
+                        ConditionOrigin.HOURLY_DOMINANT,
+                        coverage = 0.625,
+                        agreement = 0.58,
+                        reasons = ConditionReason.entries.toSet(),
+                        notablePhenomenon = WeatherCondition.THUNDERSTORM
+                    )
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_incomplete), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_explanation_dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("condition_dialog_close").performClick()
+        composeRule.onNodeWithTag("condition_explanation_dialog").assertDoesNotExist()
+    }
+
+    @Test
+    fun unavailable_explanation_does_not_show_fake_coverage() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(
+                    null,
+                    ConditionDecision(null, ConditionStatus.UNAVAILABLE, ConditionOrigin.NONE)
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_unavailable), substring = true
+        ).performClick()
+        composeRule.onNodeWithText(context.getString(R.string.condition_explanation_no_condition))
+            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.condition_origin_none)).assertExists()
+        composeRule.onNodeWithTag("condition_coverage").assertDoesNotExist()
+    }
+
 }

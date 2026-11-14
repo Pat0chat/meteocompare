@@ -33,7 +33,7 @@ class ConditionWiringV4Contract(unittest.TestCase):
             self.assertIn(token, screen)
         self.assertIn("conditionDiagnostics.getOrNull(index)", strip)
         self.assertIn("ConditionStatusIcon(", strip)
-        self.assertIn("ConditionStatusLegend(", screen)
+        self.assertNotIn("ConditionStatusLegend(", screen)
 
     def test_city_detail_current_uses_same_condition_and_decision(self):
         vm = code("ui/citydetail/CityDetailViewModel.kt")
@@ -102,7 +102,8 @@ class ConditionWiringV4Contract(unittest.TestCase):
         self.assertIn("ConditionDecisionEngine.hourly(this, index).condition", code("domain/util/ForecastSeriesDaily.kt"))
 
     def test_diagnostics_have_one_explanation_and_visual_vocabulary(self):
-        ui = code("ui/components/ConditionStatusIcon.kt")
+        ui = "\n".join(code("ui/components/" + name) for name in (
+            "ConditionStatusIcon.kt", "ConditionExplanationDialog.kt", "ConditionStatusLegend.kt"))
         for status in ("RELIABLE", "ESTIMATED", "AMBIGUOUS", "INCOMPLETE", "UNAVAILABLE"):
             self.assertIn("ConditionStatus." + status, ui)
         self.assertIn("ConditionExplanationDialog(", ui)

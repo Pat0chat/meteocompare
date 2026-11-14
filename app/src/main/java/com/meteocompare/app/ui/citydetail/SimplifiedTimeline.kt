@@ -222,6 +222,9 @@ internal fun SimplifiedTimelineCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
+                // Keep the explanation with the timeline controls, before either layout.
+                ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+
                 when (layout) {
                     TimelineLayout.COLUMNS -> LazyRow(
                         state = listState,
@@ -274,8 +277,6 @@ internal fun SimplifiedTimelineCard(
                         highlightedKey = highlightedKey
                     )
                 }
-
-                ConditionStatusLegend(Modifier.padding(horizontal = 16.dp))
 
                 if (points.any { it.isDivergent }) {
                     Row(

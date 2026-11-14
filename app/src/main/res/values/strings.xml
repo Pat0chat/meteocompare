@@ -394,7 +394,6 @@
     <string name="weather_legend_thunderstorm">Orage</string>
 
     <string name="weather_legend_percent_note" formatted="false">Le % sous une icône = couverture nuageuse (nuageux/couvert) ou probabilité de pluie (pluie/neige/orage).</string>
-    <string name="weather_legend_inferred_note">Icône atténuée = condition dérivée des variables de ce modèle.</string>
 
     <string name="bias_chip_content_description">Ce modèle %1$s %2$s de %3$s en moyenne sur %4$d jours. Toucher pour voir le détail.</string>
 
@@ -1176,10 +1175,6 @@
     <string name="summary_cloud_layers_solar_minutes">Soleil prévu : %1$d min</string>
     <string name="summary_cloud_layers_dni">Rayonnement direct : %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Pas de données nuageuses disponibles à cette heure.</string>
-    <string name="condition_diagnostic_ambiguous">Modèles ou variables en désaccord : aucune condition dominante certaine.</string>
-    <string name="condition_diagnostic_incomplete">Période partiellement couverte : condition non déterminable.</string>
-    <string name="condition_diagnostic_unavailable">Pas de données suffisantes pour déterminer les conditions.</string>
-    <string name="condition_diagnostic_daily_maximum">Code météo quotidien : phénomène le plus sévère, et non condition dominante.</string>
 
     <!-- Condition engine V3: status, provenance, diagnostics and legend. -->
     <string name="condition_status_reliable">Prévision étayée</string>
@@ -1193,9 +1188,6 @@
     <string name="condition_status_ambiguous_desc">Plusieurs conditions restent crédibles : aucune dominante sûre. Les petites icônes montrent des alternatives et ≠ indique le désaccord.</string>
     <string name="condition_status_incomplete_desc">Certaines heures ou parties de la période manquent. Une icône peut apparaître si une majorité est démontrée ou si les échantillons disponibles sont suffisamment représentatifs. ◔ indique une couverture partielle.</string>
     <string name="condition_status_unavailable_desc">Données insuffisantes pour choisir une condition météo. — indique une véritable absence de prévision exploitable.</string>
-    <string name="condition_explanation_forecast">Condition : %1$s</string>
-    <string name="condition_explanation_alternatives">Alternatives : %1$s</string>
-    <string name="condition_explanation_origin">Source : %1$s</string>
     <string name="condition_explanation_model_coverage">Modèles avec condition : %1$d %%</string>
     <string name="condition_explanation_time_coverage">Période couverte : %1$d %%</string>
     <string name="condition_explanation_agreement">Accord entre modèles : %1$d %% (non calibré)</string>
@@ -1224,4 +1216,11 @@
     <string name="condition_legend_title">Comment lire les conditions météo ?</string>
     <string name="condition_legend_not_probability">Ces statuts décrivent la provenance et la couverture des données, pas une probabilité chiffrée de fiabilité. Appuyez sur une icône pour afficher ses sources et limites.</string>
     <string name="condition_status_not_specified_desc">Cette icône ne comporte pas de diagnostic de provenance. Elle ne garantit aucune précision météorologique.</string>
+    <!-- Themed condition explanation and contextual legend (V5). -->
+    <string name="condition_detail_title">Détails de la prévision</string>
+    <string name="condition_explanation_no_condition">Condition indéterminée</string>
+    <string name="condition_explanation_data_title">Données et provenance</string>
+    <string name="condition_explanation_source_title">Méthode de calcul</string>
+    <string name="condition_explanation_alternatives_title">Scénarios possibles</string>
+    <string name="condition_explanation_reasons_title">Pourquoi ce statut ?</string>
 </resources>

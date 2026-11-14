@@ -973,71 +973,72 @@ private fun EngineDailyComparisonTable(
     val scrollState = rememberScrollState()
     val tableWidth = 620.dp
 
-    Column(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState).width(tableWidth)
-    ) {
-        ConditionStatusLegend()
-        EngineTableHeader(selectedEngine)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Explanation remains visible independently of horizontal table scrolling.
+        ConditionStatusLegend(Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+        Column(modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState).width(tableWidth)) {
+            EngineTableHeader(selectedEngine)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        days.forEachIndexed { dayIndex, day ->
-            Text(
-                text = formatDate(day.date, locale),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_metric_temp_min),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.tempMin, locale, WeatherUnit.TEMPERATURE_COMPACT, units = units) }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_metric_temp_max),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.tempMax, locale, WeatherUnit.TEMPERATURE_COMPACT, units = units) }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_metric_precipitation),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.precipitationAmountMm, locale, WeatherUnit.PRECIPITATION, units = units) }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_table_probability),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> value?.precipitationProbabilityPercent?.let { "$it%" } ?: "—" }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_table_expected_rain),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatDecimal(value?.precipitationExpectedMm, locale, WeatherUnit.PRECIPITATION, units = units) }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_metric_wind),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatInteger(value?.windKmh, locale, WeatherUnit.WIND_SPEED, units = units) }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_metric_gust),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatInteger(value?.gustKmh, locale, WeatherUnit.WIND_SPEED, units = units) }
-            )
-            ComparisonTableRow(
-                label = stringResource(R.string.engine_metric_cloud),
-                selectedEngine = selectedEngine,
-                values = day.valuesForEngines { value -> formatInteger(value?.cloudPercent, locale, WeatherUnit.PERCENT, units = units) }
-            )
-            EngineConditionTableRow(day, selectedEngine)
-
-            if (dayIndex != days.lastIndex) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    thickness = 2.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
+            days.forEachIndexed { dayIndex, day ->
+                Text(
+                    text = formatDate(day.date, locale),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
+
+
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_metric_temp_min),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatDecimal(value?.tempMin, locale, WeatherUnit.TEMPERATURE_COMPACT, units = units) }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_metric_temp_max),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatDecimal(value?.tempMax, locale, WeatherUnit.TEMPERATURE_COMPACT, units = units) }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_metric_precipitation),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatDecimal(value?.precipitationAmountMm, locale, WeatherUnit.PRECIPITATION, units = units) }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_table_probability),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> value?.precipitationProbabilityPercent?.let { "$it%" } ?: "—" }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_table_expected_rain),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatDecimal(value?.precipitationExpectedMm, locale, WeatherUnit.PRECIPITATION, units = units) }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_metric_wind),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatInteger(value?.windKmh, locale, WeatherUnit.WIND_SPEED, units = units) }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_metric_gust),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatInteger(value?.gustKmh, locale, WeatherUnit.WIND_SPEED, units = units) }
+                )
+                ComparisonTableRow(
+                    label = stringResource(R.string.engine_metric_cloud),
+                    selectedEngine = selectedEngine,
+                    values = day.valuesForEngines { value -> formatInteger(value?.cloudPercent, locale, WeatherUnit.PERCENT, units = units) }
+                )
+                EngineConditionTableRow(day, selectedEngine)
+
+                if (dayIndex != days.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        thickness = 2.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
             }
         }
     }

@@ -392,7 +392,6 @@
     <string name="weather_legend_thunderstorm">Fırtına</string>
 
     <string name="weather_legend_percent_note" formatted="false">Simge altındaki % = bulutluluk (bulutlu/kapalı) veya yağış olasılığı (yağmur/kar/gök gürültülü fırtına).</string>
-    <string name="weather_legend_inferred_note">Soluk simge = koşulun bu modelin değişkenlerinden türetildiğini gösterir.</string>
 
     <string name="bias_chip_content_description">Bu model, son %4$d gündür %2$s için ortalama %3$s %1$s. Ayrıntılar için dokunun.</string>
 
@@ -1172,10 +1171,6 @@
     <string name="summary_cloud_layers_solar_minutes">Tahmini güneşlenme: %1$d dk</string>
     <string name="summary_cloud_layers_dni">Doğrudan ışınım: %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">Bu saat için bulut katmanı verisi yok.</string>
-    <string name="condition_diagnostic_ambiguous">Modeller veya değişkenler uyuşmuyor: güvenilir baskın hava durumu yok.</string>
-    <string name="condition_diagnostic_incomplete">Dönem kapsamı eksik: hava durumu belirlenemiyor.</string>
-    <string name="condition_diagnostic_unavailable">Hava durumunu belirlemek için yeterli veri yok.</string>
-    <string name="condition_diagnostic_daily_maximum">Günlük hava durumu kodu: baskın koşul değil, en şiddetli olay.</string>
 
     <!-- Condition engine V3: status, provenance, diagnostics and legend. -->
     <string name="condition_status_reliable">Desteklenen tahmin</string>
@@ -1184,40 +1179,44 @@
     <string name="condition_status_incomplete">Kısmi kapsam ◔</string>
     <string name="condition_status_unavailable">Kullanılamıyor —</string>
     <string name="condition_status_not_specified">Kaynak belirtilmedi</string>
-    <string name="condition_status_reliable_desc">Condition supported by native weather codes or a consistent dominant condition across the full period. This does not guarantee the forecast will occur.</string>
-    <string name="condition_status_estimated_desc">Condition inferred from variables belonging to one model, or from a consensus using estimates. ≈ indicates an inference.</string>
-    <string name="condition_status_ambiguous_desc">Several conditions are plausible; there is no certain dominant condition. Small icons show alternatives and ≠ indicates disagreement.</string>
+    <string name="condition_status_reliable_desc">Hava durumu, özgün hava kodlarıyla veya tüm dönem boyunca tutarlı biçimde baskın olan koşulla desteklenir. Tahminin gerçekleşeceği garanti değildir.</string>
+    <string name="condition_status_estimated_desc">Koşul, aynı modelin değişkenlerinden veya tahmin içeren bir model uzlaşısından çıkarılır. ≈ işareti çıkarımı belirtir.</string>
+    <string name="condition_status_ambiguous_desc">Birden fazla koşul olasıdır; kesin bir baskın koşul yoktur. Küçük simgeler alternatifleri, ≠ ise görüş ayrılığını gösterir.</string>
     <string name="condition_status_incomplete_desc">Dönemin bazı saatleri veya bölümleri eksik. Çoğunluk kanıtlanabiliyorsa veya eldeki örnekler yeterince temsil ediciyse simge gösterilebilir. ◔ kısmi kapsamı belirtir.</string>
-    <string name="condition_status_unavailable_desc">Insufficient data to identify a weather condition. — means no usable forecast is available.</string>
-    <string name="condition_explanation_forecast">Condition: %1$s</string>
-    <string name="condition_explanation_alternatives">Alternatives: %1$s</string>
-    <string name="condition_explanation_origin">Source: %1$s</string>
-    <string name="condition_explanation_model_coverage">Models with a condition: %1$d %%</string>
-    <string name="condition_explanation_time_coverage">Period covered: %1$d %%</string>
-    <string name="condition_explanation_agreement">Model agreement: %1$d %% (not calibrated)</string>
-    <string name="condition_explanation_notable">Notable phenomenon: %1$s</string>
+    <string name="condition_status_unavailable_desc">Hava koşulunu belirlemek için yeterli veri yok. — kullanılabilir tahmin olmadığını gösterir.</string>
+    <string name="condition_explanation_model_coverage">Koşul bildiren modeller: %1$d %%</string>
+    <string name="condition_explanation_time_coverage">Kapsanan dönem: %1$d %%</string>
+    <string name="condition_explanation_agreement">Model uyumu: %1$d %% (kalibre edilmemiş)</string>
+    <string name="condition_explanation_notable">Dikkat çeken olay: %1$s</string>
     <string name="condition_explanation_close">Kapat</string>
-    <string name="condition_origin_wmo">Native hourly WMO code</string>
-    <string name="condition_origin_variables">Same-model weather variables</string>
-    <string name="condition_origin_hourly">Dominant hourly condition</string>
-    <string name="condition_origin_daily_max">Daily WMO code (most severe event)</string>
-    <string name="condition_origin_consensus">Multi-model consensus</string>
-    <string name="condition_origin_none">No usable source</string>
-    <string name="condition_reason_missing">Missing weather data</string>
-    <string name="condition_reason_invalid">Invalid weather code or physical value</string>
-    <string name="condition_reason_clouds">Some cloud layers are missing</string>
-    <string name="condition_reason_precip">Precipitation accumulated during the preceding hour</string>
-    <string name="condition_reason_phase">Rain/snow phase is uncertain</string>
-    <string name="condition_reason_partial">Partial period coverage</string>
-    <string name="condition_reason_majority">Majority proven despite missing hours</string>
-    <string name="condition_reason_representative">Sufficiently representative hourly samples</string>
-    <string name="condition_reason_no_dominant">No proven dominant condition</string>
-    <string name="condition_reason_sun">Sunrise or sunset data missing</string>
-    <string name="condition_reason_disagreement">Models disagree</string>
-    <string name="condition_reason_daily_max">Daily code need not represent dominant weather</string>
+    <string name="condition_origin_wmo">Özgün saatlik WMO kodu</string>
+    <string name="condition_origin_variables">Aynı modelin hava değişkenleri</string>
+    <string name="condition_origin_hourly">Baskın saatlik hava koşulu</string>
+    <string name="condition_origin_daily_max">Günlük WMO kodu (en şiddetli olay)</string>
+    <string name="condition_origin_consensus">Modeller arası uzlaşı</string>
+    <string name="condition_origin_none">Kullanılabilir kaynak yok</string>
+    <string name="condition_reason_missing">Hava verileri eksik</string>
+    <string name="condition_reason_invalid">Geçersiz hava kodu veya fiziksel değer</string>
+    <string name="condition_reason_clouds">Bazı bulut katmanları eksik</string>
+    <string name="condition_reason_precip">Önceki saat boyunca biriken yağış</string>
+    <string name="condition_reason_phase">Yağmur/kar türü belirsiz</string>
+    <string name="condition_reason_partial">Dönem kısmen kapsanıyor</string>
+    <string name="condition_reason_majority">Eksik saatlere rağmen çoğunluk kanıtlandı</string>
+    <string name="condition_reason_representative">Yeterince temsil edici saatlik örnekler</string>
+    <string name="condition_reason_no_dominant">Baskın hava koşulu kanıtlanamadı</string>
+    <string name="condition_reason_sun">Gün doğumu veya gün batımı verileri eksik</string>
+    <string name="condition_reason_disagreement">Modeller uyuşmuyor</string>
+    <string name="condition_reason_daily_max">Günlük kod her zaman baskın hava durumunu göstermez</string>
     <string name="condition_legend_summary">≈ Tahminî · ≠ Alternatifler · ◔ Kısmi · — Veri yok</string>
     <string name="condition_legend_help">Açıklama</string>
     <string name="condition_legend_title">Hava durumunu anlama</string>
-    <string name="condition_legend_not_probability">These labels describe origin and data coverage, not a calibrated probability of accuracy. Tap any icon to see its sources and limitations.</string>
+    <string name="condition_legend_not_probability">Bu etiketler verilerin kaynağını ve kapsamını açıklar; tahminin tutma olasılığını göstermez. Kaynakları ve sınırlamaları görmek için bir simgeye dokunun.</string>
     <string name="condition_status_not_specified_desc">Bu simge için kaynak bilgisi yoktur; tahminin doğruluğunu garanti etmez.</string>
+    <!-- Themed condition explanation and contextual legend (V5). -->
+    <string name="condition_detail_title">Tahmin ayrıntıları</string>
+    <string name="condition_explanation_no_condition">Belirlenemeyen hava durumu</string>
+    <string name="condition_explanation_data_title">Veriler ve kaynak</string>
+    <string name="condition_explanation_source_title">Hesaplama yöntemi</string>
+    <string name="condition_explanation_alternatives_title">Olası senaryolar</string>
+    <string name="condition_explanation_reasons_title">Bu durumun nedeni nedir?</string>
 </resources>

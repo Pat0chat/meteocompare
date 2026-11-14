@@ -139,7 +139,6 @@ import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.ui.components.ConditionStatusIcon
-import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.domain.model.WeatherScenario
 import com.meteocompare.app.domain.model.WeatherScenarioKind
 import com.meteocompare.app.domain.model.WeatherScenarioTiming
@@ -1402,8 +1401,6 @@ private fun CityCardLoaded(
             hourlyTemps = next24hTemps,
             isNight = currentIsNight
         )
-
-        ConditionStatusLegend(Modifier.padding(top = 2.dp))
 
         if (uvIndex != null) {
             Spacer(Modifier.height(9.dp))

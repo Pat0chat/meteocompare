@@ -4,18 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +24,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,9 +37,8 @@ import com.meteocompare.app.domain.util.ConditionStatus
 import com.meteocompare.app.domain.util.ConditionVisualTreatment
 import com.meteocompare.app.domain.util.conditionVisualTreatment
 import com.meteocompare.app.domain.util.visibleConditionAlternatives
-import kotlin.math.roundToInt
 
-/** All five diagnoses share the same icon language and a tap-to-explain dialog. */
+/** Shared visual state for forecast icons; all surfaces open the same explanation. */
 @Composable
 internal fun ConditionStatusIcon(
     condition: WeatherCondition?,
@@ -102,7 +95,7 @@ internal fun ConditionStatusIcon(
         }
     }
     if (showDetails) {
-        ConditionExplanationDialog(condition, decision, onDismiss = { showDetails = false })
+        ConditionExplanationDialog(condition, decision, isNight, onDismiss = { showDetails = false })
     }
 }
 
@@ -119,78 +112,31 @@ private fun StatusMarker(value: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun ConditionExplanationDialog(
-    condition: WeatherCondition?,
-    decision: ConditionDecision?,
-    onDismiss: () -> Unit
-) {
-    val status = decision?.status
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(status?.let(::statusLabelRes) ?: R.string.condition_status_not_specified)) },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(status?.let(::statusDescriptionRes)
-                    ?: R.string.condition_status_not_specified_desc))
-                condition?.let { Text(stringResource(R.string.condition_explanation_forecast,
-                    stringResource(weatherConditionLabelRes(it)))) }
-                visibleConditionAlternatives(decision).takeIf { it.isNotEmpty() }?.let { alternatives ->
-                    Text(stringResource(R.string.condition_explanation_alternatives,
-                        alternatives.map { stringResource(weatherConditionLabelRes(it)) }.joinToString(" / ")))
-                }
-                decision?.let { result ->
-                    Text(stringResource(R.string.condition_explanation_origin,
-                        stringResource(originLabelRes(result.origin))))
-                    if (result.origin != ConditionOrigin.NONE) {
-                        val resource = if (result.origin == ConditionOrigin.MODEL_CONSENSUS)
-                            R.string.condition_explanation_model_coverage else R.string.condition_explanation_time_coverage
-                        Text(stringResource(resource, (result.coverage * 100).roundToInt()))
-                    }
-                    result.agreement?.let { agreement ->
-                        Text(stringResource(R.string.condition_explanation_agreement,
-                            (agreement * 100).roundToInt()))
-                    }
-                    result.reasons.forEach { reason -> Text("• " + stringResource(reasonLabelRes(reason))) }
-                    result.notablePhenomenon?.takeIf { it != condition }?.let { notable ->
-                        Text(stringResource(R.string.condition_explanation_notable,
-                            stringResource(weatherConditionLabelRes(notable))))
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.condition_explanation_close)) } }
-    )
+internal fun statusSymbol(status: ConditionStatus): String = when (status) {
+    ConditionStatus.RELIABLE -> "✓"
+    ConditionStatus.ESTIMATED -> "≈"
+    ConditionStatus.AMBIGUOUS -> "≠"
+    ConditionStatus.INCOMPLETE -> "◔"
+    ConditionStatus.UNAVAILABLE -> "—"
 }
 
 @Composable
-internal fun ConditionStatusLegend(modifier: Modifier = Modifier) {
-    var open by remember { mutableStateOf(false) }
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+internal fun statusAccent(status: ConditionStatus): Color = when (status) {
+    ConditionStatus.RELIABLE -> MaterialTheme.colorScheme.primary
+    ConditionStatus.ESTIMATED -> MaterialTheme.colorScheme.secondary
+    ConditionStatus.AMBIGUOUS, ConditionStatus.INCOMPLETE -> MaterialTheme.colorScheme.tertiary
+    ConditionStatus.UNAVAILABLE -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+@Composable
+internal fun StatusPill(status: ConditionStatus) {
+    val accent = statusAccent(status)
+    Surface(shape = CircleShape, color = accent.copy(alpha = 0.12f), contentColor = accent) {
         Text(
-            stringResource(R.string.condition_legend_summary),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis
-        )
-        TextButton(onClick = { open = true }) { Text(stringResource(R.string.condition_legend_help)) }
-    }
-    if (open) {
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(stringResource(R.string.condition_legend_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    ConditionStatus.entries.forEach { status ->
-                        Column {
-                            Text(stringResource(statusLabelRes(status)), fontWeight = FontWeight.SemiBold)
-                            Text(stringResource(statusDescriptionRes(status)), style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Text(stringResource(R.string.condition_legend_not_probability), style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.condition_explanation_close)) } }
+            stringResource(statusLabelRes(status)),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

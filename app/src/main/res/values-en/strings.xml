@@ -394,7 +394,6 @@
     <string name="weather_legend_thunderstorm">Thunderstorm</string>
 
     <string name="weather_legend_percent_note" formatted="false">The % under an icon = cloud cover (cloudy/overcast) or precipitation probability (rain/snow/thunderstorm).</string>
-    <string name="weather_legend_inferred_note">Dimmed icon = condition derived from this model’s variables.</string>
 
     <string name="bias_chip_content_description">This model %1$s %2$s by %3$s on average over %4$d days. Tap for details.</string>
 
@@ -1175,10 +1174,6 @@
     <string name="summary_cloud_layers_solar_minutes">Forecast sunshine: %1$d min</string>
     <string name="summary_cloud_layers_dni">Direct irradiance: %1$d W/m²</string>
     <string name="summary_cloud_layers_unavailable">No cloud-layer data are available for this hour.</string>
-    <string name="condition_diagnostic_ambiguous">Conflicting models or variables: no reliable dominant condition.</string>
-    <string name="condition_diagnostic_incomplete">Incomplete period coverage: weather condition cannot be determined.</string>
-    <string name="condition_diagnostic_unavailable">Insufficient data to determine weather conditions.</string>
-    <string name="condition_diagnostic_daily_maximum">Daily weather code: most severe event, not the dominant condition.</string>
 
     <!-- Condition engine V3: status, provenance, diagnostics and legend. -->
     <string name="condition_status_reliable">Supported forecast</string>
@@ -1192,9 +1187,6 @@
     <string name="condition_status_ambiguous_desc">Several conditions are plausible; there is no certain dominant condition. Small icons show alternatives and ≠ indicates disagreement.</string>
     <string name="condition_status_incomplete_desc">Some hours or parts of the period are missing. An icon may appear if a majority is proven or the available samples are sufficiently representative. ◔ marks partial coverage.</string>
     <string name="condition_status_unavailable_desc">Insufficient data to identify a weather condition. — means no usable forecast is available.</string>
-    <string name="condition_explanation_forecast">Condition: %1$s</string>
-    <string name="condition_explanation_alternatives">Alternatives: %1$s</string>
-    <string name="condition_explanation_origin">Source: %1$s</string>
     <string name="condition_explanation_model_coverage">Models with a condition: %1$d %%</string>
     <string name="condition_explanation_time_coverage">Period covered: %1$d %%</string>
     <string name="condition_explanation_agreement">Model agreement: %1$d %% (not calibrated)</string>
@@ -1223,4 +1215,11 @@
     <string name="condition_legend_title">How to read weather conditions</string>
     <string name="condition_legend_not_probability">These labels describe origin and data coverage, not a calibrated probability of accuracy. Tap any icon to see its sources and limitations.</string>
     <string name="condition_status_not_specified_desc">No source diagnosis is attached to this icon; it does not imply calibrated forecast accuracy.</string>
+    <!-- Themed condition explanation and contextual legend (V5). -->
+    <string name="condition_detail_title">Forecast details</string>
+    <string name="condition_explanation_no_condition">Undetermined condition</string>
+    <string name="condition_explanation_data_title">Data and provenance</string>
+    <string name="condition_explanation_source_title">Calculation method</string>
+    <string name="condition_explanation_alternatives_title">Possible scenarios</string>
+    <string name="condition_explanation_reasons_title">Why this status?</string>
 </resources>
