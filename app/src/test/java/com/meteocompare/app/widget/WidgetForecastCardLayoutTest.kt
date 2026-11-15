@@ -114,11 +114,71 @@ class WidgetForecastCardLayoutTest {
     }
 
     @Test
+    fun `large Nova cells enlarge weather glyphs without exceeding column width`() {
+        val compact = forecastTimelineGlyphSizeDp(
+            ForecastCardHeightProfile.COMPACT, 75f, 85f
+        )
+        val tall = forecastTimelineGlyphSizeDp(
+            ForecastCardHeightProfile.EXPANDED, 82f, 225f, isDaily = true
+        )
+        assertTrue(tall > compact)
+        assertTrue(tall > 32)
+        assertTrue(tall <= 46)
+        assertTrue(tall <= (82f * 0.55f).toInt())
+    }
+
+    @Test
+    fun `narrow Nova columns do not inherit oversized glyphs`() {
+        val compact = forecastTimelineGlyphSizeDp(
+            ForecastCardHeightProfile.COMPACT, 44f, 95f
+        )
+        val tallButNarrow = forecastTimelineGlyphSizeDp(
+            ForecastCardHeightProfile.EXPANDED, 44f, 230f
+        )
+        assertTrue(compact <= 24)
+        assertTrue(tallButNarrow <= 24)
+    }
+
+    @Test
+    fun `forecast icon scaling is monotone with available height and width`() {
+        var lastSize = 0
+        for (h in 142..270 step 4) {
+            val scaled = forecastTimelineGlyphSizeDp(
+                ForecastCardHeightProfile.EXPANDED, 84f, h.toFloat()
+            )
+            assertTrue(scaled >= lastSize)
+            lastSize = scaled
+        }
+        assertTrue(
+            forecastTimelineGlyphSizeDp(ForecastCardHeightProfile.EXPANDED, 60f, 230f) <=
+                forecastTimelineGlyphSizeDp(ForecastCardHeightProfile.EXPANDED, 90f, 230f)
+        )
+    }
+
+    @Test
+    fun `inline Nova forecast cards keep a conservative width budget`() {
+        assertTrue(inlineForecastCardWidthDp(400f, 1) > inlineForecastCardWidthDp(420f, 2))
+        assertTrue(inlineForecastCardWidthDp(420f, 2) <= 82f)
+        assertTrue(inlineForecastCardWidthDp(420f, 2) >= 42f)
+    }
+
+    @Test
     fun `modern forecast header is hidden when vertical space is critical`() {
         assertTrue(!shouldShowForecastPanelHeader(150f, TwoRowWidgetSizeProfile.VERY_DENSE))
         assertTrue(!shouldShowForecastPanelHeader(160f, TwoRowWidgetSizeProfile.COMPACT))
         assertTrue(shouldShowForecastPanelHeader(180f, TwoRowWidgetSizeProfile.COMPACT))
         assertTrue(shouldShowForecastPanelHeader(200f, TwoRowWidgetSizeProfile.REGULAR))
+    }
+
+    @Test
+    fun `weather forecast tiles never reserve an unused heading`() {
+        assertEquals(0f, forecastContentHeaderHeightDp(false, true, true))
+        assertEquals(0f, forecastContentHeaderHeightDp(false, true, false))
+        assertEquals(14f, forecastContentHeaderHeightDp(true, true, true))
+        assertEquals(18f, forecastContentHeaderHeightDp(true, true, false))
+        val withTitle = forecastBottomStripAvailableHeightDp(178f, 46f + 18f, 7f)
+        val withoutTitle = forecastBottomStripAvailableHeightDp(178f, 46f, 7f)
+        assertEquals(18f, withoutTitle - withTitle)
     }
 
     @Test

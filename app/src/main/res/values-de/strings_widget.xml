@@ -18,9 +18,6 @@
     <string name="widget_color_purple">Violett</string>
     <string name="widget_color_light_grey">Hellgrau</string>
     <string name="widget_color_dark_grey">Dunkelgrau</string>
-    <string name="widget_forecast_hours">Nächste Stunden</string>
-    <string name="widget_forecast_days">Nächste Tage</string>
-    <string name="widget_forecast_generic">Vorhersage</string>
     <string name="widget_forecast_confidence">Modellkonvergenz</string>
     <string name="widget_forecast_confidence_hint">Konvergenz / Modelle</string>
 

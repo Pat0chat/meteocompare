@@ -817,10 +817,15 @@ private fun LargeLayout(
                         onContainerMuted = onContainerMuted,
                         mode = data.forecastMode,
                         compact = true,
-                        heightProfile = ForecastCardHeightProfile.DENSE,
+                        heightProfile = forecastCardHeightProfile(
+                            (size.height.value - 2f * rootVerticalInsetDp -
+                                locationRefreshFooterHeightDp(showLocationRefresh)).coerceAtLeast(1f)
+                        ),
                         availableCardHeightDp = (size.height.value - 2f * rootVerticalInsetDp -
-                            locationRefreshFooterHeightDp(showLocationRefresh))
-                            .coerceAtLeast(1f),
+                            locationRefreshFooterHeightDp(showLocationRefresh)).coerceAtLeast(1f),
+                        availableCardWidthDp = inlineForecastCardWidthDp(
+                            size.width.value, inlineForecastItems
+                        ),
                         emphasized = index == 0
                     )
                 }
@@ -875,7 +880,8 @@ private fun CompactTallLayout(
     val showPanelHeader = headerLayout.showPanelHeader
     val forecastCardHeightDp = forecastBottomStripAvailableHeightDp(
         widgetHeightDp = size.height.value,
-        headerHeightDp = headerBudgetDp + forecastPanelHeaderHeightDp(
+        headerHeightDp = headerBudgetDp + forecastContentHeaderHeightDp(
+            hasConfidencePanel = data.confidenceStrips.isNotEmpty(),
             showHeader = showPanelHeader,
             compact = true
         ),
@@ -975,7 +981,7 @@ private fun CompactTallLayout(
                 veryCompact = narrow,
                 heightProfile = forecastCardProfile,
                 availableCardHeightDp = forecastCardHeightDp,
-                showHeader = showPanelHeader,
+                availablePanelWidthDp = size.width.value - 2f * rootHorizontalInsetDp,
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight()
             )
 
@@ -1085,7 +1091,8 @@ private fun ExtraLargeLayout(
     }
     val forecastCardHeightDp = forecastBottomStripAvailableHeightDp(
         widgetHeightDp = heightDp,
-        headerHeightDp = headerHeightBudgetDp + forecastPanelHeaderHeightDp(
+        headerHeightDp = headerHeightBudgetDp + forecastContentHeaderHeightDp(
+            hasConfidencePanel = data.confidenceStrips.isNotEmpty(),
             showHeader = showPanelHeader,
             compact = compactHeight
         ),
@@ -1242,7 +1249,7 @@ private fun ExtraLargeLayout(
                 veryCompact = veryCompact,
                 heightProfile = forecastCardProfile,
                 availableCardHeightDp = forecastCardHeightDp,
-                showHeader = showPanelHeader,
+                availablePanelWidthDp = size.width.value - 2f * rootHorizontalInsetDp,
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight()
             )
         }
@@ -1393,9 +1400,9 @@ private fun TwelveHourForecastStrip(
 
 /**
  * Panneau moderne commun aux vues « prochaines heures » et « prochains jours ».
- * L'en-tête donne immédiatement le contexte, tandis que les colonnes utilisent
- * un accent thermique ponctuel, une hiérarchie typographique plus nette et
- * des métriques secondaires volontairement légères.
+ * Les libellés des heures ou des jours suffisent à situer les prévisions : aucun
+ * titre additionnel ne doit consommer leur hauteur. Les colonnes utilisent un
+ * accent thermique ponctuel et des métriques secondaires légères.
  */
 @Composable
 private fun ForecastTimelinePanel(
@@ -1409,52 +1416,22 @@ private fun ForecastTimelinePanel(
     veryCompact: Boolean,
     heightProfile: ForecastCardHeightProfile,
     availableCardHeightDp: Float,
-    showHeader: Boolean,
+    availablePanelWidthDp: Float,
     modifier: GlanceModifier = GlanceModifier
 ) {
-    val ctx = LocalContext.current
     val normalizedMode = mode?.normalized()
-    val title = when (normalizedMode) {
-        ForecastMode.HOURLY -> ctx.getString(R.string.widget_forecast_hours)
-        ForecastMode.DAILY -> ctx.getString(R.string.widget_forecast_days)
-        else -> ctx.getString(R.string.widget_forecast_generic)
-    }
     val visibleItems = items.take(itemCount.coerceIn(0, MAX_GLANCE_FORECAST_TIMELINE_ITEMS))
     check(forecastTimelineDirectChildren(visibleItems.size) <= 10)
-    val sourceModel = visibleItems.firstOrNull()?.sourceModelName
+    // The forecasts identify their horizon through the day/hour labels directly.
+    // No second title row: reclaim its height for the weather and metric glyphs.
+    val estimatedCardWidthDp = (availablePanelWidthDp.coerceAtLeast(0f) /
+        visibleItems.size.coerceAtLeast(1)).coerceAtLeast(1f)
 
     Column(modifier = modifier) {
-        if (showHeader) {
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    modifier = GlanceModifier.defaultWeight(),
-                    style = TextStyle(
-                        color = onContainer,
-                        fontSize = if (compact) 9.sp else 10.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    maxLines = 1
-                )
-                sourceModel?.takeIf { it.isNotBlank() }?.let { model ->
-                    Text(
-                        text = model,
-                        style = TextStyle(
-                            color = onContainerMuted,
-                            fontSize = if (compact) 7.sp else 8.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 1
-                    )
-                }
-            }
-            Spacer(GlanceModifier.height(if (compact) 3.dp else 5.dp))
-        }
-
-        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+        // On Nova, a weighted RemoteViews row may keep its intrinsic (tiny)
+        // height despite the much taller widget host. The measured, safety-
+        // adjusted card budget gives the row a predictable real height.
+        Row(modifier = GlanceModifier.fillMaxWidth().height(availableCardHeightDp.dp)) {
             visibleItems.forEachIndexed { index, item ->
                 // Exactly one direct parent-Row child per forecast. This is robust
                 // against RemoteViews' ten-child limit even if the panel grows.
@@ -1480,6 +1457,7 @@ private fun ForecastTimelinePanel(
                         compact = compact,
                         heightProfile = heightProfile,
                         availableCardHeightDp = availableCardHeightDp,
+                        availableCardWidthDp = estimatedCardWidthDp,
                         emphasized = index == 0,
                         modifier = GlanceModifier.defaultWeight().fillMaxHeight()
                     )
@@ -1846,6 +1824,7 @@ private fun ForecastTimelineItem(
     compact: Boolean,
     heightProfile: ForecastCardHeightProfile? = null,
     availableCardHeightDp: Float,
+    availableCardWidthDp: Float,
     emphasized: Boolean = false,
     modifier: GlanceModifier = GlanceModifier,
     units: WeatherUnits = LocalWeatherUnits.current
@@ -1884,17 +1863,13 @@ private fun ForecastTimelineItem(
         ForecastCardHeightProfile.COMFORTABLE -> 9.sp
         ForecastCardHeightProfile.EXPANDED -> 10.sp
     }
-    val baseGlyphSize = when (profile) {
-        ForecastCardHeightProfile.DENSE -> 16
-        ForecastCardHeightProfile.COMPACT -> 22
-        ForecastCardHeightProfile.COMFORTABLE -> 28
-        ForecastCardHeightProfile.EXPANDED -> 32
-    }
-    val dailyGlyphBoost = if (
-        mode?.normalized() == ForecastMode.DAILY && profile != ForecastCardHeightProfile.DENSE
-    ) 2 else 0
-    val glyphSize = baseGlyphSize + dailyGlyphBoost +
-        if (emphasized && profile != ForecastCardHeightProfile.DENSE) 1 else 0
+    val glyphSize = forecastTimelineGlyphSizeDp(
+        profile = profile,
+        availableCardWidthDp = availableCardWidthDp,
+        availableCardHeightDp = availableCardHeightDp,
+        isDaily = mode?.normalized() == ForecastMode.DAILY,
+        emphasized = emphasized
+    )
     val temperatureSize = when (profile) {
         ForecastCardHeightProfile.DENSE -> if (emphasized) 11.sp else 10.sp
         ForecastCardHeightProfile.COMPACT -> if (emphasized) 15.sp else 14.sp
@@ -1936,9 +1911,7 @@ private fun ForecastTimelineItem(
                 maxLines = 1
             )
         }
-        if (profile == ForecastCardHeightProfile.COMFORTABLE || profile == ForecastCardHeightProfile.EXPANDED) {
-            Spacer(GlanceModifier.defaultWeight())
-        }
+        Spacer(GlanceModifier.height(if (profile == ForecastCardHeightProfile.DENSE) 2.dp else 5.dp))
         WeatherGlyph(condition = item.condition, sizeDp = glyphSize, isNight = item.isNight == true, decision = item.conditionDecision)
         Text(
             text = formatTemp(item.temp, units = units),
@@ -1950,9 +1923,7 @@ private fun ForecastTimelineItem(
             maxLines = 1
         )
 
-        if (profile == ForecastCardHeightProfile.COMFORTABLE || profile == ForecastCardHeightProfile.EXPANDED) {
-            Spacer(GlanceModifier.defaultWeight())
-        }
+        Spacer(GlanceModifier.height(if (profile == ForecastCardHeightProfile.DENSE) 2.dp else 5.dp))
         // Les tailles du symbole et de la valeur suivent le budget réel de
         // chaque colonne, et pas seulement un breakpoint global de widget.
         val metricLayout = forecastMetricLayout(

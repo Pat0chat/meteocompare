@@ -18,9 +18,6 @@
     <string name="widget_color_purple">Morado</string>
     <string name="widget_color_light_grey">Gris claro</string>
     <string name="widget_color_dark_grey">Gris oscuro</string>
-    <string name="widget_forecast_hours">Próximas horas</string>
-    <string name="widget_forecast_days">Próximos días</string>
-    <string name="widget_forecast_generic">Previsión</string>
     <string name="widget_forecast_confidence">Convergencia de modelos</string>
     <string name="widget_forecast_confidence_hint">convergencia / modelos</string>
 

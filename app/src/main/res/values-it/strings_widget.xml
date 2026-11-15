@@ -18,9 +18,6 @@
     <string name="widget_color_purple">Viola</string>
     <string name="widget_color_light_grey">Grigio chiaro</string>
     <string name="widget_color_dark_grey">Grigio scuro</string>
-    <string name="widget_forecast_hours">Prossime ore</string>
-    <string name="widget_forecast_days">Prossimi giorni</string>
-    <string name="widget_forecast_generic">Previsioni</string>
     <string name="widget_forecast_confidence">Convergenza dei modelli</string>
     <string name="widget_forecast_confidence_hint">convergenza / modelli</string>
 

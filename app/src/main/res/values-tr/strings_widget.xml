@@ -33,10 +33,7 @@
     <string name="widget_color_light_grey">Açık gri</string>
     <string name="widget_color_dark_grey">Koyu gri</string>
 
-    <!-- Modern forecast panel titles -->
-    <string name="widget_forecast_hours">Önümüzdeki saatler</string>
-    <string name="widget_forecast_days">Önümüzdeki günler</string>
-    <string name="widget_forecast_generic">Tahmin</string>
+    <!-- Convergence panel labels -->
     <string name="widget_forecast_confidence">Model uyumu</string>
     <string name="widget_forecast_confidence_hint">uyum / modeller</string>
 
