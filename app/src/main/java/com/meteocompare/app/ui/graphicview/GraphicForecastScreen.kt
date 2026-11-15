@@ -105,7 +105,6 @@ import com.meteocompare.app.ui.components.OpenMeteoAttribution
 import com.meteocompare.app.ui.components.HumidityMetricIcon
 import com.meteocompare.app.ui.components.DewPointMetricIcon
 import com.meteocompare.app.ui.components.ConditionStatusIcon
-import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.ui.components.windArrowRotation
 import com.meteocompare.app.ui.theme.precipitationMetricAccent
 import com.meteocompare.app.ui.theme.temperatureMetricAccent
@@ -383,8 +382,6 @@ internal fun GraphicForecastContent(
             agreementPalette = agreementPalette,
             horizontalScroll = horizontalScroll
         )
-        // Contextual legend belongs beneath the graphic and above data attribution.
-        ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             OpenMeteoAttribution(home = false)
         }

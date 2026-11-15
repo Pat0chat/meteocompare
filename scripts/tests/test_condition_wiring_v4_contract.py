@@ -59,7 +59,7 @@ class ConditionWiringV4Contract(unittest.TestCase):
         self.assertIn("ForecastConditionResolver.periodConsensus(", comparison)
         self.assertIn("conditionDecision = conditionDecision", comparison)
         self.assertIn("ConditionStatusIcon(", ui)
-        self.assertIn("ConditionStatusLegend(", ui)
+        self.assertNotIn("ConditionStatusLegend(", ui)
 
     def test_hourly_daily_and_model_tables_render_diagnosed_icons(self):
         for relative in (
@@ -72,7 +72,7 @@ class ConditionWiringV4Contract(unittest.TestCase):
         chart = code("ui/graphicview/GraphicForecastScreen.kt")
         view_model = code("ui/graphicview/GraphicForecastViewModel.kt")
         self.assertIn("buildSimplifiedTimeline(", view_model)
-        self.assertIn("ConditionStatusLegend(", chart)
+        self.assertNotIn("ConditionStatusLegend(", chart)
 
     def test_widgets_preserve_diagnoses_in_all_display_modes(self):
         data = code("widget/WidgetData.kt")
@@ -103,11 +103,11 @@ class ConditionWiringV4Contract(unittest.TestCase):
 
     def test_diagnostics_have_one_explanation_and_visual_vocabulary(self):
         ui = "\n".join(code("ui/components/" + name) for name in (
-            "ConditionStatusIcon.kt", "ConditionExplanationDialog.kt", "ConditionStatusLegend.kt"))
+            "ConditionStatusIcon.kt", "ConditionExplanationDialog.kt"))
         for status in ("RELIABLE", "ESTIMATED", "AMBIGUOUS", "INCOMPLETE", "UNAVAILABLE"):
             self.assertIn("ConditionStatus." + status, ui)
         self.assertIn("ConditionExplanationDialog(", ui)
-        self.assertIn("ConditionStatusLegend(", ui)
+        self.assertNotIn("ConditionStatusLegend(", ui)
         self.assertIn("semantics { contentDescription = talkback }", ui)
 
 

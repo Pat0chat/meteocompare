@@ -863,6 +863,13 @@
 
     <string name="action_how_it_works">Comment fonctionne MeteoCompare</string>
     <string name="help_title">Comment fonctionne MeteoCompare ?</string>
+    <string name="help_contents_menu_title">Sommaire</string>
+    <string name="help_menu_models">Les modèles</string>
+    <string name="help_menu_engines">Les 4 moteurs</string>
+    <string name="help_menu_conditions">Les conditions</string>
+    <string name="help_menu_statuses">Les statuts</string>
+    <string name="help_menu_agreement">Convergence</string>
+    <string name="help_menu_sunshine">Ensoleillement</string>
     <string name="help_subtitle">Comparez plusieurs modèles météo pour mieux comprendre les convergences, les divergences et l’incertitude.</string>
     <string name="help_section_1_title">Sources des modèles</string>
     <string name="help_section_1_body">MeteoCompare compare plusieurs modèles de prévision fournis notamment par Open-Meteo (AROME, ICON, ECMWF, GFS…). Chaque modèle représente une simulation, pas une observation certaine. Les modèles issus d’une même famille ne doivent pas compter comme des avis totalement indépendants.</string>
@@ -882,7 +889,7 @@
     <string name="help_hierarchical_dry_body">Le moteur distingue ensuite ciel dégagé, plutôt clair, partiellement nuageux, couvert ou brouillard à partir des signaux disponibles.</string>
     <string name="help_hierarchical_precip">Précipitations</string>
     <string name="help_hierarchical_precip_body">Les situations pluvieuses ou hivernales sont regroupées puis départagées entre pluie, bruine, neige, verglaçante, averses ou orage.</string>
-    <string name="help_hierarchical_note">Exemple schématique de vote entre familles (72 % / 28 %), pas une probabilité de pluie. Un code WMO journalier peut indiquer le phénomène le plus sévère : il ne remplace pas automatiquement la condition dominante.</string>
+    <string name="help_hierarchical_note" formatted="false">Exemple schématique de vote entre familles (72 % / 28 %), pas une probabilité de pluie. Un code WMO journalier peut indiquer le phénomène le plus sévère : il ne remplace pas automatiquement la condition dominante.</string>
     <string name="help_section_4_title">Accord entre modèles</string>
     <string name="help_section_4_body">La convergence indique si les modèles prévoient des situations proches. Les plages affichées décrivent la dispersion des prévisions ; ce ne sont pas automatiquement des intervalles de probabilité. Un accord fort peut tout de même être incorrect.</string>
     <string name="help_convergence_strong_title">Convergence forte</string>
@@ -893,7 +900,7 @@
     <string name="help_condition_step_native">Priorité au code WMO horaire fourni par le modèle : ciel, pluie, neige, brouillard, orage…</string>
     <string name="help_condition_step_derived">Si ce code manque, estimation prudente avec les données du même modèle (précipitations et nuages) ; près de 0 °C, pluie ou neige peut rester indéterminée.</string>
     <string name="help_condition_step_consensus">Comparaison entre familles de modèles. Une égalité réelle conserve des alternatives ; aucun mélange de médianes issues de modèles différents.</string>
-    <string name="help_convergence_example_note">86 % et 43 % sont des exemples illustratifs de convergence, et non des probabilités de prévision correcte.</string>
+    <string name="help_convergence_example_note" formatted="false">86 % et 43 % sont des exemples illustratifs de convergence, et non des probabilités de prévision correcte.</string>
     <string name="help_section_5_title">Comment calcule-t-on l’ensoleillement ?</string>
     <string name="help_section_5_body">La durée de soleil prévue correspond au temps de soleil direct à l’intérieur des heures de jour (entre lever et coucher). Le moteur privilégie une durée fournie par le modèle ; sinon il réalise une estimation, avec davantage d’incertitude. Plusieurs modèles peuvent ensuite être résumés par leur valeur médiane.</string>
     <string name="help_sunshine_window_title">D’abord, les heures de jour</string>
@@ -1228,13 +1235,6 @@
     <string name="condition_reason_sun">Horaires de lever/coucher manquants</string>
     <string name="condition_reason_disagreement">Désaccord entre modèles</string>
     <string name="condition_reason_daily_max">Le code quotidien ne représente pas nécessairement la dominante</string>
-    <string name="condition_legend_estimated_short">Estimée</string>
-    <string name="condition_legend_alternatives_short">Alternatives</string>
-    <string name="condition_legend_partial_short">Partielle</string>
-    <string name="condition_legend_unavailable_short">Indisponible</string>
-    <string name="condition_legend_summary">≈ Estimée · ≠ Alternatives · ◔ Partielle · — Indisponible</string>
-    <string name="condition_legend_help">Comprendre</string>
-    <string name="condition_legend_title">Comment lire les conditions météo ?</string>
     <string name="condition_legend_not_probability">Ces statuts décrivent la provenance et la couverture des données, pas une probabilité chiffrée de fiabilité. Appuyez sur une icône pour afficher ses sources et limites.</string>
     <string name="condition_status_not_specified_desc">Cette icône ne comporte pas de diagnostic de provenance. Elle ne garantit aucune précision météorologique.</string>
     <!-- Themed condition explanation and contextual legend (V5). -->

@@ -1,7 +1,6 @@
 package com.meteocompare.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -20,33 +19,33 @@ import com.meteocompare.app.ui.preview.MeteoPreviewSurface
 @Composable
 private fun ConditionStatusRowV5Preview() {
     MeteoPreviewSurface {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                ConditionStatusIcon(
-                    WeatherCondition.CLEAR,
-                    ConditionDecision(WeatherCondition.CLEAR, ConditionStatus.RELIABLE, ConditionOrigin.HOURLY_WMO, 1.0),
-                    size = 40.dp
-                )
-                ConditionStatusIcon(
-                    WeatherCondition.RAIN,
-                    ConditionDecision(WeatherCondition.RAIN, ConditionStatus.ESTIMATED, ConditionOrigin.SAME_MODEL_VARIABLES, 1.0),
-                    size = 40.dp
-                )
-                ConditionStatusIcon(
-                    null,
-                    ConditionDecision(null, ConditionStatus.AMBIGUOUS, ConditionOrigin.MODEL_CONSENSUS,
-                        alternatives = listOf(WeatherCondition.RAIN, WeatherCondition.CLEAR)),
-                    size = 40.dp
-                )
-                ConditionStatusIcon(
-                    WeatherCondition.PARTLY_CLOUDY,
-                    ConditionDecision(WeatherCondition.PARTLY_CLOUDY, ConditionStatus.INCOMPLETE,
-                        ConditionOrigin.HOURLY_DOMINANT, .75),
-                    size = 40.dp
-                )
-                ConditionStatusIcon(null, null, size = 40.dp)
-            }
-            ConditionStatusLegend()
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            ConditionStatusIcon(
+                WeatherCondition.CLEAR,
+                ConditionDecision(WeatherCondition.CLEAR, ConditionStatus.RELIABLE, ConditionOrigin.HOURLY_WMO, 1.0),
+                size = 40.dp
+            )
+            ConditionStatusIcon(
+                WeatherCondition.RAIN,
+                ConditionDecision(WeatherCondition.RAIN, ConditionStatus.ESTIMATED, ConditionOrigin.SAME_MODEL_VARIABLES, 1.0),
+                size = 40.dp
+            )
+            ConditionStatusIcon(
+                null,
+                ConditionDecision(null, ConditionStatus.AMBIGUOUS, ConditionOrigin.MODEL_CONSENSUS,
+                    alternatives = listOf(WeatherCondition.RAIN, WeatherCondition.CLEAR)),
+                size = 40.dp
+            )
+            ConditionStatusIcon(
+                WeatherCondition.PARTLY_CLOUDY,
+                ConditionDecision(WeatherCondition.PARTLY_CLOUDY, ConditionStatus.INCOMPLETE,
+                    ConditionOrigin.HOURLY_DOMINANT, .75),
+                size = 40.dp
+            )
+            ConditionStatusIcon(null, null, size = 40.dp)
         }
     }
 }

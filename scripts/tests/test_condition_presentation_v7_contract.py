@@ -12,28 +12,19 @@ SRC = ROOT / 'app/src/main/java/com/meteocompare/app/ui'
 
 class ConditionPresentationV7Contract(unittest.TestCase):
     def test_compact_legend_has_one_surface_and_two_fixed_rows(self):
-        code = (SRC / 'components/ConditionStatusLegend.kt').read_text(encoding='utf-8')
-        compact = code.split('internal fun ConditionStatusLegend', 1)[1].split(
-            'private fun ConditionLegendDialog', 1)[0]
-        self.assertEqual(1, compact.count('Surface('))
-        self.assertIn('color = MaterialTheme.colorScheme.surfaceContainer', compact)
-        self.assertIn('Modifier.width(30.dp).testTag("legend_symbol_${status.name}")', compact)
-        self.assertIn('.clickable(role = Role.Button, onClick = { open = true })', compact)
-        self.assertIn('testTag("condition_legend_first_row")', compact)
-        self.assertIn('testTag("condition_legend_second_row")', compact)
-        self.assertIn('fontSize = 21.sp', compact)
+        help_ui = (SRC / 'help/HowItWorksScreen.kt').read_text(encoding='utf-8')
+        self.assertIn('private fun HelpNavigationMenu(', help_ui)
+        self.assertIn('testTag("help_contents_menu")', help_ui)
+        self.assertIn('sections.chunked(2)', help_ui)
+        self.assertIn('modifier = modifier.heightIn(min = 78.dp).testTag("help_menu_${section.step}")', help_ui)
 
     def test_legend_is_compact_but_keeps_its_one_themed_background_and_alignment(self):
-        code = (SRC / 'components/ConditionStatusLegend.kt').read_text(encoding='utf-8')
-        compact = code.split('internal fun ConditionStatusLegend', 1)[1].split(
-            'private fun ConditionLegendDialog', 1)[0]
-        self.assertIn('Modifier.padding(horizontal = 10.dp, vertical = 6.dp)', compact)
-        self.assertIn('verticalArrangement = Arrangement.spacedBy(3.dp)', compact)
-        self.assertIn('verticalArrangement = Arrangement.spacedBy(1.dp)', compact)
-        self.assertIn('modifier.heightIn(min = 28.dp)', compact)
-        self.assertIn('Modifier.width(30.dp).testTag("legend_symbol_${status.name}")', compact)
-        self.assertEqual(1, compact.count('Surface('))
-        self.assertIn('color = MaterialTheme.colorScheme.surfaceContainer', compact)
+        help_ui = (SRC / 'help/HowItWorksScreen.kt').read_text(encoding='utf-8')
+        self.assertIn('color = MaterialTheme.colorScheme.surfaceContainerLow', help_ui)
+        self.assertIn('onClick = onClick', help_ui)
+        self.assertIn('animateScrollToItem(index + 2)', help_ui)
+        self.assertNotIn('AssistChip(', help_ui)
+        self.assertNotIn('LazyRow(', help_ui)
 
     def test_mini_forecast_android_test_awaits_attached_host_and_keeps_unavailable_visible(self):
         code = (ROOT / 'app/src/androidTest/java/com/meteocompare/app/ui/citylist/'
@@ -52,20 +43,15 @@ class ConditionPresentationV7Contract(unittest.TestCase):
 
     def test_timeline_legend_is_below_convergence_explanation(self):
         source = (SRC / 'citydetail/SimplifiedTimeline.kt').read_text(encoding='utf-8')
-        self.assertLess(source.index('R.string.timeline_disagreement_hint'),
-                        source.index('ConditionStatusLegend('))
-        self.assertLess(source.index('when (layout) {', source.index('if (expanded) {')),
-                        source.index('ConditionStatusLegend('))
+        self.assertIn('R.string.timeline_disagreement_hint', source)
+        self.assertNotIn('ConditionStatusLegend', source)
 
     def test_chart_legend_is_below_plot_above_open_meteo(self):
         source = (SRC / 'graphicview/GraphicForecastScreen.kt').read_text(encoding='utf-8')
         content = source.split('internal fun GraphicForecastContent(', 1)[1].split(
             'private fun GraphicChartPanel(', 1)[0]
-        self.assertLess(content.index('GraphicChartPanel('), content.index('ConditionStatusLegend('))
-        self.assertLess(content.index('ConditionStatusLegend('), content.index('OpenMeteoAttribution('))
-        header = source.split('private fun GraphicHeaderCard(', 1)[1].split(
-            'private fun GraphicSelectionHeader(', 1)[0]
-        self.assertNotIn('ConditionStatusLegend(', header)
+        self.assertLess(content.index('GraphicChartPanel('), content.index('OpenMeteoAttribution('))
+        self.assertNotIn('ConditionStatusLegend', content)
 
     def test_crlf_only_normalization_preserves_frozen_golden_hashes(self):
         from scripts.tests.test_weather_regression_corpus import canonical_fixture_bytes

@@ -32,3 +32,11 @@ private fun HelpStatusesPreview() {
         Column(modifier = Modifier.padding(16.dp)) { ConditionStatusesIllustration() }
     }
 }
+
+@MeteoComponentPreview
+@Composable
+private fun HelpConditionsPreview() {
+    MeteoPreviewSurface {
+        Column(modifier = Modifier.padding(16.dp)) { HierarchicalConsensusIllustration() }
+    }
+}

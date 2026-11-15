@@ -862,6 +862,13 @@
 
     <string name="action_how_it_works">How MeteoCompare works</string>
     <string name="help_title">How does MeteoCompare work?</string>
+    <string name="help_contents_menu_title">Explore the guide</string>
+    <string name="help_menu_models">Weather models</string>
+    <string name="help_menu_engines">Four engines</string>
+    <string name="help_menu_conditions">Conditions</string>
+    <string name="help_menu_statuses">Icon statuses</string>
+    <string name="help_menu_agreement">Agreement</string>
+    <string name="help_menu_sunshine">Sunshine</string>
     <string name="help_subtitle">Compare several weather models to better understand convergence, divergence, and uncertainty.</string>
     <string name="help_section_1_title">Model sources</string>
     <string name="help_section_1_body">MeteoCompare compares forecasts from several models, available in particular through Open-Meteo (AROME, ICON, ECMWF, GFS…). A model is a simulation, not a certain observation. Models in the same family are not counted as fully independent opinions.</string>
@@ -881,7 +888,7 @@
     <string name="help_hierarchical_dry_body">The engine then distinguishes clear, mainly clear, partly cloudy, overcast, or foggy conditions from the available signals.</string>
     <string name="help_hierarchical_precip">Precipitation</string>
     <string name="help_hierarchical_precip_body">Rainy or wintry situations are grouped first, then resolved between rain, drizzle, snow, freezing rain, showers, or thunderstorms.</string>
-    <string name="help_hierarchical_note">Schematic example of family votes (72% / 28%), not a chance of rain. A daily WMO code may describe the most severe event rather than the predominant condition.</string>
+    <string name="help_hierarchical_note" formatted="false">Schematic example of family votes (72% / 28%), not a chance of rain. A daily WMO code may describe the most severe event rather than the predominant condition.</string>
     <string name="help_section_4_title">Model agreement</string>
     <string name="help_section_4_body">Convergence shows whether models forecast similar conditions. Displayed ranges describe the spread of forecasts; they are not automatically probability intervals. Strong agreement can still be wrong.</string>
     <string name="help_convergence_strong_title">Strong convergence</string>
@@ -893,7 +900,7 @@
     <string name="help_condition_step_native">First use the model’s native hourly WMO code: sky, rain, snow, fog, thunderstorm…</string>
     <string name="help_condition_step_derived">If absent, cautiously infer from precipitation and cloud data from the same model; near freezing, rain versus snow can remain uncertain.</string>
     <string name="help_condition_step_consensus">Compare independent model families. A true tie keeps alternatives; no mixing median variables from different models.</string>
-    <string name="help_convergence_example_note">86% and 43% are illustrative model-agreement examples, not probabilities that a forecast is correct.</string>
+    <string name="help_convergence_example_note" formatted="false">86% and 43% are illustrative model-agreement examples, not probabilities that a forecast is correct.</string>
     <string name="help_section_5_title">How is sunshine calculated?</string>
     <string name="help_section_5_body">Forecast sunshine duration is the expected time with direct sunshine during daylight (between sunrise and sunset). The engine prefers a duration supplied by the weather model; otherwise it estimates one, with greater uncertainty. A median can summarize several models.</string>
     <string name="help_sunshine_window_title">First, find daylight hours</string>
@@ -1227,13 +1234,6 @@
     <string name="condition_reason_sun">Sunrise or sunset data missing</string>
     <string name="condition_reason_disagreement">Models disagree</string>
     <string name="condition_reason_daily_max">Daily code need not represent dominant weather</string>
-    <string name="condition_legend_estimated_short">Estimated</string>
-    <string name="condition_legend_alternatives_short">Alternatives</string>
-    <string name="condition_legend_partial_short">Partial</string>
-    <string name="condition_legend_unavailable_short">Unavailable</string>
-    <string name="condition_legend_summary">≈ Estimated · ≠ Alternatives · ◔ Partial · — Unavailable</string>
-    <string name="condition_legend_help">Learn more</string>
-    <string name="condition_legend_title">How to read weather conditions</string>
     <string name="condition_legend_not_probability">These labels describe origin and data coverage, not a calibrated probability of accuracy. Tap any icon to see its sources and limitations.</string>
     <string name="condition_status_not_specified_desc">No source diagnosis is attached to this icon; it does not imply calibrated forecast accuracy.</string>
     <!-- Themed condition explanation and contextual legend (V5). -->

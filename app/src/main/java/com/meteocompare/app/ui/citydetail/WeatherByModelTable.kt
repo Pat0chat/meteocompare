@@ -33,7 +33,6 @@ import com.meteocompare.app.domain.usecase.DayConditionsRow
 import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionStatus
 import com.meteocompare.app.ui.components.ConditionStatusIcon
-import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
@@ -335,15 +334,12 @@ internal fun WeatherLegend() {
         // au sec ? Deux règles simples :
         //   - Sous une icône nuageuse/couverte → couverture nuageuse
         //   - Sous une icône pluie/neige/orage → probabilité de précipitation
-        // labelSmall + onSurfaceVariant : ton discret, ne concurrence pas
-        // les chips de légende juste au-dessus qui sont l'info primaire.
         Text(
             text = stringResource(R.string.weather_legend_percent_note),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
-        ConditionStatusLegend(Modifier.padding(horizontal = 16.dp))
     }
 }
 

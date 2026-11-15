@@ -48,34 +48,29 @@ class ReleaseSourceCompletenessTest(unittest.TestCase):
         self.assertNotIn('/gradle/', ignored)
 
     def test_legend_has_single_background_and_stable_symbol_columns(self):
-        code = (UI / 'components/ConditionStatusLegend.kt').read_text(encoding='utf-8')
-        compact = code.split('internal fun ConditionStatusLegend', 1)[1].split(
-            'private fun ConditionLegendDialog', 1)[0]
-        self.assertEqual(1, compact.count('Surface('))
-        self.assertIn('color = MaterialTheme.colorScheme.surfaceContainer', compact)
-        self.assertIn('shape = RoundedCornerShape(12.dp)', compact)
-        self.assertIn('Modifier.width(30.dp)', compact)
-        self.assertIn('Modifier.weight(1f).testTag("legend_label_${status.name}")', compact)
-        self.assertIn('Modifier.width(30.dp).testTag("legend_symbol_${status.name}")', compact)
-        self.assertIn('heightIn(min = 28.dp)', compact)
-        for tag in ('condition_legend_first_row', 'condition_legend_second_row'):
-            self.assertIn(f'testTag("{tag}")', compact)
-        # Prevent a return to a separate card/pill for each status.
-        item = compact.split('private fun LegendChip', 1)[1]
-        self.assertNotIn('Surface(', item)
+        help_ui = (UI / 'help/HowItWorksScreen.kt').read_text(encoding='utf-8')
+        self.assertIn('private fun HelpNavigationMenu(', help_ui)
+        self.assertIn('sections.chunked(2)', help_ui)
+        self.assertIn('MaterialTheme.colorScheme.surfaceContainerLow', help_ui)
+        self.assertIn('testTag("help_menu_${section.step}")', help_ui)
+        self.assertNotIn('AssistChip(', help_ui)
+
+    def test_deleted_status_legend_has_no_kotlin_callers_including_debug_previews(self):
+        # Debug @Preview sources compile with the app: deleted UI components must
+        # not survive there even if the release UI contains no such references.
+        for source_set in ('main', 'debug', 'androidTest', 'test'):
+            source_root = ROOT / 'app/src' / source_set
+            for source in source_root.rglob('*.kt'):
+                with self.subTest(path=str(source.relative_to(ROOT))):
+                    self.assertNotIn('ConditionStatusLegend', source.read_text(encoding='utf-8'))
 
     def test_contextual_placement_and_home_remain_unchanged(self):
-        timeline = (UI / 'citydetail/SimplifiedTimeline.kt').read_text(encoding='utf-8')
-        self.assertLess(timeline.index('R.string.timeline_disagreement_hint'),
-                        timeline.index('ConditionStatusLegend('))
-        chart = (UI / 'graphicview/GraphicForecastScreen.kt').read_text(encoding='utf-8')
-        content = chart.split('internal fun GraphicForecastContent(', 1)[1].split(
-            'private fun GraphicChartPanel(', 1)[0]
-        self.assertLess(content.index('GraphicChartPanel('), content.index('ConditionStatusLegend('))
-        self.assertLess(content.index('ConditionStatusLegend('), content.index('OpenMeteoAttribution('))
-        home = (UI / 'citylist/CityListScreen.kt').read_text(encoding='utf-8')
-        self.assertNotIn('ConditionStatusLegend(', home)
-
+        for relative in (
+            'citylist/CityListScreen.kt', 'citydetail/SimplifiedTimeline.kt',
+            'citydetail/WeatherByModelTable.kt', 'graphicview/GraphicForecastScreen.kt',
+            'enginecomparison/EngineComparisonScreen.kt'):
+            self.assertNotIn('ConditionStatusLegend', (UI / relative).read_text(encoding='utf-8'))
+        self.assertFalse((UI / 'components/ConditionStatusLegend.kt').exists())
 
 if __name__ == '__main__':
     unittest.main()

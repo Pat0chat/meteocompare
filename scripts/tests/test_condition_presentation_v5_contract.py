@@ -22,23 +22,19 @@ class ConditionPresentationV5Contract(unittest.TestCase):
 
     def test_chronology_legend_follows_timeline_and_convergence_hint(self):
         timeline = kotlin('ui/citydetail/SimplifiedTimeline.kt')
-        legend = timeline.index('ConditionStatusLegend(Modifier.padding')
-        layout = timeline.index('when (layout) {', timeline.index('if (expanded) {'))
-        convergence = timeline.index('R.string.timeline_disagreement_hint')
-        self.assertLess(layout, convergence)
-        self.assertLess(convergence, legend)
-        self.assertEqual(1, timeline.count('ConditionStatusLegend('))
+        self.assertIn('R.string.timeline_disagreement_hint', timeline)
+        self.assertNotIn('ConditionStatusLegend', timeline)
         self.assertIn('ConditionStatusIcon(', kotlin('ui/citydetail/ChronoTimeline.kt'))
 
     def test_detail_dialog_has_real_icons_and_diagnostic_structure(self):
         component = '\n'.join(kotlin('ui/components/' + file) for file in (
-            'ConditionStatusIcon.kt', 'ConditionExplanationDialog.kt', 'ConditionStatusLegend.kt', 'ConditionInfoDialog.kt'))
+            'ConditionStatusIcon.kt', 'ConditionExplanationDialog.kt', 'ConditionInfoDialog.kt'))
         for term in (
             'Dialog(', 'ConditionHero(', 'WeatherIconDecorative(condition, size = 60.dp',
             'visibleConditionAlternatives(decision)', 'DiagnosticProgress(',
             'condition_explanation_data_title', 'condition_explanation_reasons_title',
-            'condition_explanation_dialog', 'condition_dialog_close', 'condition_legend_dialog',
-            'condition_status_legend', 'DialogProperties(usePlatformDefaultWidth = false)'
+            'condition_explanation_dialog', 'condition_dialog_close',
+            'DialogProperties(usePlatformDefaultWidth = false)'
         ):
             with self.subTest(term=term):
                 self.assertIn(term, component)
@@ -46,13 +42,15 @@ class ConditionPresentationV5Contract(unittest.TestCase):
 
     def test_legend_kept_in_context_outside_home(self):
         for relative in (
+            'ui/citylist/CityListScreen.kt',
             'ui/citydetail/SimplifiedTimeline.kt',
             'ui/citydetail/WeatherByModelTable.kt',
             'ui/graphicview/GraphicForecastScreen.kt',
             'ui/enginecomparison/EngineComparisonScreen.kt',
         ):
             with self.subTest(relative=relative):
-                self.assertIn('ConditionStatusLegend(', kotlin(relative))
+                self.assertNotIn('ConditionStatusLegend', kotlin(relative))
+        self.assertFalse((MAIN / 'ui/components/ConditionStatusLegend.kt').exists())
 
     def test_new_strings_are_localized(self):
         required = {
@@ -69,16 +67,15 @@ class ConditionPresentationV5Contract(unittest.TestCase):
     def test_shared_dialog_frame_and_engine_legend_remains_in_view(self):
         frame = kotlin('ui/components/ConditionInfoDialog.kt')
         details = kotlin('ui/components/ConditionExplanationDialog.kt')
-        legend = kotlin('ui/components/ConditionStatusLegend.kt')
         self.assertIn('heightIn(max = maxDialogHeight)', frame)
         self.assertIn('content: @Composable ColumnScope.() -> Unit', frame)
         self.assertIn('content = content', frame)
         self.assertIn('ConditionInfoDialog(', details)
-        self.assertIn('ConditionInfoDialog(', legend)
         table = kotlin('ui/enginecomparison/EngineComparisonScreen.kt').split(
             'private fun EngineDailyComparisonTable(', 1)[1].split(
             'private fun EngineConditionTableRow(', 1)[0]
-        self.assertLess(table.index('ConditionStatusLegend('), table.index('horizontalScroll('))
+        self.assertIn('horizontalScroll(', table)
+        self.assertNotIn('ConditionStatusLegend', table)
 
     def test_no_obsolete_dialog_strings_survive_cleanup(self):
         old = {'condition_explanation_forecast', 'condition_explanation_alternatives',
@@ -91,10 +88,10 @@ class ConditionPresentationV5Contract(unittest.TestCase):
 
     def test_instrumented_tests_exercise_popups(self):
         tests = (ROOT / 'app/src/androidTest/java/com/meteocompare/app/ui/components/ConditionStatusIconTest.kt').read_text(encoding='utf-8')
-        for term in ('condition_explanation_dialog', 'condition_legend_dialog',
-                     'condition_coverage', 'condition_explanation_alternatives_title'):
+        for term in ('condition_explanation_dialog', 'condition_coverage',
+                     'condition_explanation_alternatives_title'):
             self.assertIn(term, tests)
-
+        self.assertNotIn('condition_legend_dialog', tests)
 
 if __name__ == '__main__':
     unittest.main()

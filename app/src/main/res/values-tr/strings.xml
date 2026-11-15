@@ -860,6 +860,13 @@
 
     <string name="action_how_it_works">MeteoCompare nasıl çalışır?</string>
     <string name="help_title">MeteoCompare nasıl çalışır?</string>
+    <string name="help_contents_menu_title">İçindekiler</string>
+    <string name="help_menu_models">Hava modelleri</string>
+    <string name="help_menu_engines">Dört yöntem</string>
+    <string name="help_menu_conditions">Hava koşulları</string>
+    <string name="help_menu_statuses">Simge durumları</string>
+    <string name="help_menu_agreement">Uzlaşma</string>
+    <string name="help_menu_sunshine">Güneş</string>
     <string name="help_subtitle">Uyumu, farklılaşmayı ve belirsizliği daha iyi anlamak için birkaç hava durumu modelini karşılaştırın.</string>
     <string name="help_section_1_title">Model kaynakları</string>
     <string name="help_section_1_body">MeteoCompare, Open-Meteo üzerinden de sunulan çeşitli modellerin (AROME, ICON, ECMWF, GFS…) tahminlerini karşılaştırır. Her model bir simülasyondur, kesin gözlem değildir. Aynı ailedeki modeller tümüyle bağımsız görüş sayılmaz.</string>
@@ -879,7 +886,7 @@
     <string name="help_hierarchical_dry_body">Motor daha sonra mevcut sinyallerden açık, az bulutlu, parçalı bulutlu, kapalı veya sisli koşulları ayırt eder.</string>
     <string name="help_hierarchical_precip">Yağış</string>
     <string name="help_hierarchical_precip_body">Yağmurlu veya kışlık durumlar önce gruplanır, sonra yağmur, çisenti, kar, donan yağmur, sağanak veya gök gürültülü fırtına arasında ayırt edilir.</string>
-    <string name="help_hierarchical_note">Aile oylarına ilişkin şematik örnek (%72 / %28); yağmur olasılığı değildir. Günlük WMO kodu baskın koşul yerine en şiddetli olayı anlatabilir.</string>
+    <string name="help_hierarchical_note" formatted="false">Aile oylarına ilişkin şematik örnek (%72 / %28); yağmur olasılığı değildir. Günlük WMO kodu baskın koşul yerine en şiddetli olayı anlatabilir.</string>
     <string name="help_section_4_title">Model uyumu</string>
     <string name="help_section_4_body">Yakınsama, modellerin benzer durumları öngörüp öngörmediğini gösterir. Aralıklar tahminlerin dağılımını anlatır; mutlaka olasılık aralığı değildir. Yüksek uzlaşı bile yanlış olabilir.</string>
     <string name="help_convergence_strong_title">Güçlü uyum</string>
@@ -891,7 +898,7 @@
     <string name="help_condition_step_native">Önce modelin saatlik WMO kodu kullanılır: gökyüzü, yağmur, kar, sis, fırtına…</string>
     <string name="help_condition_step_derived">Kod yoksa aynı modelin yağış ve bulut verilerinden temkinli tahmin yapılır; sıfır derece yakınında yağmur/kar belirsiz kalabilir.</string>
     <string name="help_condition_step_consensus">Bağımsız model aileleri karşılaştırılır. Gerçek eşitlikte alternatifler korunur; farklı modellerin medyanları karıştırılmaz.</string>
-    <string name="help_convergence_example_note">%86 ve %43 yalnızca örnek model uzlaşılarıdır; doğru tahmin olasılıkları değildir.</string>
+    <string name="help_convergence_example_note" formatted="false">%86 ve %43 yalnızca örnek model uzlaşılarıdır; doğru tahmin olasılıkları değildir.</string>
     <string name="help_section_5_title">Güneşlenme süresi nasıl hesaplanır?</string>
     <string name="help_section_5_body">Tahmini güneşlenme süresi, gün doğumu ile gün batımı arasındaki doğrudan güneş ışığı süresidir. Önce modelin verdiği süre kullanılır; yoksa daha belirsiz bir tahmin yapılır. Modeller medyanla özetlenebilir.</string>
     <string name="help_sunshine_window_title">Önce gün ışığı saatleri</string>
@@ -1224,13 +1231,6 @@
     <string name="condition_reason_sun">Gün doğumu veya gün batımı verileri eksik</string>
     <string name="condition_reason_disagreement">Modeller uyuşmuyor</string>
     <string name="condition_reason_daily_max">Günlük kod her zaman baskın hava durumunu göstermez</string>
-    <string name="condition_legend_estimated_short">Tahminî</string>
-    <string name="condition_legend_alternatives_short">Alternatifler</string>
-    <string name="condition_legend_partial_short">Kısmi</string>
-    <string name="condition_legend_unavailable_short">Veri yok</string>
-    <string name="condition_legend_summary">≈ Tahminî · ≠ Alternatifler · ◔ Kısmi · — Veri yok</string>
-    <string name="condition_legend_help">Açıklama</string>
-    <string name="condition_legend_title">Hava durumunu anlama</string>
     <string name="condition_legend_not_probability">Bu etiketler verilerin kaynağını ve kapsamını açıklar; tahminin tutma olasılığını göstermez. Kaynakları ve sınırlamaları görmek için bir simgeye dokunun.</string>
     <string name="condition_status_not_specified_desc">Bu simge için kaynak bilgisi yoktur; tahminin doğruluğunu garanti etmez.</string>
     <!-- Themed condition explanation and contextual legend (V5). -->

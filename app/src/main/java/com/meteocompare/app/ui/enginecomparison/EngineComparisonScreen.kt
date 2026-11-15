@@ -85,7 +85,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.ui.components.ConditionStatusIcon
-import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.usecase.EngineComparisonDay
@@ -974,8 +973,6 @@ private fun EngineDailyComparisonTable(
     val tableWidth = 620.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Explanation remains visible independently of horizontal table scrolling.
-        ConditionStatusLegend(Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
         Column(modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState).width(tableWidth)) {
             EngineTableHeader(selectedEngine)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

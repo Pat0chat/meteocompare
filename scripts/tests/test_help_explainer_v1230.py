@@ -61,5 +61,38 @@ class HelpExplainerContractTest(unittest.TestCase):
         fr = texts[0].lower()
         self.assertNotIn('dérivée une seule fois des valeurs centrales',fr)
 
+    def test_statuses_are_fourth_and_menu_shows_all_six_sections(self):
+        code = SCREEN.read_text(encoding='utf-8')
+        sections = code.split('val sections = listOf(', 1)[1].split('val listState', 1)[0]
+        self.assertEqual([1, 2, 3, 4, 5, 6],
+                         [int(v) for v in re.findall(r'step = ([1-6]),', sections)])
+        order = re.findall(r'title = stringResource\(R.string.(help_section_\d_title)\)', sections)
+        self.assertEqual(['help_section_1_title', 'help_section_2_title',
+                          'help_section_3_title', 'help_section_6_title',
+                          'help_section_4_title', 'help_section_5_title'], order)
+        self.assertIn('testTag("help_contents_menu")', code)
+        self.assertIn('sections.chunked(2)', code)
+        self.assertIn('animateScrollToItem(index + 2)', code)
+        self.assertNotIn('AssistChip(', code)
+        self.assertNotIn('LazyRow(', code)
+
+    def test_dry_and_precipitation_cards_share_intrinsic_height(self):
+        code = SCREEN.read_text(encoding='utf-8')
+        method = code.split('internal fun HierarchicalConsensusIllustration()', 1)[1].split(
+            'private fun ConsensusBranchConnector', 1)[0]
+        self.assertIn('Modifier.fillMaxWidth().height(IntrinsicSize.Max)', method)
+        cards = code.split('private fun ConsensusScenario(', 1)[1].split(
+            'private fun ConvergenceIllustration()', 1)[0]
+        self.assertIn('modifier.fillMaxHeight().heightIn(min = 180.dp)', cards)
+
+    def test_literal_percent_examples_are_not_android_format_strings(self):
+        for folder in LOCALES:
+            with self.subTest(locale=folder):
+                values = {node.attrib['name']: node for node in
+                          ET.parse(RES / folder / 'strings.xml').findall('./string')}
+                for key in ('help_hierarchical_note', 'help_convergence_example_note'):
+                    self.assertEqual('false', values[key].get('formatted'), (folder, key))
+                    self.assertIn('%', values[key].text)
+
 if __name__ == '__main__':
     unittest.main()

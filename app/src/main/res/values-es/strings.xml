@@ -851,6 +851,13 @@ datos</string>
 
     <string name="action_how_it_works">Cómo funciona MeteoCompare</string>
     <string name="help_title">¿Cómo funciona MeteoCompare?</string>
+    <string name="help_contents_menu_title">Índice</string>
+    <string name="help_menu_models">Modelos</string>
+    <string name="help_menu_engines">Cuatro métodos</string>
+    <string name="help_menu_conditions">Condiciones</string>
+    <string name="help_menu_statuses">Estados de iconos</string>
+    <string name="help_menu_agreement">Convergencia</string>
+    <string name="help_menu_sunshine">Sol</string>
     <string name="help_subtitle">Compare varios modelos meteorológicos para comprender mejor las convergencias, las divergencias y la incertidumbre.</string>
     <string name="help_section_1_title">Fuentes de modelos</string>
     <string name="help_section_1_body">MeteoCompare compara predicciones de varios modelos disponibles, entre otros, mediante Open-Meteo (AROME, ICON, ECMWF, GFS…). Cada modelo es una simulación, no una observación segura. Los modelos de la misma familia no cuentan como opiniones totalmente independientes.</string>
@@ -870,7 +877,7 @@ datos</string>
     <string name="help_hierarchical_dry_body">El motor distingue después entre cielo despejado, poco nuboso, parcialmente nuboso, cubierto o niebla a partir de las señales disponibles.</string>
     <string name="help_hierarchical_precip">Precipitaciones</string>
     <string name="help_hierarchical_precip_body">Las situaciones lluviosas o invernales se agrupan primero y luego se resuelven entre lluvia, llovizna, nieve, lluvia helada, chubascos o tormentas.</string>
-    <string name="help_hierarchical_note">Ejemplo esquemático de votos por familia (72 % / 28 %), no una probabilidad de lluvia. Un código WMO diario puede indicar el evento más intenso y no la condición predominante.</string>
+    <string name="help_hierarchical_note" formatted="false">Ejemplo esquemático de votos por familia (72 % / 28 %), no una probabilidad de lluvia. Un código WMO diario puede indicar el evento más intenso y no la condición predominante.</string>
     <string name="help_section_4_title">Acuerdo entre modelos</string>
     <string name="help_section_4_body">La convergencia indica si los modelos predicen situaciones parecidas. Los rangos muestran dispersión, no necesariamente intervalos probabilísticos. Un acuerdo fuerte también puede equivocarse.</string>
     <string name="help_convergence_strong_title">Convergencia fuerte</string>
@@ -882,7 +889,7 @@ datos</string>
     <string name="help_condition_step_native">Primero, el código WMO horario del modelo: cielo, lluvia, nieve, niebla, tormenta…</string>
     <string name="help_condition_step_derived">Si falta, se estima prudentemente con lluvia y nubosidad del mismo modelo; cerca de 0 °C puede quedar incierto si llueve o nieva.</string>
     <string name="help_condition_step_consensus">Se comparan familias independientes. Un empate real mantiene alternativas; no se mezclan medianas de modelos diferentes.</string>
-    <string name="help_convergence_example_note">86 % y 43 % son ejemplos ilustrativos de acuerdo entre modelos, no probabilidades de acierto.</string>
+    <string name="help_convergence_example_note" formatted="false">86 % y 43 % son ejemplos ilustrativos de acuerdo entre modelos, no probabilidades de acierto.</string>
     <string name="help_section_5_title">¿Cómo se calcula el sol?</string>
     <string name="help_section_5_body">La duración prevista de sol representa el tiempo con luz solar directa entre el amanecer y el atardecer. Se prioriza el dato del modelo; si falta, se estima con mayor incertidumbre. La mediana puede resumir varios modelos.</string>
     <string name="help_sunshine_window_title">Primero, las horas de luz</string>
@@ -1216,13 +1223,6 @@ datos</string>
     <string name="condition_reason_sun">Faltan datos de amanecer o atardecer</string>
     <string name="condition_reason_disagreement">Los modelos discrepan</string>
     <string name="condition_reason_daily_max">El código diario no siempre refleja la condición dominante</string>
-    <string name="condition_legend_estimated_short">Estimado</string>
-    <string name="condition_legend_alternatives_short">Alternativas</string>
-    <string name="condition_legend_partial_short">Parcial</string>
-    <string name="condition_legend_unavailable_short">Sin datos</string>
-    <string name="condition_legend_summary">≈ Estimado · ≠ Alternativas · ◔ Parcial · — Sin datos</string>
-    <string name="condition_legend_help">Explicación</string>
-    <string name="condition_legend_title">Comprender las condiciones</string>
     <string name="condition_legend_not_probability">Estas etiquetas indican origen y cobertura de datos, no una probabilidad calibrada de acierto. Toca un icono para conocer sus fuentes y límites.</string>
     <string name="condition_status_not_specified_desc">Este icono no incluye detalles del origen; no garantiza la exactitud del pronóstico.</string>
     <!-- Themed condition explanation and contextual legend (V5). -->

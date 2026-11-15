@@ -846,6 +846,13 @@ Daten</string>
 
     <string name="action_how_it_works">Wie MeteoCompare funktioniert</string>
     <string name="help_title">Wie funktioniert MeteoCompare?</string>
+    <string name="help_contents_menu_title">Inhalt</string>
+    <string name="help_menu_models">Wettermodelle</string>
+    <string name="help_menu_engines">Vier Verfahren</string>
+    <string name="help_menu_conditions">Wetterlage</string>
+    <string name="help_menu_statuses">Symbolstatus</string>
+    <string name="help_menu_agreement">Übereinstimmung</string>
+    <string name="help_menu_sunshine">Sonne</string>
     <string name="help_subtitle">Vergleichen Sie mehrere Wettermodelle, um Konvergenzen, Divergenzen und Unsicherheit besser zu verstehen.</string>
     <string name="help_section_1_title">Modellquellen</string>
     <string name="help_section_1_body">MeteoCompare vergleicht Vorhersagen verschiedener Modelle, die unter anderem über Open-Meteo verfügbar sind (AROME, ICON, ECMWF, GFS…). Ein Modell ist eine Simulation und keine sichere Beobachtung. Modelle derselben Familie gelten nicht als völlig unabhängige Stimmen.</string>
@@ -865,7 +872,7 @@ Daten</string>
     <string name="help_hierarchical_dry_body">Danach unterscheidet der Motor anhand der verfügbaren Signale zwischen klar, überwiegend klar, teilweise bewölkt, bedeckt oder Nebel.</string>
     <string name="help_hierarchical_precip">Niederschlag</string>
     <string name="help_hierarchical_precip_body">Regen- oder Wintersituationen werden zunächst gruppiert und dann zwischen Regen, Nieselregen, Schnee, gefrierendem Regen, Schauern oder Gewitter aufgelöst.</string>
-    <string name="help_hierarchical_note">Schematisches Beispiel für Familien-Stimmen (72 % / 28 %), keine Regenwahrscheinlichkeit. Ein täglicher WMO-Code kann das schwerste Ereignis statt der vorherrschenden Bedingung beschreiben.</string>
+    <string name="help_hierarchical_note" formatted="false">Schematisches Beispiel für Familien-Stimmen (72 % / 28 %), keine Regenwahrscheinlichkeit. Ein täglicher WMO-Code kann das schwerste Ereignis statt der vorherrschenden Bedingung beschreiben.</string>
     <string name="help_section_4_title">Übereinstimmung der Modelle</string>
     <string name="help_section_4_body">Konvergenz zeigt, ob Modelle ähnliche Bedingungen vorhersagen. Die Bereiche zeigen die Streuung der Vorhersagen, nicht automatisch Wahrscheinlichkeitsintervalle. Auch starke Übereinstimmung kann falsch sein.</string>
     <string name="help_convergence_strong_title">Starke Konvergenz</string>
@@ -877,7 +884,7 @@ Daten</string>
     <string name="help_condition_step_native">Zuerst der stündliche WMO-Code des Modells: Himmel, Regen, Schnee, Nebel, Gewitter…</string>
     <string name="help_condition_step_derived">Fehlt er, vorsichtige Ableitung aus Niederschlag und Bewölkung desselben Modells; um den Gefrierpunkt kann Regen oder Schnee unklar bleiben.</string>
     <string name="help_condition_step_consensus">Vergleich unabhängiger Modellfamilien. Bei echtem Gleichstand bleiben Alternativen; Mediane verschiedener Modelle werden nicht vermischt.</string>
-    <string name="help_convergence_example_note">86 % und 43 % sind illustrative Beispiele für Modellübereinstimmung, keine Trefferwahrscheinlichkeiten.</string>
+    <string name="help_convergence_example_note" formatted="false">86 % und 43 % sind illustrative Beispiele für Modellübereinstimmung, keine Trefferwahrscheinlichkeiten.</string>
     <string name="help_section_5_title">Wie wird die Sonnenscheindauer berechnet?</string>
     <string name="help_section_5_body">Die vorhergesagte Sonnenscheindauer beschreibt direkte Sonne zwischen Sonnenaufgang und Sonnenuntergang. Vorrang hat die vom Modell gelieferte Dauer, sonst wird vorsichtig geschätzt. Mehrere Modelle können durch ihren Median zusammengefasst werden.</string>
     <string name="help_sunshine_window_title">Zuerst die Tageslichtzeit</string>
@@ -1210,13 +1217,6 @@ Daten</string>
     <string name="condition_reason_sun">Daten zu Sonnenaufgang oder -untergang fehlen</string>
     <string name="condition_reason_disagreement">Modelle widersprechen sich</string>
     <string name="condition_reason_daily_max">Der Tagescode beschreibt nicht unbedingt die vorherrschende Wetterlage</string>
-    <string name="condition_legend_estimated_short">Geschätzt</string>
-    <string name="condition_legend_alternatives_short">Alternativen</string>
-    <string name="condition_legend_partial_short">Teilweise</string>
-    <string name="condition_legend_unavailable_short">Keine Daten</string>
-    <string name="condition_legend_summary">≈ Geschätzt · ≠ Alternativen · ◔ Teilweise · — Keine Daten</string>
-    <string name="condition_legend_help">Erklärung</string>
-    <string name="condition_legend_title">Wetterbedingungen verstehen</string>
     <string name="condition_legend_not_probability">Diese Kennzeichnungen beschreiben Datenherkunft und Abdeckung, keine kalibrierte Trefferwahrscheinlichkeit. Tippen Sie auf ein Wettersymbol, um Quellen und Grenzen zu sehen.</string>
     <string name="condition_status_not_specified_desc">Für dieses Symbol sind keine Quelldaten verfügbar; es garantiert keine Vorhersagegenauigkeit.</string>
     <!-- Themed condition explanation and contextual legend (V5). -->
