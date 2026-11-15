@@ -851,11 +851,18 @@ datos</string>
 
     <string name="action_how_it_works">Cómo funciona MeteoCompare</string>
     <string name="help_title">¿Cómo funciona MeteoCompare?</string>
+    <string name="help_contents_menu_title">Índice</string>
+    <string name="help_menu_models">Modelos</string>
+    <string name="help_menu_engines">Cuatro métodos</string>
+    <string name="help_menu_conditions">Condiciones</string>
+    <string name="help_menu_statuses">Estados de iconos</string>
+    <string name="help_menu_agreement">Convergencia</string>
+    <string name="help_menu_sunshine">Sol</string>
     <string name="help_subtitle">Compare varios modelos meteorológicos para comprender mejor las convergencias, las divergencias y la incertidumbre.</string>
     <string name="help_section_1_title">Fuentes de modelos</string>
-    <string name="help_section_1_body">MeteoCompare reúne varias familias de modelos meteorológicos para comparar sus señales y no depender de una sola fuente.</string>
+    <string name="help_section_1_body">MeteoCompare compara predicciones de varios modelos disponibles, entre otros, mediante Open-Meteo (AROME, ICON, ECMWF, GFS…). Cada modelo es una simulación, no una observación segura. Los modelos de la misma familia no cuentan como opiniones totalmente independientes.</string>
     <string name="help_section_2_title">4 motores de cálculo</string>
-    <string name="help_section_2_body">Para las variables numéricas, la aplicación aplica cuatro enfoques complementarios según el contexto, el histórico local y la dispersión entre modelos.</string>
+    <string name="help_section_2_body">Para valores numéricos (temperatura, lluvia, viento…), cuatro estrategias usan las predicciones disponibles. Ofrecen un valor central y, si hay datos, un rango de dispersión. No modifican los datos originales.</string>
     <string name="help_engine_multi_title">Multi-consenso</string>
     <string name="help_engine_multi_body">Consenso robusto entre modelos para obtener un valor central y un rango plausible.</string>
     <string name="help_engine_calibration_title">Calibración</string>
@@ -865,20 +872,37 @@ datos</string>
     <string name="help_engine_adaptive_title">Adaptativo</string>
     <string name="help_engine_adaptive_body">Combina dinámicamente los otros tres motores según el contexto y la calidad de los datos.</string>
     <string name="help_section_3_title">Condiciones meteorológicas</string>
-    <string name="help_section_3_body">La condición mostrada prioriza los códigos meteorológicos WMO nativos: si los aportan al menos dos familias de modelos independientes, solo esos códigos participan en el consenso. En caso contrario, se deriva una única condición de los valores centrales de precipitación, temperatura y nubosidad.</string>
+    <string name="help_section_3_body">El icono meteorológico se calcula de forma distinta a los valores numéricos: primero se interpreta cada modelo por separado y después se busca consenso entre familias independientes. Para día y noche se agrupan las horas según su duración real y se señalan los periodos incompletos.</string>
     <string name="help_hierarchical_dry">Sin precipitación</string>
     <string name="help_hierarchical_dry_body">El motor distingue después entre cielo despejado, poco nuboso, parcialmente nuboso, cubierto o niebla a partir de las señales disponibles.</string>
     <string name="help_hierarchical_precip">Precipitaciones</string>
     <string name="help_hierarchical_precip_body">Las situaciones lluviosas o invernales se agrupan primero y luego se resuelven entre lluvia, llovizna, nieve, lluvia helada, chubascos o tormentas.</string>
-    <string name="help_hierarchical_note">Este consenso jerárquico reduce los sesgos de una simple votación categórica y evita que una categoría aislada domine por error.</string>
+    <string name="help_hierarchical_note" formatted="false">Ejemplo esquemático de votos por familia (72 % / 28 %), no una probabilidad de lluvia. Un código WMO diario puede indicar el evento más intenso y no la condición predominante.</string>
     <string name="help_section_4_title">Acuerdo entre modelos</string>
-    <string name="help_section_4_body">MeteoCompare muestra cuándo los modelos convergen y cuándo divergen, para que la confianza y la incertidumbre sigan siendo legibles.</string>
+    <string name="help_section_4_body">La convergencia indica si los modelos predicen situaciones parecidas. Los rangos muestran dispersión, no necesariamente intervalos probabilísticos. Un acuerdo fuerte también puede equivocarse.</string>
     <string name="help_convergence_strong_title">Convergencia fuerte</string>
     <string name="help_convergence_strong_body">Cuando los modelos cuentan una historia parecida, MeteoCompare muestra rangos más estrechos y una confianza más alta.</string>
     <string name="help_convergence_uncertain_title">Divergencia / incertidumbre</string>
     <string name="help_convergence_uncertain_body">Cuando los modelos se separan, la aplicación hace visibles las diferencias y resalta la incertidumbre.</string>
     <string name="help_footer_note">MeteoCompare es una herramienta de apoyo al análisis meteorológico. Destaca las convergencias y divergencias entre modelos, pero no sustituye la experiencia humana.</string>
 
+    <string name="help_condition_step_native">Primero, el código WMO horario del modelo: cielo, lluvia, nieve, niebla, tormenta…</string>
+    <string name="help_condition_step_derived">Si falta, se estima prudentemente con lluvia y nubosidad del mismo modelo; cerca de 0 °C puede quedar incierto si llueve o nieva.</string>
+    <string name="help_condition_step_consensus">Se comparan familias independientes. Un empate real mantiene alternativas; no se mezclan medianas de modelos diferentes.</string>
+    <string name="help_convergence_example_note" formatted="false">86 % y 43 % son ejemplos ilustrativos de acuerdo entre modelos, no probabilidades de acierto.</string>
+    <string name="help_section_5_title">¿Cómo se calcula el sol?</string>
+    <string name="help_section_5_body">La duración prevista de sol representa el tiempo con luz solar directa entre el amanecer y el atardecer. Se prioriza el dato del modelo; si falta, se estima con mayor incertidumbre. La mediana puede resumir varios modelos.</string>
+    <string name="help_sunshine_window_title">Primero, las horas de luz</string>
+    <string name="help_sunshine_window_body">Amanecer y atardecer del modelo o cálculo astronómico alternativo. Las horas nocturnas no suman sol.</string>
+    <string name="help_sunshine_source_title">Duración prevista del sol</string>
+    <string name="help_sunshine_source_body">Se prioriza sunshine_duration: segundos de sol directo en la hora anterior (umbral de radiación normal directa: 120 W/m²).</string>
+    <string name="help_sunshine_irradiance_title">Radiación solar</string>
+    <string name="help_sunshine_irradiance_body">Si falta la duración, la radiación normal directa horaria solo permite una aproximación; una media horaria no revela los minutos exactos de sol.</string>
+    <string name="help_sunshine_clouds_title">Nubosidad como último recurso</string>
+    <string name="help_sunshine_clouds_body">Las nubes bajas, medias, altas y totales permiten una estimación óptica prudente. Nunca se supone que un dato ausente vale cero.</string>
+    <string name="help_sunshine_note">Las horas se alinean con el intervalo real antes de agregarlas. Si menos de la mitad del día es utilizable o falta evidencia solar con nubosidad muy alta, no se inventa una duración. Es una predicción, no una medición.</string>
+    <string name="help_section_6_title">Estados de los iconos del tiempo</string>
+    <string name="help_section_6_body">Una marca pequeña junto al icono explica el origen del resultado y posibles datos faltantes. Toca un icono para consultar sus detalles. Un icono normal no garantiza el pronóstico.</string>
     <string name="help_engines_compute_variables">Estos motores calculan después las variables</string>
     <plurals name="home_scenario_hidden_variants">
         <item quantity="one">+ %1$d otra variante no mostrada · %2$d/%3$d modelos</item>
@@ -1199,13 +1223,6 @@ datos</string>
     <string name="condition_reason_sun">Faltan datos de amanecer o atardecer</string>
     <string name="condition_reason_disagreement">Los modelos discrepan</string>
     <string name="condition_reason_daily_max">El código diario no siempre refleja la condición dominante</string>
-    <string name="condition_legend_estimated_short">Estimado</string>
-    <string name="condition_legend_alternatives_short">Alternativas</string>
-    <string name="condition_legend_partial_short">Parcial</string>
-    <string name="condition_legend_unavailable_short">Sin datos</string>
-    <string name="condition_legend_summary">≈ Estimado · ≠ Alternativas · ◔ Parcial · — Sin datos</string>
-    <string name="condition_legend_help">Explicación</string>
-    <string name="condition_legend_title">Comprender las condiciones</string>
     <string name="condition_legend_not_probability">Estas etiquetas indican origen y cobertura de datos, no una probabilidad calibrada de acierto. Toca un icono para conocer sus fuentes y límites.</string>
     <string name="condition_status_not_specified_desc">Este icono no incluye detalles del origen; no garantiza la exactitud del pronóstico.</string>
     <!-- Themed condition explanation and contextual legend (V5). -->

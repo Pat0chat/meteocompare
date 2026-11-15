@@ -105,7 +105,7 @@ internal object WidgetWeatherIconRenderer {
         // Compact, portable diagnostic: Glance and bitmap forecasts cannot open
         // the Compose explanation dialog, but must not silently erase the status.
         val status = decision?.status
-        if (status == ConditionStatus.AMBIGUOUS && decision != null && decision.alternatives.size >= 2) {
+        if (status == ConditionStatus.AMBIGUOUS && decision.alternatives.size >= 2) {
             val iconSize = (sizePx * 0.56f).toInt().coerceAtLeast(1)
             decision.alternatives.take(2).forEachIndexed { index, alternative ->
                 val icon = render(alternative, iconSize, isNight)

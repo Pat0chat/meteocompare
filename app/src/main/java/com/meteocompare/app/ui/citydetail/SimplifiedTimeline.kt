@@ -80,7 +80,6 @@ import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.components.CollapsibleSectionHeader
 import com.meteocompare.app.ui.components.ConditionStatusIcon
-import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
@@ -294,9 +293,6 @@ internal fun SimplifiedTimelineCard(
                         )
                     }
                 }
-                // Explanations follow the chart, rather than interrupting its controls.
-                // The convergence hint is shown first when there is disagreement.
-                ConditionStatusLegend(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
     }

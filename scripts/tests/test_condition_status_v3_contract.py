@@ -18,8 +18,7 @@ class ConditionStatusV3ContractTest(unittest.TestCase):
         required = {f'condition_status_{s}' for s in STATES} | {
             f'condition_status_{s}_desc' for s in STATES
         } | {
-            'condition_legend_summary', 'condition_legend_help',
-            'condition_legend_title', 'condition_legend_not_probability',
+            'condition_legend_not_probability',
             'condition_explanation_close', 'condition_explanation_alternatives_title',
             'condition_explanation_source_title', 'condition_explanation_time_coverage',
             'condition_explanation_model_coverage', 'condition_explanation_agreement',
@@ -32,21 +31,22 @@ class ConditionStatusV3ContractTest(unittest.TestCase):
     def test_all_five_statuses_have_explicit_visual_contract_and_explanations(self):
         visuals = (MAIN / 'domain/util/ConditionPresentation.kt').read_text(encoding='utf-8')
         components = '\n'.join((MAIN / ('ui/components/' + name)).read_text(encoding='utf-8') for name in
-            ('ConditionStatusIcon.kt', 'ConditionExplanationDialog.kt', 'ConditionStatusLegend.kt'))
+            ('ConditionStatusIcon.kt', 'ConditionExplanationDialog.kt'))
+        help_ui = (MAIN / 'ui/help/HowItWorksScreen.kt').read_text(encoding='utf-8')
         for state in STATES:
             self.assertIn('ConditionStatus.' + state.upper(), visuals)
-            self.assertIn('ConditionStatus.' + state.upper(), components)
         self.assertIn('visibleConditionAlternatives(decision)', components)
         self.assertIn('ConditionExplanationDialog(condition, decision', components)
-        self.assertIn('ConditionStatusLegend', components)
+        self.assertIn('ConditionStatus.entries', help_ui)
+        self.assertFalse((MAIN / 'ui/components/ConditionStatusLegend.kt').exists())
 
     def test_status_metadata_reaches_each_requested_view(self):
         by_file = {
-            'ui/citydetail/SimplifiedTimeline.kt': ('ConditionStatusIcon', 'ConditionStatusLegend', 'dayConditionDiagnostic'),
+            'ui/citydetail/SimplifiedTimeline.kt': ('ConditionStatusIcon', 'dayConditionDiagnostic'),
             'ui/citydetail/ChronoTimeline.kt': ('ConditionStatusIcon', 'dayConditionDiagnostic', 'nightConditionDiagnostic'),
-            'ui/citydetail/WeatherByModelTable.kt': ('ConditionStatusIcon', 'ConditionStatusLegend'),
+            'ui/citydetail/WeatherByModelTable.kt': ('ConditionStatusIcon',),
             'ui/citydetail/HourlyWeatherByModelTable.kt': ('ConditionStatusIcon', 'diagnosis'),
-            'ui/graphicview/GraphicForecastScreen.kt': ('ConditionStatusIcon', 'ConditionStatusLegend', 'conditionDiagnostic'),
+            'ui/graphicview/GraphicForecastScreen.kt': ('ConditionStatusIcon', 'conditionDiagnostic'),
             'ui/citydetail/SimplifiedTimelineBuilder.kt': ('dayConditionDiagnostic', 'nightConditionDiagnostic', 'timelineConditionDiagnostic'),
         }
         for filename, required in by_file.items():
@@ -71,8 +71,9 @@ class ConditionStatusV3ContractTest(unittest.TestCase):
         source = (ROOT / 'app/src/androidTest/java/com/meteocompare/app/ui/components/ConditionStatusIconTest.kt').read_text(encoding='utf-8')
         for status in STATES:
             self.assertIn('ConditionStatus.' + status.upper(), source)
-        for term in ('ConditionStatusIcon(', 'ConditionStatusLegend()', 'performClick()', 'condition_explanation_alternatives'):
+        for term in ('ConditionStatusIcon(', 'performClick()', 'condition_explanation_alternatives'):
             self.assertIn(term, source)
+        self.assertNotIn('ConditionStatusLegend()', source)
 
     def test_old_cross_model_variable_median_inference_is_not_reintroduced(self):
         source = (MAIN / 'domain/usecase/WeatherConditionConsensus.kt').read_text(encoding='utf-8')

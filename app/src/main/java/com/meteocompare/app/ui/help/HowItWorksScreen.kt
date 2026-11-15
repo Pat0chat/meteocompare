@@ -15,21 +15,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WbCloudy
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,20 +63,31 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionStatus
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
+import com.meteocompare.app.ui.components.statusAccent
+import com.meteocompare.app.ui.components.statusSymbol
+import com.meteocompare.app.ui.components.statusLabelRes
+import com.meteocompare.app.ui.components.statusDescriptionRes
+import kotlinx.coroutines.launch
 
 private data class HelpSection(
     val step: Int,
     val title: String,
     val body: String,
+    val menuTitle: String,
+    val menuIcon: ImageVector,
     val illustration: @Composable () -> Unit,
     val footer: (@Composable () -> Unit)? = null
 )
@@ -107,23 +126,30 @@ fun HowItWorksScreen(onBack: () -> Unit) {
 
 @Composable
 private fun HowItWorksContent(modifier: Modifier = Modifier) {
+    // Visible order is also the navigation order: status explanations are 04.
     val sections = listOf(
         HelpSection(
             step = 1,
             title = stringResource(R.string.help_section_1_title),
             body = stringResource(R.string.help_section_1_body),
+            menuTitle = stringResource(R.string.help_menu_models),
+            menuIcon = Icons.Outlined.WbCloudy,
             illustration = { ModelSourcesIllustration() }
         ),
         HelpSection(
             step = 2,
             title = stringResource(R.string.help_section_2_title),
             body = stringResource(R.string.help_section_2_body),
+            menuTitle = stringResource(R.string.help_menu_engines),
+            menuIcon = Icons.Outlined.Layers,
             illustration = { EngineModesIllustration() }
         ),
         HelpSection(
             step = 3,
             title = stringResource(R.string.help_section_3_title),
             body = stringResource(R.string.help_section_3_body),
+            menuTitle = stringResource(R.string.help_menu_conditions),
+            menuIcon = Icons.Outlined.WaterDrop,
             illustration = { HierarchicalConsensusIllustration() },
             footer = {
                 Text(
@@ -138,18 +164,48 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
         ),
         HelpSection(
             step = 4,
+            title = stringResource(R.string.help_section_6_title),
+            body = stringResource(R.string.help_section_6_body),
+            menuTitle = stringResource(R.string.help_menu_statuses),
+            menuIcon = Icons.Outlined.Info,
+            illustration = { ConditionStatusesIllustration() },
+            footer = { HelpFootnote(R.string.condition_legend_not_probability) }
+        ),
+        HelpSection(
+            step = 5,
             title = stringResource(R.string.help_section_4_title),
             body = stringResource(R.string.help_section_4_body),
-            illustration = { ConvergenceIllustration() }
+            menuTitle = stringResource(R.string.help_menu_agreement),
+            menuIcon = Icons.Outlined.TrackChanges,
+            illustration = { ConvergenceIllustration() },
+            footer = { HelpFootnote(R.string.help_convergence_example_note) }
+        ),
+        HelpSection(
+            step = 6,
+            title = stringResource(R.string.help_section_5_title),
+            body = stringResource(R.string.help_section_5_body),
+            menuTitle = stringResource(R.string.help_menu_sunshine),
+            menuIcon = Icons.Outlined.WbSunny,
+            illustration = { SunshineMethodIllustration() },
+            footer = { HelpFootnote(R.string.help_sunshine_note) }
         )
     )
 
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         item { HelpHero() }
+        item(key = "help_navigation") {
+            HelpNavigationMenu(sections = sections, onSelect = { index ->
+                scope.launch { listState.animateScrollToItem(index + 2) }
+            })
+        }
 
         sections.forEach { section ->
             item(key = "help_${section.step}") {
@@ -158,6 +214,87 @@ private fun HowItWorksContent(modifier: Modifier = Modifier) {
         }
 
         item { TakeawaySurface() }
+    }
+}
+
+
+/** All six destinations remain visible, unlike a horizontally clipped list of chips. */
+@Composable
+private fun HelpNavigationMenu(sections: List<HelpSection>, onSelect: (Int) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("help_contents_menu"),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Outlined.Layers, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Text(stringResource(R.string.help_contents_menu_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
+            sections.chunked(2).forEachIndexed { rowIndex, pair ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    pair.forEachIndexed { columnIndex, section ->
+                        val index = rowIndex * 2 + columnIndex
+                        HelpMenuItem(section, onClick = { onSelect(index) },
+                            modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HelpMenuItem(section: HelpSection, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 78.dp).testTag("help_menu_${section.step}"),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.60f))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Icon(section.menuIcon, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+                    Text(section.step.toString().padStart(2, '0'),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold)
+                }
+                Text(section.menuTitle,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis)
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(15.dp))
+        }
     }
 }
 
@@ -263,7 +400,6 @@ private fun StepBadge(step: Int) {
     }
 }
 
-private val HelpFeatureBoxHeight = 240.dp
 
 @Composable
 private fun ModelSourcesIllustration(
@@ -492,7 +628,7 @@ private fun EngineModesIllustration() {
 @Composable
 private fun EngineTile(item: EngineItem, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(HelpFeatureBoxHeight),
+        modifier = modifier.heightIn(min = 180.dp),
         shape = RoundedCornerShape(20.dp),
         color = item.container,
         tonalElevation = 0.dp
@@ -535,8 +671,9 @@ private fun EngineTile(item: EngineItem, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HierarchicalConsensusIllustration() {
+internal fun HierarchicalConsensusIllustration() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ConditionWorkflowIllustration()
         Surface(
             modifier = Modifier.align(Alignment.CenterHorizontally),
             shape = RoundedCornerShape(18.dp),
@@ -560,12 +697,13 @@ private fun HierarchicalConsensusIllustration() {
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             ConsensusScenario(
                 modifier = Modifier.weight(1f),
                 title = stringResource(R.string.help_hierarchical_dry),
+                tag = "help_condition_dry",
                 percentage = 72,
                 accent = MaterialTheme.colorScheme.secondary,
                 container = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.46f),
@@ -581,6 +719,7 @@ private fun HierarchicalConsensusIllustration() {
             ConsensusScenario(
                 modifier = Modifier.weight(1f),
                 title = stringResource(R.string.help_hierarchical_precip),
+                tag = "help_condition_precip",
                 percentage = 28,
                 accent = MaterialTheme.colorScheme.primary,
                 container = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
@@ -617,6 +756,7 @@ private fun ConsensusBranchConnector(modifier: Modifier = Modifier) {
 @Composable
 private fun ConsensusScenario(
     title: String,
+    tag: String,
     percentage: Int,
     accent: Color,
     container: Color,
@@ -625,7 +765,7 @@ private fun ConsensusScenario(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.height(HelpFeatureBoxHeight),
+        modifier = modifier.fillMaxHeight().heightIn(min = 180.dp).testTag(tag),
         shape = RoundedCornerShape(20.dp),
         color = container,
         tonalElevation = 0.dp
@@ -882,6 +1022,172 @@ private fun TakeawaySurface() {
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Start
             )
+        }
+    }
+}
+
+
+/** These diagrams explain the production engine; their percentages are illustrative only. */
+@Composable
+private fun HelpFootnote(textRes: Int) {
+    Text(
+        text = stringResource(textRes),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Start
+    )
+}
+
+@Composable
+private fun ConditionWorkflowIllustration() {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxWidth().testTag("help_condition_workflow")
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            listOf(
+                R.string.help_condition_step_native,
+                R.string.help_condition_step_derived,
+                R.string.help_condition_step_consensus
+            ).forEachIndexed { index, textRes ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                        Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                "${index + 1}",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(textRes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SunshineMethodIllustration() {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("help_sunshine_method"),
+        shape = RoundedCornerShape(20.dp),
+        color = scheme.surfaceContainerLowest
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(shape = CircleShape, color = scheme.tertiaryContainer) {
+                    Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.WbSunny, null,
+                            tint = scheme.onTertiaryContainer, modifier = Modifier.size(27.dp))
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.help_sunshine_window_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.help_sunshine_window_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant)
+                }
+            }
+            HelpSeparator()
+            HelpEvidenceRow("01", R.string.help_sunshine_source_title,
+                R.string.help_sunshine_source_body)
+            HelpSeparator()
+            HelpEvidenceRow("02", R.string.help_sunshine_irradiance_title,
+                R.string.help_sunshine_irradiance_body)
+            HelpSeparator()
+            HelpEvidenceRow("03", R.string.help_sunshine_clouds_title,
+                R.string.help_sunshine_clouds_body)
+        }
+    }
+}
+
+@Composable
+private fun HelpEvidenceRow(number: String, titleRes: Int, bodyRes: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(number, style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(25.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(titleRes), style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold)
+            Text(stringResource(bodyRes), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun HelpSeparator() {
+    Spacer(Modifier.fillMaxWidth().height(1.dp)
+        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)))
+}
+
+/** Shares the same status symbols and translations as every forecast icon. */
+@Composable
+internal fun ConditionStatusesIllustration() {
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("help_condition_statuses"),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+            ConditionStatus.entries.forEachIndexed { index, status ->
+                if (index != 0) HelpSeparator()
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("help_status_${status.name}")
+                        .padding(vertical = 11.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(shape = CircleShape,
+                        color = statusAccent(status).copy(alpha = 0.12f)) {
+                        Box(Modifier.size(43.dp), contentAlignment = Alignment.Center) {
+                            Text(statusSymbol(status),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = statusAccent(status))
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(stringResource(statusLabelRes(status)),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(statusDescriptionRes(status)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
     }
 }
