@@ -279,6 +279,25 @@ class WidgetForecastCardLayoutTest {
     }
 
     @Test
+    fun `nova expanded cards gain readable metrics only above the tall card threshold`() {
+        val metrics = listOf(WidgetForecastMetric.CLOUD)
+        val before = forecastMetricLayout(164f, ForecastCardHeightProfile.EXPANDED, metrics)
+        val at = forecastMetricLayout(165f, ForecastCardHeightProfile.EXPANDED, metrics)
+        val tall = forecastMetricLayout(180f, ForecastCardHeightProfile.EXPANDED, metrics)
+        val otherProfile = forecastMetricLayout(180f, ForecastCardHeightProfile.COMFORTABLE, metrics)
+
+        assertEquals(10f, before.textSp, 0.0001f)
+        assertEquals(11.1f, before.iconSp, 0.0001f)
+        assertEquals(11.5f, at.textSp, 0.0001f)
+        assertEquals(12.6f, at.iconSp, 0.0001f)
+        assertEquals(11.5f, tall.textSp, 0.0001f)
+        assertEquals(12.6f, tall.iconSp, 0.0001f)
+        assertEquals(10f, otherProfile.textSp, 0.0001f)
+        assertEquals(11.1f, otherProfile.iconSp, 0.0001f)
+        assertEquals(metrics, tall.visible)
+    }
+
+    @Test
     fun `very short cards prioritize rain and never show cut off rows`() {
         val metrics = forecastVisibleMetrics(65, 35, 2.0, 82)
         val short = forecastMetricLayout(52f, ForecastCardHeightProfile.DENSE, metrics)

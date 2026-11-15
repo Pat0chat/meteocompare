@@ -64,6 +64,26 @@ class WeatherRegressionCorpusIntegrityTest(unittest.TestCase):
         refresh = (DATA / 'widget_refresh.tsv').read_text(encoding='utf-8')
         self.assertIn('refresh-9223372036854775807', refresh)
 
+    def test_nova_expanded_metric_corpus_preserves_tall_typography(self):
+        """Only sufficiently tall EXPANDED cards may exceed the old 10sp limit."""
+        import csv
+        with (DATA / 'widget_metrics.tsv').open(encoding='utf-8', newline='') as handle:
+            rows = {row['id']: row for row in csv.DictReader(handle, delimiter='\t')}
+        for height, expected_text, expected_icon in (
+            (140, 10.0, 11.1), (180, 11.5, 12.6), (260, 11.5, 12.6)
+        ):
+            with self.subTest(height=height):
+                expanded = rows[f'metrics-{height}-EXPANDED-1']
+                self.assertAlmostEqual(float(expanded['text_sp']), expected_text)
+                self.assertAlmostEqual(float(expanded['icon_sp']), expected_icon)
+                self.assertEqual(expanded['visible'], 'CLOUD')
+                compact = rows[f'metrics-{height}-COMFORTABLE-1']
+                self.assertAlmostEqual(float(compact['text_sp']), 10.0)
+                self.assertAlmostEqual(float(compact['icon_sp']), 11.1)
+        empty = rows['metrics-180-EXPANDED-0']
+        self.assertAlmostEqual(float(empty['text_sp']), 5.5)
+        self.assertAlmostEqual(float(empty['icon_sp']), 6.6)
+
     def test_each_fixture_has_a_real_kotlin_consumer_and_exact_execution_proof(self):
         import importlib.util
         import re

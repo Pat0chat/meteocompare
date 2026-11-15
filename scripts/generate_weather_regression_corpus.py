@@ -277,8 +277,13 @@ def widget_metric_rows():
                 if len(metrics) > rows_available:
                     kept = set([name for name in priority if name in metrics][:rows_available])
                 visible = [name for name in metrics if name in kept]
-                sp = 5.5 if not visible else min(10.0, max(5.5, budget / len(visible) / 1.28))
-                icon = min(11.1, sp + 1.1)
+                # Issue #39 (Nova Launcher): a genuinely tall EXPANDED card
+                # may use slightly larger metric text and symbols. This is
+                # an independent reference contract, not application output.
+                # Do not increase other profiles or cards below 165 dp.
+                text_cap = 11.5 if profile == 'EXPANDED' and height >= 165 else 10.0
+                sp = 5.5 if not visible else min(text_cap, max(5.5, budget / len(visible) / 1.28))
+                icon = min(text_cap + 1.1, sp + 1.1)
                 requested_rows = len(metrics) * 7
                 fitted = 'DENSE'
                 for idx in range(profile_index, -1, -1):
