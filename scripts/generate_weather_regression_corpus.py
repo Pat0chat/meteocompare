@@ -139,9 +139,11 @@ def daily_rows():
                     mode=f'FIRST_{count}')
                 add(f'sparse-nodaily-{zone}-{day}-{count}-{daily}', zone, day,
                     [0] * length, None, None, 'NONE', mode=f'FIRST_{count}')
-        # Missing 5 middle hours: no fabricated daily rain from a severe native code.
+        # A 5-hour internal gap cannot overturn 18/23, 19/24 or 20/25
+        # hours of native CLEAR. This is an irreversible leaf majority, not
+        # interpolation and not the daily *most severe* WMO rain code.
         add(f'middle-gap-{zone}-{day}', zone, day, [0] * length,
-            61, None, 'NONE', mode='GAP_5')
+            61, 'CLEAR', 'HOURLY_WMO', mode='GAP_5')
         add(f'duplicate-native-{zone}-{day}', zone, day,
             [0] * (length - 1) + [61], 61, 'CLEAR', mode='DUP_NATIVE')
         for cloud in (0, 19, 20, 44, 45, 89, 90, 98, 100):
@@ -391,7 +393,13 @@ def main():
     for name, content in generated.items():
         destination = OUT / name
         if args.check:
-            if not destination.exists() or destination.read_bytes() != content:
+            if not destination.exists():
+                raise SystemExit(f'MISSING: {destination}. Run scripts/generate_weather_regression_corpus.py')
+            # Git on Windows may check out TSV/JSON text with CRLF endings.
+            # The generator's bytes remain canonical LF. Only line-ending
+            # normalization is permitted during --check: real fixture edits fail.
+            actual = destination.read_bytes().replace(b'\r\n', b'\n')
+            if b'\r' in actual or actual != content:
                 raise SystemExit(f'OUT OF DATE: {destination}. Run scripts/generate_weather_regression_corpus.py')
         else:
             destination.write_bytes(content)

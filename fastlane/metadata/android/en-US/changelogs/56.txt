@@ -1,0 +1,1 @@
+Clearer weather conditions: unified engine, five explained states (supported, estimated, alternatives, partial, unavailable), visual details and larger alternative icons. Two-row, aligned status legend with a subtle background in Timeline and Chart View. Improved consistency across screens, widgets and notifications, plus stronger regression tests and Windows compatibility.

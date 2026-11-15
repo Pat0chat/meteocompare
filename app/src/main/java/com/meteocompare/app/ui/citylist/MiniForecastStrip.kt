@@ -49,7 +49,8 @@ import com.meteocompare.app.ui.components.formatSunshineDuration
 import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.ui.components.WeatherIconDecorative
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.ui.components.ConditionStatusIcon
 import com.meteocompare.app.ui.components.blendedHeatmapColor
 import com.meteocompare.app.ui.components.temperatureHeatmapColor
 import java.time.Instant
@@ -77,6 +78,7 @@ internal fun MiniForecastStrip(
     modifier: Modifier = Modifier,
     hourlyPrecipMm: List<Double?> = emptyList(),
     hourlyConditions: List<WeatherCondition?> = emptyList(),
+    conditionDiagnostics: List<ConditionDecision> = emptyList(),
     startTime: LocalDateTime? = null,
     startInstant: Instant? = null,
     timezone: ZoneId? = null,
@@ -154,6 +156,7 @@ internal fun MiniForecastStrip(
                         temperatureBackground = heatBackground,
                         temperatureContentColor = temperatureContent,
                         condition = hourlyConditions.getOrNull(index),
+                        conditionDiagnostic = conditionDiagnostics.getOrNull(index),
                         isNight = nightFlags.getOrNull(index) == true,
                         rainStyle = miniTimelineRainDotStyle(
                             probabilityPercent = hourlyPrecipProb.getOrNull(index),
@@ -182,6 +185,7 @@ private fun MiniForecastHour(
     temperatureBackground: Color,
     temperatureContentColor: Color,
     condition: WeatherCondition?,
+    conditionDiagnostic: ConditionDecision? = null,
     isNight: Boolean = false,
     rainStyle: MiniTimelineRainDotStyle?,
     contentColor: Color,
@@ -238,16 +242,13 @@ private fun MiniForecastHour(
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            condition?.let {
-                // Même palette multicolore que les autres vues. La variante
-                // nocturne est conservée pour chaque heure de la frise.
-                WeatherIconDecorative(
-                    condition = it,
-                    size = MINI_TIMELINE_CONDITION_ICON_DP.dp,
-                    isNight = isNight,
-                    modifier = Modifier.testTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
-                )
-            }
+            ConditionStatusIcon(
+                condition = condition,
+                decision = conditionDiagnostic,
+                size = MINI_TIMELINE_CONDITION_ICON_DP.dp,
+                isNight = isNight,
+                modifier = Modifier.testTag("$TAG_MINI_FORECAST_CONDITION_PREFIX$index")
+            )
         }
 
         Box(

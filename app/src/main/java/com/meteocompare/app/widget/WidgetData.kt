@@ -1,6 +1,5 @@
 package com.meteocompare.app.widget
 
-import com.meteocompare.app.domain.util.resolveHourlyCondition
 
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 import com.meteocompare.app.domain.model.ClockFormatPreference
@@ -24,10 +23,11 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionDecisionEngine
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.util.ForecastAggregates
-import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.ui.citydetail.DisplayMode
 import com.meteocompare.app.ui.citydetail.buildSimplifiedTimeline
 import dagger.hilt.android.EntryPointAccessors
@@ -55,6 +55,7 @@ internal data class WidgetData(
     val currentTemp: Double?,
     val apparentTemp: Double? = null,
     val currentCondition: WeatherCondition?,
+    val currentConditionDecision: ConditionDecision? = null,
     val tempMax: Double?,
     val tempMin: Double?,
     val confidencePct: Int?,
@@ -131,6 +132,7 @@ internal data class WidgetData(
      * pas assez d'information pour afficher honnêtement un pictogramme.
      */
     val next12hConditions: List<WeatherCondition?> = emptyList(),
+    val next12hConditionDiagnostics: List<ConditionDecision> = emptyList(),
     /**
      * Moment de la première heure de [next12hTemps] dans le fuseau de la
      * ville, pour produire les 12 libellés horaires de la grille.
@@ -199,6 +201,7 @@ internal data class WidgetForecastItem(
     val label: String,
     val condition: WeatherCondition?,
     val temp: Double?,
+    val conditionDecision: ConditionDecision? = null,
     /** Couverture nuageuse de l'échéance, 0-100%. */
     val cloudCoverPct: Int? = null,
     /** Estimation d’ensoleillement équivalent ciel dégagé, en heures (pas une mesure). */
@@ -526,13 +529,16 @@ private suspend fun loadWidgetDataInternal(
                 )
             }.orEmpty()
             val windAnchor = com.meteocompare.app.domain.util.HourlySampling.anchor(forecast, currentInstant)
+            val currentDecision = miniForecast?.conditionDiagnostics?.firstOrNull()
+                ?: calc.currentWeatherDecision(forecast, currentInstant, engineContext)
             WidgetData(
                 unitSystem = units.system,
                 clockFormatPreference = clockPreference,
                 cityName = city.name,
                 currentTemp = calc.currentTemperature(forecast, currentInstant, engineContext),
                 apparentTemp = calc.currentApparentTemperature(forecast, currentInstant, engineContext),
-                currentCondition = calc.currentWeatherCondition(forecast, currentInstant, engineContext),
+                currentCondition = currentDecision.condition,
+                currentConditionDecision = currentDecision,
                 tempMax = dayConf.tempMax?.meanValue,
                 tempMin = dayConf.tempMin?.meanValue,
                 confidencePct = dayConf.overallPercent,
@@ -551,6 +557,7 @@ private suspend fun loadWidgetDataInternal(
                 next12hPrecipProb = miniForecast?.precipitationProbabilities.orEmpty(),
                 next12hPrecipMm = miniForecast?.precipitationAmountsMm.orEmpty(),
                 next12hConditions = miniForecast?.conditions.orEmpty(),
+                next12hConditionDiagnostics = miniForecast?.conditionDiagnostics.orEmpty(),
                 hourlyStartTime = hourlyStartTime,
                 currentIsNight = currentIsNight,
                 next12hIsNight = next12hIsNight,
@@ -608,6 +615,7 @@ internal fun buildForecasts(
                     WidgetForecastItem(
                         label = ts.atZone(zone).format(formatter),
                         condition = point.condition,
+                        conditionDecision = point.conditionDiagnostic,
                         temp = point.temperatureC,
                         cloudCoverPct = point.cloudCoverPercent,
                         estimatedSunHours = point.estimatedSunHours,
@@ -631,6 +639,7 @@ internal fun buildForecasts(
                             .replaceFirstChar { it.uppercase() }
                             .replace(".", ""),
                         condition = point.condition,
+                        conditionDecision = point.conditionDiagnostic,
                         temp = point.tempMaxC,
                         cloudCoverPct = point.cloudCoverPercent,
                         estimatedSunHours = point.estimatedSunHours,
@@ -669,11 +678,13 @@ internal fun buildHourlyForecasts(
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
         val temp = hourly.temperature2m.getOrNull(i)
-        val condition = hourly.resolveHourlyCondition(i)
+        val conditionDecision = ConditionDecisionEngine.hourly(hourly, i)
+        val condition = conditionDecision.condition
         WidgetForecastItem(
             label = label,
             condition = condition,
             temp = temp,
+            conditionDecision = conditionDecision,
             cloudCoverPct = hourly.cloudCover.getOrNull(i),
             precipProbabilityPct = hourly.precipitationProbability.getOrNull(i),
             forecastConfidencePct = forecastConfidenceByTimestamp[ts]
@@ -703,15 +714,19 @@ internal fun buildDailyForecasts(
         val temp = daily.tempMax.getOrNull(i)
         // Même résolution que les tableaux, la timeline et la comparaison des
         // moteurs : le WMO daily le plus sévère n'est pas forcément dominant.
-        val condition = com.meteocompare.app.domain.model.ForecastSeries(
-            model = com.meteocompare.app.domain.model.WeatherModel.GFS,
-            hourly = hourly,
-            daily = daily
-        ).resolveDailyCondition(date, zone)?.condition
+        val conditionDecision = ConditionDecisionEngine.period(
+            com.meteocompare.app.domain.model.ForecastSeries(
+                model = com.meteocompare.app.domain.model.WeatherModel.GFS,
+                hourly = hourly,
+                daily = daily
+            ), date, zone
+        )
+        val condition = conditionDecision.condition
         WidgetForecastItem(
             label = label,
             condition = condition,
             temp = temp,
+            conditionDecision = conditionDecision,
             cloudCoverPct = dailyCloudCoverPct(hourly, date, zone),
             precipProbabilityPct = daily.precipitationProbabilityMax.getOrNull(i),
             forecastConfidencePct = forecastConfidenceByDate[date]

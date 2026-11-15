@@ -19,6 +19,26 @@ class SimplifiedTimelineTest {
     private val today = LocalDate.of(2026, 7, 23)
 
     @Test
+    fun `daily timeline recovers hourly-only dates with no daily axis`() {
+        val start = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val hours = List(24) { start.plusSeconds(it * 3600L) }
+        val series = ForecastSeries(
+            WeatherModel.GFS,
+            HourlyForecast(
+                timestamps = hours, temperature2m = List(24) { null },
+                precipitation = List(24) { null }, windSpeed10m = List(24) { null },
+                weatherCode = List(24) { 0 }
+            ),
+            DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val forecast = CityForecast(paris.copy(timezone = "UTC"), mapOf(WeatherModel.GFS to series))
+        val points = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, start)
+        assertEquals(1, points.size)
+        assertEquals(today, points.single().date)
+        assertEquals(WeatherCondition.CLEAR, points.single().condition)
+    }
+
+    @Test
     fun `today summary does not mistake next available hour for the present`() {
         val future = SimplifiedTimelinePoint(instant = now.plusSeconds(3600), apparentTemperatureC = 18.0)
         assertEquals(null, currentHourlyApparentTemperature(listOf(future), now))

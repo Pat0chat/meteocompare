@@ -171,36 +171,29 @@ object BatchedForecastSplitter {
      *
      * AROME France HD expose un jeu natif réduit. Certaines réponses peuvent
      * omettre `cloud_cover` tout en fournissant les couches basse, moyenne et
-     * haute. Dans ce cas on reconstruit le total avec la même combinaison que
-     * le backend Open-Meteo : low×0,9 + mid×0,6 + high×0,3, bornée à 100 %.
+     * haute. Dans ce cas on emploie l'approximation historique de l'app :
+     * low×0,9 + mid×0,6 + high×0,3, bornée à 100 %. Ce n'est ni une loi
+     * physique universelle, ni une identité garantie par Open-Meteo.
      *
      * L'ancien fallback prenait le MAXIMUM des trois couches. Il surévaluait
      * fortement les voiles de nuages hauts (100 % high pouvait devenir 100 %
      * total) et pouvait donc fabriquer à tort un état OVERCAST. Si une des
-     * trois couches manque à une échéance, on préfère désormais `null` plutôt
+     * trois couches manque à une échéance, on préfère `null` plutôt
      * que d'inventer une couverture totale sous-estimée ou surestimée.
      */
     private fun resolveCloudCover(get: VariableGetter): List<Int?>? {
         val total = get.ints(HourlyVar.CLOUD_COVER)
-        if (!total.isNullOrEmpty() && total.any { it != null }) return total
-
         val low = get.ints(HourlyVar.CLOUD_COVER_LOW)
         val mid = get.ints(HourlyVar.CLOUD_COVER_MID)
         val high = get.ints(HourlyVar.CLOUD_COVER_HIGH)
-        val size = maxOf(low?.size ?: 0, mid?.size ?: 0, high?.size ?: 0)
+        val size = maxOf(total?.size ?: 0, low?.size ?: 0, mid?.size ?: 0, high?.size ?: 0)
         if (size == 0) return total
 
         return List(size) { index ->
-            val lowValue = low?.getOrNull(index)?.takeIf { it in 0..100 }
-            val midValue = mid?.getOrNull(index)?.takeIf { it in 0..100 }
-            val highValue = high?.getOrNull(index)?.takeIf { it in 0..100 }
-            if (lowValue == null || midValue == null || highValue == null) {
-                null
-            } else {
-                (lowValue * 0.9 + midValue * 0.6 + highValue * 0.3)
-                    .coerceAtMost(100.0)
-                    .roundToInt()
-            }
+            com.meteocompare.app.domain.model.CloudCoverReconstruction.resolve(
+                total?.getOrNull(index), low?.getOrNull(index),
+                mid?.getOrNull(index), high?.getOrNull(index)
+            )
         }
     }
 

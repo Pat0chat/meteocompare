@@ -6,6 +6,7 @@ import com.meteocompare.app.domain.model.DayNormals
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.usecase.DayConditionsRow
 import java.time.Instant
 
@@ -47,6 +48,7 @@ sealed interface CityDetailUiState {
         val hourlyWindBands: List<HourlyConfidenceBand> = emptyList(),
         val currentTemp: Double?,
         val currentCondition: WeatherCondition? = null,
+        val currentConditionDecision: ConditionDecision? = null,
         val currentCloudCover: Int? = null,
         val dailyConditions: List<DayConditionsRow> = emptyList(),
         val normals: Map<Int, DayNormals>? = null,

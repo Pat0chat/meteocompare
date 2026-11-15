@@ -6,6 +6,7 @@ import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.VigilanceForecast
 import com.meteocompare.app.domain.model.VigilanceColor
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
@@ -117,6 +118,7 @@ sealed interface ForecastState {
         /** Open-Meteo derived apparent temperature, optional for legacy caches. */
         val apparentTemp: Double? = null,
         val currentCondition: WeatherCondition? = null,
+        val currentConditionDecision: ConditionDecision? = null,
         val currentCloudCover: Int? = null,
         val fetchedAt: Instant? = null,
         val calculatedAt: Instant? = null,
@@ -127,6 +129,7 @@ sealed interface ForecastState {
         val next24hPrecipProb: List<Int?> = emptyList(),
         val next24hPrecipMm: List<Double?> = emptyList(),
         val next24hConditions: List<WeatherCondition?> = emptyList(),
+        val next24hConditionDiagnostics: List<ConditionDecision> = emptyList(),
         /** Per-hour estimated clear-sky-equivalent hours (0..1). */
         val next24hSunshineHours: List<Double?> = emptyList(),
         /** Regroupement pédagogique des modèles sur les 12 prochaines heures. */

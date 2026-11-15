@@ -1,0 +1,3 @@
+# Golden TSV datasets are hashed as LF bytes on every platform.
+app/src/test/resources/weather_regression/**/*.tsv text eol=lf
+app/src/test/resources/weather_regression/**/manifest.json text eol=lf

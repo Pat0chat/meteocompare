@@ -12,14 +12,14 @@ import com.meteocompare.app.domain.model.PrecipitationConfidence
 import com.meteocompare.app.domain.model.PrecipitationConsensusMeta
 import com.meteocompare.app.domain.model.PrecipitationThresholds
 import com.meteocompare.app.domain.model.WeatherCondition
-import com.meteocompare.app.domain.util.resolveHourlyCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
-import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.DailyConditionPeriod
 import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.domain.util.dailyPeriodMetrics
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionDecisionEngine
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -191,116 +191,21 @@ class ConfidenceCalculator @Inject constructor(
         ).central
     }
 
-    /**
-     * Condition météo "maintenant" — consensus hiérarchique.
-     *
-     * Les codes WMO sont résolus par consensus hiérarchique : occurrence de
-     * précipitation, sous-famille météorologique, puis feuille précise. La
-     * branche SKY utilise la nébulosité centrale du moteur V3 sélectionné.
-     * Cette structure évite toute fragmentation artificielle entre sous-types
-     * proches (ciel, pluie liquide, neige…), pas seulement OVERCAST.
-     *
-     * La nébulosité horaire n'est jamais calibrée avec l'historique J+1.
-     */
+    /** One condition pipeline for every current-hour consumer.
+     * The old local consensus duplicated ForecastAggregates and could disagree
+     * with the mini-strip at the very same timestamp. */
+    fun currentWeatherDecision(
+        forecast: CityForecast,
+        now: Instant = Instant.now(),
+        engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
+    ): ConditionDecision = com.meteocompare.app.domain.util.ForecastAggregates
+        .currentConditionDecision(forecast, now, engineContext)
+
     fun currentWeatherCondition(
         forecast: CityForecast,
         now: Instant = Instant.now(),
         engineContext: ForecastEngineContext = ForecastEngineContext.DEFAULT
-    ): WeatherCondition? {
-        val nativeConditionEntries = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
-        val temperatureSamples = mutableListOf<Pair<WeatherModel, Double>>()
-        val precipitationRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
-        val cloudSamples = mutableListOf<Pair<WeatherModel, Double>>()
-        val supportModels = linkedSetOf<WeatherModel>()
-
-        val target = HourlySampling.anchor(forecast, now)
-        forecast.seriesByModel.forEach { (model, series) ->
-            val idx = exactCurrentIndex(series, target) ?: return@forEach
-            WeatherCondition.fromWmoCode(series.hourly.weatherCode.getOrNull(idx))
-                ?.takeUnless { it == WeatherCondition.UNKNOWN }
-                ?.let { native ->
-                    val adjusted = if (native == WeatherCondition.OVERCAST)
-                        series.resolveHourlyCondition(idx) ?: native else native
-                    nativeConditionEntries += ForecastConsensus.Entry(model, adjusted)
-                    supportModels += model
-                }
-            series.hourly.temperature2m.getOrNull(idx)?.takeIf(Double::isFinite)?.let {
-                temperatureSamples += model to it
-                supportModels += model
-            }
-            val amount = series.hourly.precipitation.getOrNull(idx)
-            val probability = series.hourly.precipitationProbability.getOrNull(idx)
-            if (amount?.isFinite() == true || probability?.let { it in 0..100 } == true) {
-                precipitationRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
-                supportModels += model
-            }
-            series.hourly.cloudCover.getOrNull(idx)
-                ?.takeIf { it in 0..100 }
-                ?.let {
-                    cloudSamples += model to it.toDouble()
-                    supportModels += model
-                }
-        }
-
-        val temperatureCentral = engineContinuous(
-            samples = temperatureSamples,
-            thresholds = Thresholds.TEMPERATURE,
-            engineContext = engineContext,
-            variable = ForecastEngineVariable.TEMPERATURE,
-            allowCalibration = false
-        ).central
-        val precipitationCentral = ForecastEngineV3.precipitation(
-            precipitationRows,
-            ForecastEngineV3.PrecipitationOptions(
-                engine = engineContext.engine,
-                threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
-                localWeights = localWeights(precipitationRows.map { it.model }) +
-                    engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
-                calibration = emptyMap(),
-                amountTight = 0.5,
-                amountWide = 4.0
-            )
-        ).centralAmountMm
-        val cloudCentral = engineContinuous(
-            samples = cloudSamples,
-            thresholds = Thresholds(10.0, 50.0),
-            engineContext = engineContext,
-            variable = ForecastEngineVariable.CLOUD,
-            allowCalibration = false,
-            min = 0.0,
-            max = 100.0
-        ).central
-        val aggregate = WeatherConditionConsensus.resolveAggregate(
-            nativeEntries = nativeConditionEntries,
-            temperatureCentralC = temperatureCentral,
-            precipitationCentralMm = precipitationCentral,
-            cloudCoverPercent = cloudCentral,
-            cloudCoverFamilyCount = cloudSamples.map { ForecastConsensus.groupFor(it.first) }.distinct().size,
-            supportModels = supportModels,
-            localWeights = localWeights(nativeConditionEntries.map { it.model })
-        ).vote.value
-        // When NO model supplies a WMO code, the ordinary cloud-cover fallback
-        // can only infer OVERCAST from 98% total clouds. In that precise case,
-        // preserve the same-model solar/layer refinement already used by hourly
-        // timelines. Never override rain, fog or an actual WMO consensus.
-        if (nativeConditionEntries.isEmpty() &&
-            aggregate == WeatherCondition.OVERCAST &&
-            (cloudCentral ?: 0.0) >= 90.0
-        ) {
-            val derived = forecast.seriesByModel.mapNotNull { (model, series) ->
-                val idx = exactCurrentIndex(series, target) ?: return@mapNotNull null
-                series.resolveHourlyCondition(idx)?.let { ForecastConsensus.Entry(model, it) }
-            }
-            return WeatherConditionConsensus.refineVeiledWithoutNativeWmo(
-                original = aggregate,
-                nativeWmoAvailable = false,
-                cloudCoverPercent = cloudCentral,
-                resolvedPerModel = derived,
-                localWeights = localWeights(derived.map { it.model })
-            )
-        }
-        return aggregate
-    }
+    ): WeatherCondition? = currentWeatherDecision(forecast, now, engineContext).condition
 
     /**
      * Couverture nuageuse "maintenant" — médiane pondérée consensus robuste
@@ -422,7 +327,7 @@ class ConfidenceCalculator @Inject constructor(
     fun dailyConditionsByModel(forecast: CityForecast): List<DayConditionsRow> {
         val zone = com.meteocompare.app.core.util.resolveZoneOrUtc(forecast.city.timezone)
         val allDates = forecast.seriesByModel.values
-            .flatMap { it.daily.dates }
+            .flatMap { it.daily.dates + it.hourly.timestamps.map { instant -> instant.atZone(zone).toLocalDate() } }
             .distinct()
             .sorted()
 
@@ -436,26 +341,32 @@ class ConfidenceCalculator @Inject constructor(
             val nighttimeInferred = mutableSetOf<WeatherModel>()
             val daytimeExtras = mutableMapOf<WeatherModel, DayCellExtras>()
             val nighttimeExtras = mutableMapOf<WeatherModel, DayCellExtras>()
+            val fullDiagnostics = mutableMapOf<WeatherModel, ConditionDecision>()
+            val daytimeDiagnostics = mutableMapOf<WeatherModel, ConditionDecision>()
+            val nighttimeDiagnostics = mutableMapOf<WeatherModel, ConditionDecision>()
             val solar = forecastSolarWindow(forecast, date)
             val nextSolar = forecastSolarWindow(forecast, date.plusDays(1))
 
             forecast.seriesByModel.forEach { (model, series) ->
                 val idx = series.daily.dates.indexOf(date)
-                if (idx < 0) return@forEach
 
-                series.resolveDailyCondition(date, zone)?.let { resolved ->
-                    byModel[model] = resolved.condition
-                    if (resolved.inferred) inferredModels += model
-                }
-
-                series.resolveDailyCondition(date, zone, DailyConditionPeriod.DAY, solar)?.let { resolved ->
-                    daytimeByModel[model] = resolved.condition
-                    if (resolved.inferred) daytimeInferred += model
-                }
-                series.resolveDailyCondition(date, zone, DailyConditionPeriod.NIGHT, solar, nextSolar)?.let { resolved ->
-                    nighttimeByModel[model] = resolved.condition
-                    if (resolved.inferred) nighttimeInferred += model
-                }
+                val full = ConditionDecisionEngine.period(series, date, zone)
+                val dayDecision = ConditionDecisionEngine.period(
+                    series, date, zone, DailyConditionPeriod.DAY, solar)
+                val nightDecision = ConditionDecisionEngine.period(
+                    series, date, zone, DailyConditionPeriod.NIGHT, solar, nextSolar)
+                fullDiagnostics[model] = full
+                daytimeDiagnostics[model] = dayDecision
+                nighttimeDiagnostics[model] = nightDecision
+                full.condition?.let { byModel[model] = it }
+                dayDecision.condition?.let { daytimeByModel[model] = it }
+                nightDecision.condition?.let { nighttimeByModel[model] = it }
+                if (full.condition != null && full.origin == com.meteocompare.app.domain.util.ConditionOrigin.SAME_MODEL_VARIABLES)
+                    inferredModels += model
+                if (dayDecision.condition != null && dayDecision.origin == com.meteocompare.app.domain.util.ConditionOrigin.SAME_MODEL_VARIABLES)
+                    daytimeInferred += model
+                if (nightDecision.condition != null && nightDecision.origin == com.meteocompare.app.domain.util.ConditionOrigin.SAME_MODEL_VARIABLES)
+                    nighttimeInferred += model
 
                 series.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)?.let {
                     daytimeExtras[model] = DayCellExtras(it.precipitationProbabilityMax, it.cloudCoverMean)
@@ -464,7 +375,8 @@ class ConfidenceCalculator @Inject constructor(
                     nighttimeExtras[model] = DayCellExtras(it.precipitationProbabilityMax, it.cloudCoverMean)
                 }
 
-                val precipProb = series.daily.precipitationProbabilityMax.getOrNull(idx)
+                val precipProb = idx.takeIf { it >= 0 }
+                    ?.let { series.daily.precipitationProbabilityMax.getOrNull(it) }
                     ?.takeIf { it in 0..100 }
                 val cloudMean = series.dailyCloudCoverMean(date, zone)
                 if (precipProb != null || cloudMean != null) {
@@ -485,9 +397,12 @@ class ConfidenceCalculator @Inject constructor(
                 daytimeInferredByModel = daytimeInferred,
                 nighttimeInferredByModel = nighttimeInferred,
                 daytimeExtrasByModel = daytimeExtras,
-                nighttimeExtrasByModel = nighttimeExtras
+                nighttimeExtrasByModel = nighttimeExtras,
+                diagnosticsByModel = fullDiagnostics,
+                daytimeDiagnosticsByModel = daytimeDiagnostics,
+                nighttimeDiagnosticsByModel = nighttimeDiagnostics
             )
-        }.filter { it.byModel.isNotEmpty() }
+        }
     }
 
     /**
@@ -965,7 +880,11 @@ data class DayConditionsRow(
     val daytimeInferredByModel: Set<WeatherModel> = emptySet(),
     val nighttimeInferredByModel: Set<WeatherModel> = emptySet(),
     val daytimeExtrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap(),
-    val nighttimeExtrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap()
+    val nighttimeExtrasByModel: Map<WeatherModel, DayCellExtras> = emptyMap(),
+    /** Full evidence, including why the condition is absent or only a daily maximum. */
+    val diagnosticsByModel: Map<WeatherModel, ConditionDecision> = emptyMap(),
+    val daytimeDiagnosticsByModel: Map<WeatherModel, ConditionDecision> = emptyMap(),
+    val nighttimeDiagnosticsByModel: Map<WeatherModel, ConditionDecision> = emptyMap()
 )
 
 /**

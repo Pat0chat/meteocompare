@@ -1290,7 +1290,8 @@ class CityListViewModel @Inject constructor(
                             }
                         }, tightStdDev = 0.5, wideStdDev = 3.0
                     ).central,
-                    currentCondition = confidenceCalculator.currentWeatherCondition(result.data, now, engineContext),
+                    currentCondition = miniForecast.conditions.firstOrNull(),
+                    currentConditionDecision = miniForecast.conditionDiagnostics.firstOrNull(),
                     currentCloudCover = confidenceCalculator.currentCloudCover(result.data, now, engineContext),
                     fetchedAt = result.data.fetchedAt,
                     calculatedAt = now,
@@ -1299,6 +1300,7 @@ class CityListViewModel @Inject constructor(
                     next24hPrecipProb = miniForecast.precipitationProbabilities,
                     next24hPrecipMm = miniForecast.precipitationAmountsMm,
                     next24hConditions = miniForecast.conditions,
+                    next24hConditionDiagnostics = miniForecast.conditionDiagnostics,
                     next24hSunshineHours = hourlySunshine,
                     next12hScenarios = scenarios,
                     // L'agrégateur expose l'échéance réellement échantillonnée

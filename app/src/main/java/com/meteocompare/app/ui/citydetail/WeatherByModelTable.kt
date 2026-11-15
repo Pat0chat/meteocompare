@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -31,6 +30,10 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
 import com.meteocompare.app.domain.usecase.DayCellExtras
 import com.meteocompare.app.domain.usecase.DayConditionsRow
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.ui.components.ConditionStatusIcon
+import com.meteocompare.app.ui.components.ConditionStatusLegend
 import com.meteocompare.app.ui.components.WeatherIconDecorative
 import com.meteocompare.app.ui.components.semanticTint
 import com.meteocompare.app.ui.theme.color
@@ -58,7 +61,11 @@ fun WeatherByModelTable(
     val sortedModels = remember(modelOrder) { modelOrder.sortedByFamily() }
     val palette = detailTablePalette()
     val modelWidth = DetailTableDimensions.modelColumnWidth
-    val splitPeriods = rows.any { it.daytimeByModel.isNotEmpty() || it.nighttimeByModel.isNotEmpty() }
+    val splitPeriods = rows.any {
+        it.daytimeByModel.isNotEmpty() || it.nighttimeByModel.isNotEmpty() ||
+            it.daytimeDiagnosticsByModel.values.any { d -> d.status != ConditionStatus.UNAVAILABLE } ||
+            it.nighttimeDiagnosticsByModel.values.any { d -> d.status != ConditionStatus.UNAVAILABLE }
+    }
     val dateWidth = if (splitPeriods) 132.dp else DetailTableDimensions.temporalColumnWidth
     val headerHeight = DetailTableDimensions.headerHeight
     val rowHeight = DetailTableDimensions.rowHeight
@@ -112,13 +119,15 @@ fun WeatherByModelTable(
                     sortedModels.forEachIndexed { modelIndex, model ->
                         val day = row.daytimeByModel[model]
                         val night = row.nighttimeByModel[model]
-                        if (splitPeriods && (day != null || night != null)) {
+                        if (splitPeriods && (day != null || night != null ||
+                            row.daytimeDiagnosticsByModel[model]?.status?.let { it != ConditionStatus.UNAVAILABLE } == true ||
+                            row.nighttimeDiagnosticsByModel[model]?.status?.let { it != ConditionStatus.UNAVAILABLE } == true)) {
                             Row(modifier = Modifier.fillMaxWidth().height(rowHeight)) {
                                 Box(modifier = Modifier.weight(1f)) {
                                     IconCell(
                                         condition = day,
+                                        diagnostic = row.daytimeDiagnosticsByModel[model],
                                         extras = row.daytimeExtrasByModel[model],
-                                        isInferred = model in row.daytimeInferredByModel,
                                         background = palette.dataRowBackground(modelIndex, isToday),
                                         height = rowHeight, palette = palette,
                                         isNight = false,
@@ -128,8 +137,8 @@ fun WeatherByModelTable(
                                 Box(modifier = Modifier.weight(1f)) {
                                     IconCell(
                                         condition = night,
+                                        diagnostic = row.nighttimeDiagnosticsByModel[model],
                                         extras = row.nighttimeExtrasByModel[model],
-                                        isInferred = model in row.nighttimeInferredByModel,
                                         background = palette.dataRowBackground(modelIndex, isToday),
                                         height = rowHeight, palette = palette,
                                         isNight = true,
@@ -140,8 +149,8 @@ fun WeatherByModelTable(
                         } else {
                             IconCell(
                                 condition = row.byModel[model],
+                                diagnostic = row.diagnosticsByModel[model],
                                 extras = row.extrasByModel[model],
-                                isInferred = model in row.inferredByModel,
                                 background = palette.dataRowBackground(modelIndex, isToday),
                                 height = rowHeight, palette = palette,
                                 label = if (splitPeriods) stringResource(R.string.condition_period_full_day) else null
@@ -196,8 +205,8 @@ private fun HeaderCell(
 @Composable
 private fun IconCell(
     condition: WeatherCondition?,
+    diagnostic: ConditionDecision? = null,
     extras: DayCellExtras?,
-    isInferred: Boolean,
     background: Color,
     height: Dp,
     palette: DetailTablePalette,
@@ -237,19 +246,15 @@ private fun IconCell(
                 contentAlignment = Alignment.Center
             ) {
                 if (condition == null) {
-                    Text("—", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ConditionStatusIcon(condition, diagnostic, size = 24.dp, isNight = isNight)
                 } else {
-                    // Atténuation réservée aux conditions dérivées, pas aux
-                    // codes WMO horaires natifs agrégés.
-                    val contentModifier = if (isInferred) Modifier.alpha(0.55f) else Modifier
                     Column(
-                        modifier = contentModifier,
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        WeatherIconDecorative(
+                        ConditionStatusIcon(
                             condition = condition,
+                            decision = diagnostic,
                             size = if (label != null) 23.dp else 28.dp,
                             tint = if (isNight && condition == WeatherCondition.CLEAR)
                                 Color.Unspecified else condition.semanticTint(),
@@ -338,29 +343,7 @@ internal fun WeatherLegend() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
-        // Note d'inférence : explique le marquage alpha 0.55 sur les cellules
-        // dont la condition a été dérivée de variables du même modèle. Sans cette note, un
-        // utilisateur qui remarque une cellule "grisée" ne peut pas savoir
-        // qu'il s'agit d'une inférence (il pensera à un bug d'affichage).
-        // Un petit exemple visuel inline (icône + alpha) pour ancrer la
-        // sémantique — plus efficace qu'un texte seul.
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
-            WeatherIconDecorative(
-                condition = WeatherCondition.PARTLY_CLOUDY,
-                size = 18.dp,
-                tint = WeatherCondition.PARTLY_CLOUDY.semanticTint(),
-                modifier = Modifier.alpha(0.65f)
-            )
-            Text(
-                text = stringResource(R.string.weather_legend_inferred_note),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-        }
+        ConditionStatusLegend(Modifier.padding(horizontal = 16.dp))
     }
 }
 

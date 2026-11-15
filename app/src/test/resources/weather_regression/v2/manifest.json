@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "dataset": "condition_decision_status",
+  "cases": 1200,
+  "sha256": "f2bf3113bd26838d7e44e6b038c8f68acd48481d5e8d89786e28eb3c473e2bc9",
+  "designed_expectations": "majority > half UTC duration, native vs inferred, partial, no-data, DST"
+}

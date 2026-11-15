@@ -11,6 +11,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.meteocompare.app.domain.model.WeatherCondition
+import com.meteocompare.app.domain.util.ConditionDecision
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -104,6 +105,7 @@ internal object WidgetMiniForecastRenderer {
         precipProbabilities: List<Int?>,
         precipAmountsMm: List<Double?> = emptyList(),
         conditions: List<WeatherCondition?> = emptyList(),
+        conditionDiagnostics: List<ConditionDecision> = emptyList(),
         nightFlags: List<Boolean?> = emptyList(),
         precipColorArgb: Int,
         textColorArgb: Int,
@@ -119,7 +121,7 @@ internal object WidgetMiniForecastRenderer {
         val canvas = Canvas(bitmap)
         val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
-        val iconCache = mutableMapOf<Triple<WeatherCondition, Boolean, Int>, Bitmap>()
+        val iconCache = mutableMapOf<Pair<Triple<WeatherCondition?, Boolean, Int>, ConditionDecision?>, Bitmap>()
 
         val outerPadding = (heightPx * 0.022f).coerceAtLeast(2f)
         val rowGap = (heightPx * 0.042f).coerceAtLeast(3f)
@@ -249,12 +251,14 @@ internal object WidgetMiniForecastRenderer {
             val temperatureText = temp?.let { units.temp(it) } ?: "—"
             val condition = conditions.getOrNull(index)
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
+            val diagnosis = conditionDiagnostics.getOrNull(index)
+            val hasConditionVisual = condition != null || diagnosis?.alternatives?.isNotEmpty() == true
             val temperatureLine = temperatureContentLayout(
                 centerX = centerX,
                 cellWidthPx = right - left,
                 temperatureZoneHeightPx = tempZoneHeight,
                 textWidthPx = tempPaint.measureText(temperatureText),
-                hasCondition = condition != null,
+                hasCondition = hasConditionVisual,
                 profile = profile
             )
             val tempFontMetrics = tempPaint.fontMetrics
@@ -263,10 +267,11 @@ internal object WidgetMiniForecastRenderer {
             val temperatureBaseline = temperatureCenterY -
                 (tempFontMetrics.ascent + tempFontMetrics.descent) / 2f
 
-            if (condition != null && temperatureLine.iconSizePx > 0f) {
+            if (hasConditionVisual && temperatureLine.iconSizePx > 0f) {
                 val iconSizePx = temperatureLine.iconSizePx.roundToInt().coerceAtLeast(1)
-                val iconBitmap = iconCache.getOrPut(Triple(condition, nightFlags.getOrNull(index) == true, iconSizePx)) {
-                    WidgetWeatherIconRenderer.render(condition, iconSizePx, isNight = nightFlags.getOrNull(index) == true)
+                val iconBitmap = iconCache.getOrPut(Triple(condition, nightFlags.getOrNull(index) == true, iconSizePx) to diagnosis) {
+                    WidgetWeatherIconRenderer.render(condition, iconSizePx,
+                        isNight = nightFlags.getOrNull(index) == true, decision = diagnosis)
                 }
                 canvas.drawBitmap(
                     iconBitmap,

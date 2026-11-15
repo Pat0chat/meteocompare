@@ -391,6 +391,32 @@ class ForecastAggregatesTest {
         assertEquals(12, ForecastAggregates.next12h(forecast, now).temperatures.size)
     }
 
+    @Test
+    fun `condition actuelle et première case du mini forecast partagent le même diagnostic`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(listOf(18.0), listOf(0), listOf(0.0), listOf(0)),
+            WeatherModel.ECMWF to hourly(listOf(18.0), listOf(100), listOf(2.0), listOf(61))
+        )
+        val current = ForecastAggregates.currentConditionDecision(forecast, now)
+        val strip = ForecastAggregates.next24h(forecast, now, includeConditions = true)
+        assertEquals(strip.conditionDiagnostics.first(), current)
+        assertEquals(strip.conditions.first(), current.condition)
+        assertEquals(ConditionStatus.AMBIGUOUS, current.status)
+    }
+
+    @Test
+    fun `une échéance sans météo conserve un diagnostic explicite et aligné`() {
+        val forecast = forecastOf(WeatherModel.GFS to hourly(
+            temperatures = listOf(19.0),
+            precipitationProbabilities = listOf(null),
+            precipitationAmounts = listOf(null)
+        ))
+        val current = ForecastAggregates.currentConditionDecision(forecast, now)
+        assertNull(current.condition)
+        assertEquals(ConditionStatus.UNAVAILABLE, current.status)
+        assertEquals(current, ForecastAggregates.next12h(forecast, now, true).conditionDiagnostics.first())
+    }
+
     private fun hourly(
         temperatures: List<Double?>,
         precipitationProbabilities: List<Int?>,

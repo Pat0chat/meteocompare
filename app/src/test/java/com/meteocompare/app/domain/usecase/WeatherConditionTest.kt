@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.dailyCloudCoverMean
+import com.meteocompare.app.domain.util.ConditionStatus
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -368,7 +369,7 @@ class WeatherConditionTest {
     }
 
     @Test
-    fun `dailyConditionsByModel skips days without representative hourly evidence or daily code`() {
+    fun `dailyConditionsByModel exposes unavailable day without inventing a condition`() {
         // Cache pré-feature : aucun WMO et aucune donnée horaire exploitable.
         // Ne pas inventer une condition dominante à partir du cumul daily.
         val today = LocalDate.of(2026, 6, 30)
@@ -387,7 +388,10 @@ class WeatherConditionTest {
         val forecast = CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to arome))
 
         val rows = calculator.dailyConditionsByModel(forecast)
-        assertTrue("Aucune ligne sans WMO ni données horaires représentatives", rows.isEmpty())
+        assertEquals("La date reste visible pour expliquer l'indisponibilité", 1, rows.size)
+        assertTrue("Aucune condition météo inventée", rows.single().byModel.isEmpty())
+        assertEquals(ConditionStatus.UNAVAILABLE,
+            rows.single().diagnosticsByModel[WeatherModel.AROME_FRANCE_HD]?.status)
     }
 
     @Test
@@ -587,7 +591,7 @@ class WeatherConditionTest {
     }
 
     @Test
-    fun `dailyConditionsByModel refuses sparse cloud measurements without daily WMO`() {
+    fun `dailyConditionsByModel flags sparse clouds without inventing a daily condition`() {
         val today = LocalDate.of(2026, 6, 30)
         val startOfDay = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
         val hours = listOf(9L, 13L, 17L).map { startOfDay.plusSeconds(it * 3600) }
@@ -608,11 +612,16 @@ class WeatherConditionTest {
                 weatherCode = emptyList()
             )
         )
-        // Pas de code quotidien, pas de majorité horaire robuste : aucune ligne
-        // plutôt qu'une icône et une moyenne de nébulosité artificielles.
-        assertTrue(calculator.dailyConditionsByModel(
+        // La date est présente, mais 3 heures ne permettent ni icône dominante,
+        // ni moyenne journalière. Le diagnostic INCOMPLETE reste consultable.
+        val row = calculator.dailyConditionsByModel(
             CityForecast(paris, mapOf(WeatherModel.AROME_FRANCE_HD to series))
-        ).isEmpty())
+        ).single()
+        assertNull(row.byModel[WeatherModel.AROME_FRANCE_HD])
+        val diagnostic = row.diagnosticsByModel[WeatherModel.AROME_FRANCE_HD]
+        assertEquals(ConditionStatus.INCOMPLETE, diagnostic?.status)
+        assertEquals(3.0 / 24.0, requireNotNull(diagnostic).coverage, 1e-9)
+        assertNull(row.extrasByModel[WeatherModel.AROME_FRANCE_HD]?.cloudCoverMean)
         assertNull(series.dailyCloudCoverMean(today, java.time.ZoneOffset.UTC))
     }
 
@@ -657,6 +666,30 @@ class WeatherConditionTest {
         assertNull(row.byModel[WeatherModel.AROME_FRANCE_HD])
         assertEquals(WeatherCondition.OVERCAST, row.byModel[WeatherModel.GFS])
         assertTrue(WeatherModel.AROME_FRANCE_HD !in row.inferredByModel)
+    }
+
+    @Test
+    fun `daily comparison retains hourly-only dates and explains missing period`() {
+        val date = LocalDate.of(2026, 6, 30)
+        val start = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val hours = List(24) { start.plusSeconds(it * 3600L) }
+        val series = ForecastSeries(
+            WeatherModel.GFS,
+            HourlyForecast(
+                timestamps = hours,
+                temperature2m = List(24) { 15.0 },
+                precipitation = List(24) { 0.0 },
+                windSpeed10m = List(24) { 6.0 },
+                weatherCode = List(24) { 0 }
+            ),
+            emptyDaily()
+        )
+        val forecast = CityForecast(paris.copy(timezone = "UTC"), mapOf(WeatherModel.GFS to series))
+        val row = calculator.dailyConditionsByModel(forecast).single()
+        assertEquals(date, row.date)
+        assertEquals(WeatherCondition.CLEAR, row.byModel[WeatherModel.GFS])
+        assertEquals(1.0, requireNotNull(row.diagnosticsByModel[WeatherModel.GFS]).coverage, 1e-9)
+        assertTrue(row.daytimeDiagnosticsByModel.containsKey(WeatherModel.GFS))
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

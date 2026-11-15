@@ -34,6 +34,9 @@ import com.meteocompare.app.domain.model.ForecastEvolutionTrend
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherNotification
+import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.ui.components.statusLabelRes
 import com.meteocompare.app.widget.WidgetWeatherIconRenderer
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -504,6 +507,9 @@ internal class WeatherNotifier(
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
                 ?.let { res.getString(weatherConditionLabelRes(it)) }
                 ?: res.getString(R.string.notification_channel_daily)
+            val qualifiedCondition = notification.conditionDecision?.status?.takeUnless {
+                it == ConditionStatus.RELIABLE
+            }?.let { status -> "$condition · ${res.getString(statusLabelRes(status))}" } ?: condition
             val precipitation = precipitationText(res, notification, locale)
             val wind = windText(res, notification)
             val temperatureLine = res.getString(
@@ -536,9 +542,9 @@ internal class WeatherNotifier(
             RemotePresentation(
                 compact = listOfNotNull(
                     RemoteToken(
-                        text = condition,
+                        text = qualifiedCondition,
                         color = weatherColor,
-                        icon = RemoteIcon.Condition(notification.condition)
+                        icon = RemoteIcon.Condition(notification.condition, notification.conditionDecision)
                     ),
                     RemoteToken(
                         text = "",
@@ -562,9 +568,9 @@ internal class WeatherNotifier(
                     }
                 ),
                 hero = RemoteToken(
-                    text = condition,
+                    text = qualifiedCondition,
                     color = weatherColor,
-                    icon = RemoteIcon.Condition(notification.condition)
+                    icon = RemoteIcon.Condition(notification.condition, notification.conditionDecision)
                 ),
                 rows = listOfNotNull(
                     MetricRow(
@@ -810,7 +816,8 @@ internal class WeatherNotifier(
                 viewId,
                 WidgetWeatherIconRenderer.render(
                     condition = icon.condition,
-                    sizePx = dpToPx(if (compact) 18 else 22)
+                    sizePx = dpToPx(if (compact) 18 else 22),
+                    decision = icon.decision
                 )
             )
         }
@@ -917,7 +924,9 @@ internal class WeatherNotifier(
 
 internal sealed interface RemoteIcon {
     data class Drawable(@param:DrawableRes val resId: Int) : RemoteIcon
-    data class Condition(val condition: WeatherCondition?) : RemoteIcon
+    data class Condition(
+        val condition: WeatherCondition?, val decision: ConditionDecision? = null
+    ) : RemoteIcon
 }
 
 private fun String.toMetricRow(

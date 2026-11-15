@@ -346,10 +346,13 @@ class GraphicForecastContentTest {
             "Seuls les jours qui intersectent le viewport doivent être composés",
             composedDayHeaders in 2..6
         )
-        // Les pictogrammes visibles sont dessinés dans un seul Canvas : la timeline
-        // conserve 240 heures de contenu sans créer 240 sous-compositions.
-        composeRule.onAllNodesWithTag(TAG_GRAPHIC_CONDITION_ICON, useUnmergedTree = true)
-            .assertCountEquals(1)
+        // Les pictogrammes du viewport sont désormais des contrôles individuels
+        // ouvrant le diagnostic. Ils restent virtualisés, même pour 240 heures.
+        val visibleStatusIcons = composeRule
+            .onAllNodesWithTag(TAG_GRAPHIC_CONDITION_ICON, useUnmergedTree = true)
+            .fetchSemanticsNodes().size
+        assertTrue("Chaque heure visible doit exposer son statut, sans composer 240 heures",
+            visibleStatusIcons in 2 until 80)
         val legendSymbolCount = composeRule
             .onAllNodesWithTag(TAG_GRAPHIC_LEGEND_SYMBOL, useUnmergedTree = true)
             .fetchSemanticsNodes().size

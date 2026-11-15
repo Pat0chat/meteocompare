@@ -433,7 +433,7 @@ class BatchedForecastSplitterTest {
             response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
         ).getValue(WeatherModel.AROME_FRANCE_HD)
 
-        // Formule Open-Meteo : 0×0.9 + 0×0.6 + 100×0.3 = 30 %.
+        // Approximation historique de MeteoCompare : 0×0.9 + 0×0.6 + 100×0.3 = 30 %.
         assertEquals(listOf(30), arome.hourly?.cloudCover)
     }
 
@@ -479,6 +479,27 @@ class BatchedForecastSplitterTest {
         ).getValue(WeatherModel.AROME_FRANCE_HD)
 
         assertEquals(listOf(35), arome.hourly?.cloudCover)
+    }
+
+    @Test
+    fun `reconstitution des trous de couverture nuageuse se fait par heure et non par liste`() {
+        val response = json.decodeFromString<BatchedForecastResponseDto>(
+            """{
+              "timezone":"Europe/Paris",
+              "hourly": {
+                "time":["2026-11-16T10:00","2026-11-16T11:00","2026-11-16T12:00","2026-11-16T13:00"],
+                "temperature_2m_meteofrance_arome_france_hd":[10,11,12,13],
+                "cloud_cover_meteofrance_arome_france_hd":[35,null,105,null],
+                "cloud_cover_low_meteofrance_arome_france_hd":[90,20,30,20],
+                "cloud_cover_mid_meteofrance_arome_france_hd":[90,15,20,null],
+                "cloud_cover_high_meteofrance_arome_france_hd":[90,70,10,100]
+              }
+            }"""
+        )
+        val arome = BatchedForecastSplitter.split(
+            response, listOf(WeatherModel.AROME_FRANCE_HD, WeatherModel.GFS)
+        ).getValue(WeatherModel.AROME_FRANCE_HD)
+        assertEquals(listOf(35, 48, 42, null), arome.hourly?.cloudCover)
     }
 
     // ─────────────────────── Robustesse ───────────────────

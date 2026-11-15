@@ -28,6 +28,20 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
+    fun `old cached hourly model can reconstruct clouds at a missing total slot`() {
+        val cached = HourlyForecast(
+            timestamps = listOf(Instant.parse("2026-08-24T10:00:00Z")),
+            temperature2m = listOf(18.0), precipitation = listOf(0.0),
+            windSpeed10m = listOf(8.0), weatherCode = listOf(null),
+            cloudCover = listOf(null), cloudCoverLow = listOf(10),
+            cloudCoverMid = listOf(40), cloudCoverHigh = listOf(25)
+        )
+        assertEquals(WeatherCondition.MAINLY_CLEAR, cached.resolveHourlyCondition(0))
+        // La couche haute seule ne permet pas de caractériser l'état du ciel.
+        assertEquals(null, cached.copy(cloudCoverMid = listOf(null)).resolveHourlyCondition(0))
+    }
+
+    @Test
     fun `daily fallback uses hourly modal condition not the single most severe hour`() {
         val hours = (0 until 24).map { Instant.parse("2026-08-23T22:00:00Z").plusSeconds(it * 3600L) }
         // Les 24 heures sont représentées : un seul orage ne domine pas.
@@ -574,7 +588,7 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
-    fun `scattered hourly groups with a long gap do not fall back to a contradictory daily WMO`() {
+    fun `scattered hourly groups with certain clear majority override contradictory daily WMO`() {
         val start = Instant.parse("2026-08-23T22:00:00Z")
         val minutes = (0 until 10).map { it * 60L } + (15 until 24).map { it * 60L }
         val hours = minutes.map { start.plusSeconds(it * 60) }
@@ -585,10 +599,9 @@ class ForecastSeriesConditionResolutionTest {
             hourlyTemp = List(hours.size) { 18.0 },
             hourlyCloud = List(hours.size) { 5 }
         )
-        // 19 heures de ciel clair constituent une majorité certaine, mais un
-        // trou de 5 heures interdit de déduire le sous-type précis. Le WMO
-        // quotidien pluvieux ne doit jamais revenir comme dominante.
-        assertEquals(null, series.resolveDailyCondition(date, zone))
+        // 19/24 heures sont claires : même si les 5 autres sont pluvieuses,
+        // CLEAR garde une majorité stricte. Ce verdict est démontrable.
+        assertEquals(WeatherCondition.CLEAR, series.resolveDailyCondition(date, zone)?.condition)
     }
 
     @Test
@@ -672,7 +685,7 @@ class ForecastSeriesConditionResolutionTest {
     }
 
     @Test
-    fun `stable but discontinuous dry hours never yield severe daily rain`() {
+    fun `stable discontinuous majority of one sky class is provably representative`() {
         val start = date.atStartOfDay(zone).toInstant()
         // 14 heures claires, puis un trou de 7 h, puis 3 heures claires.
         val offsets = (0 until 14).toList() + (21 until 24).toList()
@@ -684,6 +697,23 @@ class ForecastSeriesConditionResolutionTest {
             hourlyTemp = List(offsets.size) { 17.0 },
             hourlyCloud = List(offsets.size) { 5 }
         )
+        assertEquals(WeatherCondition.CLEAR, forecast.resolveDailyCondition(date, zone)?.condition)
+    }
+
+    @Test
+    fun `discontinuous sky family without a majority leaf remains indeterminate`() {
+        val start = date.atStartOfDay(zone).toInstant()
+        val offsets = (0 until 10).toList() + (15 until 24).toList()
+        val forecast = series(
+            timestamps = offsets.map { start.plusSeconds(it * 3600L) },
+            dailyCode = 95,
+            hourlyCodes = List(10) { 0 } + List(9) { 3 },
+            hourlyPrecip = List(19) { 0.0 },
+            hourlyTemp = List(19) { 17.0 },
+            hourlyCloud = List(10) { 5 } + List(9) { 95 }
+        )
+        // 19/24 sont secs, mais ni clair (10/24) ni couvert (9/24) ne sont
+        // une majorité certaine : on ne fabrique pas un sous-type.
         assertEquals(null, forecast.resolveDailyCondition(date, zone))
     }
 
