@@ -157,7 +157,7 @@ class GitHubTestSummaryTest(unittest.TestCase):
                 self.assertIn(title, data)
                 self.assertIn('if: always()', data)
                 self.assertIn('scripts/report_test_results.py', data)
-                self.assertIn('actions/download-artifact@v4', data)
+                self.assertIn('actions/download-artifact@v7', data)
 
     def test_manifest_is_complete_and_consumer_mapping_is_one_to_one(self):
         self.assertEqual(sum(self.counts.values()), 74537)
