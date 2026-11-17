@@ -104,6 +104,36 @@ class BootstrapBiasHistoryUseCaseTest {
     }
 
     @Test
+    fun `bootstrap exclut les modeles d'ensemble de la requete Previous Runs`() = runTest {
+        val requestedModels = slot<String>()
+        coEvery {
+            api.getPreviousDayOne(
+                any(), any(), capture(requestedModels), any(), any(), any(), any(), any(), any(), any()
+            )
+        } returns response(
+            model = WeatherModel.GFS,
+            days = 1,
+            temperature = { _, hour -> hour.toDouble() },
+            precipitation = { _, _ -> 0.0 },
+            wind = { _, _ -> 10.0 }
+        )
+
+        useCase(city, listOf(WeatherModel.GFS, WeatherModel.GOOGLE_WEATHERNEXT2), today, requestedDays = 1)
+
+        assertEquals(WeatherModel.GFS.apiKey, requestedModels.captured)
+    }
+
+    @Test
+    fun `bootstrap sans modele Previous Runs - aucun appel reseau`() = runTest {
+        val result = useCase(city, listOf(WeatherModel.GOOGLE_WEATHERNEXT2), today, requestedDays = 1)
+
+        assertEquals(0, result.forecastRecords)
+        coVerify(exactly = 0) {
+            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
     fun `bootstrap conserve des profils distincts par lead day et ne fabrique pas les horizons absents`() = runTest {
         val model = WeatherModel.GFS
         val target = today.minusDays(1)
