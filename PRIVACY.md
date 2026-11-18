@@ -1,6 +1,6 @@
 # Politique de confidentialité — MeteoCompare
 
-*Dernière mise à jour : 22 octobre 2026*
+*Dernière mise à jour : 18 novembre 2026*
 
 **Langues / Languages / Sprachen / Idiomas / Lingue :** [Français](PRIVACY.md) · [English](PRIVACY.en.md) · [Deutsch](PRIVACY.de.md) · [Español](PRIVACY.es.md) · [Italiano](PRIVACY.it.md)
 
@@ -17,7 +17,9 @@ coordonnées des lieux consultés sont envoyées aux API météo Open-Meteo. Pou
 Vigilance française, un code de département peut être envoyé au Worker public
 MeteoCompare. Lorsque l’utilisateur ouvre explicitement le radar pluie, les
 coordonnées de la localité sont également utilisées pour charger les images
-RainViewer et les tuiles cartographiques OpenStreetMap.
+RainViewer et les tuiles cartographiques OpenStreetMap. Pour calibrer les
+modèles sur des mesures réelles, seul l'identifiant d'une station d'aéroport
+proche est envoyé à l'Iowa Environmental Mesonet.
 
 ---
 
@@ -38,7 +40,7 @@ Concrètement :
 - ❌ Pas de suivi inter-applications
 
 Les seules transmissions réseau effectuées par l'application sont celles nécessaires
-aux fonctions décrites dans les sections 2, 3 et 4.
+aux fonctions décrites dans les sections 2, 3, 4 et 12.
 
 ## 2. Open-Meteo
 
@@ -238,3 +240,24 @@ sur un widget « Ma position » : cela ouvre une activité visible qui peut dema
 les autorisations de localisation au premier plan et laisser choisir la précision, sans suivi en arrière-plan. Une acquisition réussie
 est réutilisée pendant 30 minutes pour les retours automatiques au premier plan ;
 les tentatives trop rapprochées sont limitées. Supprimer la carte « Ma position » efface les préférences de localisation locales et le cache associé.
+
+## 12. Observations de stations : Iowa Environmental Mesonet
+
+Pour calibrer les modèles sur des mesures réelles plutôt que sur une réanalyse,
+MeteoCompare compare chaque jour les prévisions passées aux températures relevées
+par une station météo d'aéroport (METAR) proche de chaque ville favorite.
+
+- La station est choisie **sur l'appareil**, dans une liste embarquée : la plus
+  proche à moins de 25 km et à moins de 150 m de dénivelé. Sans station adaptée,
+  la ville garde la réanalyse Open-Meteo et rien n'est envoyé.
+- Seuls l'**identifiant de la station** (par exemple `LFPO`) et la période
+  demandée sont envoyés à l'archive METAR de l'Iowa Environmental Mesonet
+  (Iowa State University), `https://mesonet.agron.iastate.edu/`. Ni les
+  coordonnées de la ville, ni son nom, ni la liste des favoris ne sont transmis.
+- L'altitude de la ville, nécessaire au choix de la station, est demandée une
+  seule fois à l'API d'altitude Open-Meteo, puis conservée localement dans les
+  `SharedPreferences`.
+- La position « Ma position » n'est jamais utilisée pour cette calibration.
+
+Comme pour toute requête HTTPS, ce service reçoit aussi l'adresse IP source et
+les informations HTTP techniques nécessaires à l'acheminement.

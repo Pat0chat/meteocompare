@@ -1,6 +1,6 @@
 # Informativa sulla privacy — MeteoCompare
 
-*Ultimo aggiornamento: 22 ottobre 2026*
+*Ultimo aggiornamento: 18 novembre 2026*
 
 **Langues / Languages / Sprachen / Idiomas / Lingue:** [Français](PRIVACY.md) · [English](PRIVACY.en.md) · [Deutsch](PRIVACY.de.md) · [Español](PRIVACY.es.md) · [Italiano](PRIVACY.it.md)
 
@@ -8,7 +8,7 @@
 
 **MeteoCompare non utilizza i tuoi dati per la profilazione, la pubblicità o l'analisi dell'utilizzo.** L'app non contiene SDK pubblicitari, strumenti di analisi, sistemi di segnalazione remota degli arresti anomali né account.
 
-Preferiti, preferenze e cache dell'app vengono conservati localmente. Alcune informazioni necessarie alle funzioni meteo lasciano tuttavia il dispositivo: le ricerche delle città vengono inviate al servizio di geocodifica Open-Meteo e le coordinate dei luoghi consultati alle API meteo Open-Meteo. Per le allerte meteorologiche francesi può essere inviato al Worker pubblico MeteoCompare un codice di dipartimento. Quando apri esplicitamente il radar pioggia, le coordinate della località vengono utilizzate anche per caricare le immagini di RainViewer e le tessere cartografiche di OpenStreetMap.
+Preferiti, preferenze e cache dell'app vengono conservati localmente. Alcune informazioni necessarie alle funzioni meteo lasciano tuttavia il dispositivo: le ricerche delle città vengono inviate al servizio di geocodifica Open-Meteo e le coordinate dei luoghi consultati alle API meteo Open-Meteo. Per le allerte meteorologiche francesi può essere inviato al Worker pubblico MeteoCompare un codice di dipartimento. Quando apri esplicitamente il radar pioggia, le coordinate della località vengono utilizzate anche per caricare le immagini di RainViewer e le tessere cartografiche di OpenStreetMap. Per calibrare i modelli su misure reali, viene inviato all'Iowa Environmental Mesonet solo l'identificativo di una stazione aeroportuale vicina.
 
 ---
 
@@ -27,7 +27,7 @@ In particolare:
 - ❌ Nessuna identificazione intenzionale del dispositivo tramite fingerprinting
 - ❌ Nessun tracciamento tra applicazioni
 
-Le uniche trasmissioni di rete effettuate dall'app sono quelle necessarie alle funzioni descritte nelle sezioni 2, 3 e 4.
+Le uniche trasmissioni di rete effettuate dall'app sono quelle necessarie alle funzioni descritte nelle sezioni 2, 3, 4 e 12.
 
 ## 2. Open-Meteo
 
@@ -158,3 +158,26 @@ La posizione grezza rimane solo in memoria durante la determinazione e viene poi
 Le tessere radar consultate possono persistere temporaneamente nella cache HTTP comune fino alla rimozione. Non vengono sottoposte a backup né trasferite, ma restano dati geografici tecnici su disco.
 
 I widget non attivano **mai** il GPS o la localizzazione quando Android li aggiorna in background. Usano l'ultima cella memorizzata, che può quindi essere obsoleta dopo uno spostamento. Per aggiornare la tua posizione, apri MeteoCompare oppure tocca l'azione ↻ su un widget «La mia posizione»: viene aperta un'Activity visibile che può richiedere le autorizzazioni di localizzazione in primo piano e permetterti di scegliere la precisione, senza tracciamento in background. Un'acquisizione riuscita viene riutilizzata per 30 minuti quando l'app torna automaticamente in primo piano; i tentativi troppo ravvicinati sono limitati. Rimuovere la scheda «La mia posizione» cancella le preferenze locali di localizzazione e la relativa cache.
+
+## 12. Osservazioni delle stazioni: Iowa Environmental Mesonet
+
+Per calibrare i modelli su misure reali anziché su una rianalisi, MeteoCompare
+confronta ogni giorno le previsioni passate con le temperature registrate da una
+stazione meteorologica aeroportuale (METAR) vicina a ogni città preferita.
+
+- La stazione viene scelta **sul dispositivo**, da un elenco incluso nell'app:
+  la più vicina entro 25 km e con meno di 150 m di dislivello. Senza una stazione
+  adatta, la città mantiene la rianalisi Open-Meteo e non viene inviato nulla.
+- Vengono inviati solo l'**identificativo della stazione** (ad esempio `LFPO`) e
+  il periodo richiesto all'archivio METAR dell'Iowa Environmental Mesonet (Iowa
+  State University), `https://mesonet.agron.iastate.edu/`. Non vengono
+  trasmessi né le coordinate della città, né il suo nome, né l'elenco dei
+  preferiti.
+- L'altitudine della città, necessaria per scegliere la stazione, viene
+  richiesta una sola volta all'API di altitudine di Open-Meteo e poi conservata
+  localmente nelle `SharedPreferences`.
+- La posizione «La mia posizione» non viene mai utilizzata per questa
+  calibrazione.
+
+Come per qualsiasi richiesta HTTPS, questo servizio riceve anche l'indirizzo IP
+di origine e le informazioni HTTP tecniche necessarie all'instradamento.

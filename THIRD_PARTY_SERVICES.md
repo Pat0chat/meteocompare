@@ -59,3 +59,28 @@ Politique à vérifier avant chaque release :
 **Gate release :** si le trafic devient significatif ou si les besoins ne peuvent
 plus respecter la politique du serveur communautaire OSM, migrer vers un fournisseur
 de tuiles OSM adapté ou une infrastructure propre avant publication.
+
+## Iowa Environmental Mesonet — observations METAR pour la calibration
+
+MeteoCompare calibre la Tmax sur les relevés d'une station d'aéroport proche de
+chaque ville favorite, lors de l'actualisation quotidienne du suivi de biais.
+
+- API : `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py` (Iowa State
+  University), gratuite et sans clé.
+- Paramètres envoyés : identifiant OACI de la station et période (au plus 33 jours) ;
+  jamais les coordonnées ni le nom de la ville.
+- Volume : au plus une requête par ville favorite et par jour, et seulement pour les
+  jours dont la Tmax manque encore.
+- Liste des stations embarquée (`app/src/main/assets/metar_stations.tsv`), générée par
+  `scripts/generate_metar_stations.py` depuis le cache public du NOAA Aviation Weather
+  Center (domaine public).
+
+IEM limite le débit des requêtes rapprochées. Une réponse refusée laisse simplement
+les jours concernés sans Tmax ; ils sont redemandés au cycle suivant, sans jamais
+être complétés par la réanalyse.
+
+Conditions à vérifier avant chaque release : `https://mesonet.agron.iastate.edu/disclaimer.php`.
+
+**Gate release :** si le nombre d'utilisateurs rend ce trafic significatif pour un
+service universitaire, prévenir IEM ou déplacer la collecte vers le Worker
+MeteoCompare (une requête par station pour tous les utilisateurs) avant publication.

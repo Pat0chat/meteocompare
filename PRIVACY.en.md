@@ -1,6 +1,6 @@
 # Privacy Policy — MeteoCompare
 
-*Last updated: October 22, 2026*
+*Last updated: November 18, 2026*
 
 **Langues / Languages / Sprachen / Idiomas / Lingue:** [Français](PRIVACY.md) · [English](PRIVACY.en.md) · [Deutsch](PRIVACY.de.md) · [Español](PRIVACY.es.md) · [Italiano](PRIVACY.it.md)
 
@@ -8,7 +8,7 @@
 
 **MeteoCompare does not use your data for profiling, advertising, or analytics.** The app contains no advertising SDK, analytics, crash reporting, or account system.
 
-Favorites, preferences, and app caches are stored locally. However, some information needed for weather features leaves the device: city searches are sent to the Open-Meteo geocoding service, and coordinates of viewed places are sent to Open-Meteo weather APIs. For French weather alerts, a department code may be sent to the public MeteoCompare Worker. When you explicitly open the rain radar, the location's coordinates are also used to load RainViewer imagery and OpenStreetMap map tiles.
+Favorites, preferences, and app caches are stored locally. However, some information needed for weather features leaves the device: city searches are sent to the Open-Meteo geocoding service, and coordinates of viewed places are sent to Open-Meteo weather APIs. For French weather alerts, a department code may be sent to the public MeteoCompare Worker. When you explicitly open the rain radar, the location's coordinates are also used to load RainViewer imagery and OpenStreetMap map tiles. To calibrate the models on real measurements, only the identifier of a nearby airport station is sent to the Iowa Environmental Mesonet.
 
 ---
 
@@ -27,7 +27,7 @@ Specifically:
 - ❌ No deliberate device fingerprinting
 - ❌ No cross-app tracking
 
-The app's only network transmissions are those needed for the features described in sections 2, 3, and 4.
+The app's only network transmissions are those needed for the features described in sections 2, 3, 4, and 12.
 
 ## 2. Open-Meteo
 
@@ -158,3 +158,23 @@ The raw position stays only in memory during resolution, then is reduced locally
 Radar tiles you view may temporarily remain in the shared HTTP cache until evicted. They are neither backed up nor transferred, but remain technical geographic data on disk.
 
 Widgets **never** trigger GPS / location acquisition when Android refreshes them in the background. They use the last saved cell, which may be outdated after you move. To update your position, open MeteoCompare or tap the ↻ action on a “My location” widget: this opens a visible activity that may request foreground location permissions and lets you choose precision, without background tracking. A successful acquisition is reused for 30 minutes when returning automatically to the foreground; excessively frequent attempts are rate-limited. Removing the “My location” card clears the local location preferences and associated cache.
+
+## 12. Station observations: Iowa Environmental Mesonet
+
+To calibrate the models on real measurements rather than on a reanalysis,
+MeteoCompare compares past forecasts every day with the temperatures recorded by
+an airport weather station (METAR) near each favorite city.
+
+- The station is chosen **on the device**, from a bundled list: the nearest one
+  within 25 km and within 150 m of elevation difference. Without a suitable
+  station, the city keeps the Open-Meteo reanalysis and nothing is sent.
+- Only the **station identifier** (for example `LFPO`) and the requested period
+  are sent to the METAR archive of the Iowa Environmental Mesonet (Iowa State
+  University), `https://mesonet.agron.iastate.edu/`. Neither the city's
+  coordinates, its name, nor the list of favorites are transmitted.
+- The city's elevation, needed to choose the station, is requested once from
+  the Open-Meteo elevation API, then kept locally in `SharedPreferences`.
+- The "My location" position is never used for this calibration.
+
+As with any HTTPS request, this service also receives the source IP address and
+the technical HTTP information needed for routing.
