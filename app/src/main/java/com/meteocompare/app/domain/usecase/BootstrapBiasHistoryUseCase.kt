@@ -7,6 +7,7 @@ import com.meteocompare.app.core.util.validZoneOrNull
 import com.meteocompare.app.data.remote.PreviousRunsApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.CalibrationPoint
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.ModelBias
@@ -76,7 +77,9 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         city: City,
         models: List<WeatherModel>,
         today: LocalDate = clock.instant().localDateIn(city.timezone),
-        requestedDays: Int = DEFAULT_BOOTSTRAP_LOOKBACK_DAYS
+        requestedDays: Int = DEFAULT_BOOTSTRAP_LOOKBACK_DAYS,
+        /** Lieu des prévisions archivées : la station de calibration, sinon la ville. */
+        point: CalibrationPoint = CalibrationPoint.reanalysis(city)
     ): BiasHistoryBootstrapResult = withContext(io) {
         require(requestedDays > 0) { "requestedDays must be positive" }
         if (models.isEmpty()) {
@@ -86,8 +89,8 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         val endDate = today.minusDays(1)
         val startDate = endDate.minusDays((requestedDays - 1).toLong())
         val response = api.getPreviousDayOne(
-            latitude = city.latitude,
-            longitude = city.longitude,
+            latitude = point.latitude,
+            longitude = point.longitude,
             models = models.joinToString(",", transform = WeatherModel::apiKey),
             timezone = apiTimezoneOrAuto(city.timezone),
             startDate = startDate.format(ISO_DATE),

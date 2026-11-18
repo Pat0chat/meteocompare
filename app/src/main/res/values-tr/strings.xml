@@ -411,7 +411,7 @@
     <string name="bias_sheet_title_prefix">Ortalama sapma </string>
     <string name="bias_sheet_title_suffix"> geçmiş referansa göre.</string>
 
-    <string name="bias_history_preparing">Yerel güvenilirlik hazırlanıyor. Her gün, her modelin bir gün önce verdiği tahmin (G+1) bir reanalizle karşılaştırılır. Göstergeleri %1$d karşılaştırılan günün ardından görünür; ilerlemeyi adının altındaki sayaç izler.</string>
+    <string name="bias_history_preparing">Yerel güvenilirlik hazırlanıyor. Her gün, her modelin bir gün önce verdiği tahmin (G+1) yakındaki bir istasyonun ölçümleriyle (Tmax) ya da bu yoksa bir reanalizle karşılaştırılır. Göstergeleri %1$d karşılaştırılan günün ardından görünür; ilerlemeyi adının altındaki sayaç izler.</string>
     <string name="bias_history_partial">%2$d modelden %1$d tanesi için güvenilirlik göstergeleri hazır. Diğerleri her gün doluyor; ilerlemeyi adlarının altındaki sayaç izler.</string>
     <string name="bias_history_best_progress">En ilerideki model: %1$d/%2$d karşılaştırılan gün.</string>
     <string name="bias_history_fetch_action">Geçmişi şimdi getir</string>
@@ -437,7 +437,7 @@
     <string name="bias_reliability_local_index">Yerel güvenilirlik endeksi</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
     <string name="bias_reliability_rank">Yerel sıra %1$d / %2$d</string>
-    <string name="bias_reliability_score_explanation">Bir önceki gün yakalanan tahminlerin, Open-Meteo geçmiş reanaliz verisiyle karşılaştırılmasına dayalı öğretici özet.</string>
+    <string name="bias_reliability_score_explanation">Bir önceki gün yakalanan tahminlerin, Tmax için yakındaki bir istasyonun ölçümleriyle, diğerleri için Open-Meteo geçmiş reanaliz verisiyle karşılaştırılmasına dayalı öğretici özet.</string>
     <string name="bias_reliability_level_excellent">Mükemmel</string>
     <string name="bias_reliability_level_good">İyi</string>
     <string name="bias_reliability_level_fair">Orta</string>
@@ -493,7 +493,7 @@
     <string name="bias_reliability_balance_over_badge">%1$d%% yüksek</string>
     <string name="bias_reliability_direction_balance">%1$d%% yüksek · %2$d%% yakın · %3$d%% düşük</string>
     <string name="bias_reliability_sample_coverage">Kullanılan geçmiş: %2$d günlük pencere içinde %1$d gün.</string>
-    <string name="bias_reliability_method_note">Kaydedilen G+1 tahminleri ve karşılaştırılabilir tarihler için Open-Meteo reanalizine dayalı yerel endeks. Yağışlı gün: %1$s ve üzeri. Göstergedir, resmi bir puan değildir.</string>
+    <string name="bias_reliability_method_note">Kaydedilen G+1 tahminlerinin, karşılaştırılabilir tarihlerde yakındaki bir istasyonla (Tmax) ya da Open-Meteo reanaliziyle karşılaştırılmasına dayalı yerel endeks. Yağışlı gün: %1$s ve üzeri. Göstergedir, resmi bir puan değildir.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">Kalibrasyon: %2$d örnekten %1$d tanesi toplandı</string>
 

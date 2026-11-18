@@ -174,4 +174,8 @@ class BiasSampleRepositoryImpl @Inject constructor(
         dao.purgeForecastsBefore(epochDay)
         dao.purgeObservationsBefore(epochDay)
     }
+
+    override suspend fun deleteCity(cityId: String) = withContext(io) {
+        dao.deleteCity(cityId)
+    }
 }

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -135,6 +136,18 @@ interface BiasSampleDao {
 
     @Query("DELETE FROM observation_samples WHERE targetDateEpochDay < :beforeEpochDay")
     suspend fun purgeObservationsBefore(beforeEpochDay: Long)
+
+    @Query("DELETE FROM forecast_samples WHERE cityId = :cityId")
+    suspend fun deleteForecastsForCity(cityId: String)
+
+    @Query("DELETE FROM observation_samples WHERE cityId = :cityId")
+    suspend fun deleteObservationsForCity(cityId: String)
+
+    @Transaction
+    suspend fun deleteCity(cityId: String) {
+        deleteForecastsForCity(cityId)
+        deleteObservationsForCity(cityId)
+    }
 }
 
 /**

@@ -323,6 +323,7 @@ internal class BiasRefreshWorker(
         val biasRepo = entry.biasSampleRepository()
         val fetchObs = entry.fetchBiasObservationsUseCase()
         val bootstrapHistory = entry.bootstrapBiasHistoryUseCase()
+        val calibrationPoints = entry.calibrationPointRepository()
         val clock = entry.clock()
 
         // Snapshot one-shot des favorites + modèles activés — pas besoin
@@ -368,19 +369,29 @@ internal class BiasRefreshWorker(
                     BiasRefreshScheduler.PER_CITY_OPERATION_TIMEOUT_MS
                 ) {
                     runSuspendCatching {
+                        val calibration = calibrationPoints.resolve(city)
+                        // Nouvelle référence : l'ancien historique est effacé et
+                        // reconstruit en entier, jamais complété jour par jour.
+                        if (calibration.changed) biasRepo.deleteCity(city.id)
                         val bootstrap = if (enabledModels.isEmpty()) {
                             null
                         } else {
                             bootstrapHistory(
                                 city = city,
                                 models = enabledModels,
-                                requestedDays = BiasRefreshScheduler.historyLookbackDays(isManual)
+                                requestedDays = BiasRefreshScheduler.historyLookbackDays(
+                                    isManual || calibration.changed
+                                ),
+                                point = calibration.point
                             )
                         }
                         if (bootstrap != null && !bootstrap.hasUsableData) {
                             error("Previous Runs returned no usable J+1…J+7 sample for city=${city.id}")
                         }
-                        val referenceDays = fetchObs(city)
+                        val referenceDays = fetchObs(city, point = calibration.point)
+                        // Validé seulement après reconstruction : un échec sera
+                        // rejoué en entier au prochain cycle.
+                        if (calibration.changed) calibrationPoints.commit(city, calibration.point)
                         if (BuildConfig.DEBUG) {
                             if (bootstrap != null) {
                                 Log.d(

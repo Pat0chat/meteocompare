@@ -162,4 +162,11 @@ interface BiasSampleRepository {
      * refresh pour maintenir la DB dans un budget de 35 jours de données.
      */
     suspend fun purgeOlderThan(beforeDate: LocalDate)
+
+    /**
+     * Efface tout l'historique d'une ville (prévisions et références). Appelé
+     * quand sa référence de calibration change, pour ne jamais mélanger deux
+     * références dans la même fenêtre.
+     */
+    suspend fun deleteCity(cityId: String)
 }
