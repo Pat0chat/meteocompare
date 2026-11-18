@@ -413,7 +413,7 @@
     <string name="bias_sheet_title_prefix">Mean deviation </string>
     <string name="bias_sheet_title_suffix"> compared with the historical reference.</string>
 
-    <string name="bias_history_preparing">Local reliability in preparation. Every day, the forecast each model issued the day before (D+1) is compared with a reanalysis. Its indicators appear after %1$d compared days; the counter under its name tracks progress.</string>
+    <string name="bias_history_preparing">Local reliability in preparation. Every day, the forecast each model issued the day before (D+1) is compared with readings from a nearby station (Tmax) or, failing that, a reanalysis. Its indicators appear after %1$d compared days; the counter under its name tracks progress.</string>
     <string name="bias_history_partial">Reliability indicators available for %1$d of %2$d models. The others fill in every day; the counter under their name tracks progress.</string>
     <string name="bias_history_best_progress">Most advanced model: %1$d/%2$d compared days.</string>
     <string name="bias_history_fetch_action">Fetch history now</string>
@@ -439,7 +439,7 @@
     <string name="bias_reliability_local_index">Local reliability index</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
     <string name="bias_reliability_rank">Local rank %1$d / %2$d</string>
-    <string name="bias_reliability_score_explanation">Educational summary of forecasts captured the previous day, compared with Open-Meteo historical reanalysis data.</string>
+    <string name="bias_reliability_score_explanation">Educational summary of forecasts captured the previous day, compared with readings from a nearby station for Tmax and with Open-Meteo historical reanalysis data for the rest.</string>
     <string name="bias_reliability_level_excellent">Excellent</string>
     <string name="bias_reliability_level_good">Good</string>
     <string name="bias_reliability_level_fair">Fair</string>
@@ -495,7 +495,7 @@
     <string name="bias_reliability_balance_over_badge">%1$d%% above</string>
     <string name="bias_reliability_direction_balance">%1$d%% above · %2$d%% close · %3$d%% below</string>
     <string name="bias_reliability_sample_coverage">History used: %1$d days within a %2$d-day window.</string>
-    <string name="bias_reliability_method_note">Local index based on saved D+1 forecasts and Open-Meteo reanalysis over comparable dates. Wet day: %1$s or more. Indicative, not an official score.</string>
+    <string name="bias_reliability_method_note">Local index based on saved D+1 forecasts, compared with a nearby station (Tmax) or Open-Meteo reanalysis over comparable dates. Wet day: %1$s or more. Indicative, not an official score.</string>
 
     <string name="bias_chip_calibrating_progress_a11y">Calibrating: %1$d of %2$d samples collected</string>
 

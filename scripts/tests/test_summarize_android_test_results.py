@@ -6,6 +6,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+if str(Path(__file__).resolve().parents[2]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ci_workflows import expanded_workflow  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts/summarize_android_test_results.py'
@@ -70,7 +73,7 @@ class AndroidTestSummaryTests(unittest.TestCase):
     def test_workflows_publish_diagnostics_after_failed_emulator_step(self):
         for workflow in ('quality-checks.yml', 'release-fdroid.yml'):
             with self.subTest(workflow=workflow):
-                text = (ROOT / '.github/workflows' / workflow).read_text(encoding='utf-8')
+                text = expanded_workflow(workflow)
                 self.assertIn('scripts/summarize_android_test_results.py', text)
                 self.assertIn('--summary "$GITHUB_STEP_SUMMARY"', text)
                 self.assertRegex(text, r'(?s)Show Android test failures in GitHub job summary.*?if: always\(\)')

@@ -41,6 +41,9 @@ TECHNICAL_TERMS = (
     "coast=1",
     "64 MiB",
     "CC BY 4.0",
+    "Iowa Environmental Mesonet",
+    "https://mesonet.agron.iastate.edu/",
+    "LFPO",
 )
 EXTERNAL_LINKS = (
     "https://open-meteo.com/",
@@ -66,7 +69,7 @@ class PrivacyTranslationsTest(unittest.TestCase):
             with self.subTest(document=name):
                 text = (ROOT / name).read_text(encoding="utf-8")
                 section_numbers = re.findall(r"^## (\d+)\. ", text, re.MULTILINE)
-                self.assertEqual(section_numbers, [str(x) for x in range(1, 12)])
+                self.assertEqual(section_numbers, [str(x) for x in range(1, 13)])
                 self.assertEqual(len(re.findall(r"^\|.*\|$", text, re.MULTILINE)), 18)
                 self.assertGreaterEqual(len(re.findall(r"^## ", text, re.MULTILINE)), 12)
 

@@ -1,0 +1,238 @@
+[
+  {
+    "icao": "LFPO",
+    "name": "Paris-Orly",
+    "timezone": "Europe/Paris",
+    "lat": 48.717,
+    "lon": 2.384,
+    "elevation_m": 88.0,
+    "ghcn": {
+      "id": "FRM00007149",
+      "distance_km": 0.0,
+      "elevation_m": 89.0
+    }
+  },
+  {
+    "icao": "LFLL",
+    "name": "Lyon",
+    "timezone": "Europe/Paris",
+    "lat": 45.726,
+    "lon": 5.078,
+    "elevation_m": 234.0,
+    "ghcn": {
+      "id": "FR069029001",
+      "distance_km": 0.0,
+      "elevation_m": 235.0
+    }
+  },
+  {
+    "icao": "LFML",
+    "name": "Marseille",
+    "timezone": "Europe/Paris",
+    "lat": 43.438,
+    "lon": 5.216,
+    "elevation_m": 20.0,
+    "ghcn": {
+      "id": "FR000007650",
+      "distance_km": 0.0,
+      "elevation_m": 9.0
+    }
+  },
+  {
+    "icao": "LFRB",
+    "name": "Brest",
+    "timezone": "Europe/Paris",
+    "lat": 48.444,
+    "lon": -4.412,
+    "elevation_m": 91.0,
+    "ghcn": {
+      "id": "FRE00104484",
+      "distance_km": 0.0,
+      "elevation_m": 94.0
+    }
+  },
+  {
+    "icao": "LFBO",
+    "name": "Toulouse",
+    "timezone": "Europe/Paris",
+    "lat": 43.621,
+    "lon": 1.379,
+    "elevation_m": 150.0,
+    "ghcn": {
+      "id": "FR000007630",
+      "distance_km": 0.0,
+      "elevation_m": 151.0
+    }
+  },
+  {
+    "icao": "LFST",
+    "name": "Strasbourg",
+    "timezone": "Europe/Paris",
+    "lat": 48.549,
+    "lon": 7.64,
+    "elevation_m": 149.0,
+    "ghcn": {
+      "id": "FR000007190",
+      "distance_km": 0.0,
+      "elevation_m": 150.0
+    }
+  },
+  {
+    "icao": "LFMN",
+    "name": "Nice",
+    "timezone": "Europe/Paris",
+    "lat": 43.658,
+    "lon": 7.216,
+    "elevation_m": 4.0,
+    "ghcn": {
+      "id": "FRE00104120",
+      "distance_km": 1.2,
+      "elevation_m": 2.0
+    }
+  },
+  {
+    "icao": "LFLS",
+    "name": "Grenoble",
+    "timezone": "Europe/Paris",
+    "lat": 45.363,
+    "lon": 5.329,
+    "elevation_m": 386.0,
+    "ghcn": null
+  },
+  {
+    "icao": "EGLL",
+    "name": "Londres",
+    "timezone": "Europe/London",
+    "lat": 51.477,
+    "lon": -0.461,
+    "elevation_m": 26.0,
+    "ghcn": null
+  },
+  {
+    "icao": "EDDM",
+    "name": "Munich",
+    "timezone": "Europe/Berlin",
+    "lat": 48.348,
+    "lon": 11.813,
+    "elevation_m": 445.0,
+    "ghcn": {
+      "id": "GMM00010870",
+      "distance_km": 2.3,
+      "elevation_m": 444.0
+    }
+  },
+  {
+    "icao": "LEMD",
+    "name": "Madrid",
+    "timezone": "Europe/Madrid",
+    "lat": 40.466,
+    "lon": -3.555,
+    "elevation_m": 589.0,
+    "ghcn": {
+      "id": "SPE00120278",
+      "distance_km": 0.1,
+      "elevation_m": 609.0
+    }
+  },
+  {
+    "icao": "LIRF",
+    "name": "Rome",
+    "timezone": "Europe/Rome",
+    "lat": 41.8,
+    "lon": 12.239,
+    "elevation_m": 2.0,
+    "ghcn": null
+  },
+  {
+    "icao": "ENGM",
+    "name": "Oslo",
+    "timezone": "Europe/Oslo",
+    "lat": 60.201,
+    "lon": 11.08,
+    "elevation_m": 204.0,
+    "ghcn": {
+      "id": "NOE00109514",
+      "distance_km": 1.5,
+      "elevation_m": 202.0
+    }
+  },
+  {
+    "icao": "KJFK",
+    "name": "New York",
+    "timezone": "America/New_York",
+    "lat": 40.63916,
+    "lon": -73.76394,
+    "elevation_m": 3.0,
+    "ghcn": {
+      "id": "USW00094789",
+      "distance_km": 0.0,
+      "elevation_m": 2.7
+    }
+  },
+  {
+    "icao": "KDEN",
+    "name": "Denver",
+    "timezone": "America/Denver",
+    "lat": 39.84657,
+    "lon": -104.65623,
+    "elevation_m": 1656.0,
+    "ghcn": {
+      "id": "USW00003017",
+      "distance_km": 0.0,
+      "elevation_m": 1647.1
+    }
+  },
+  {
+    "icao": "CYUL",
+    "name": "Montréal",
+    "timezone": "America/Toronto",
+    "lat": 45.468,
+    "lon": -73.742,
+    "elevation_m": 31.0,
+    "ghcn": {
+      "id": "CAN0702S006",
+      "distance_km": 0.0,
+      "elevation_m": 32.1
+    }
+  },
+  {
+    "icao": "RJTT",
+    "name": "Tokyo",
+    "timezone": "Asia/Tokyo",
+    "lat": 35.553,
+    "lon": 139.781,
+    "elevation_m": 5.0,
+    "ghcn": null
+  },
+  {
+    "icao": "YSSY",
+    "name": "Sydney",
+    "timezone": "Australia/Sydney",
+    "lat": -33.946,
+    "lon": 151.173,
+    "elevation_m": 3.0,
+    "ghcn": {
+      "id": "ASN00066037",
+      "distance_km": 0.1,
+      "elevation_m": 6.0
+    }
+  },
+  {
+    "icao": "FAOR",
+    "name": "Johannesburg",
+    "timezone": "Africa/Johannesburg",
+    "lat": -26.139,
+    "lon": 28.246,
+    "elevation_m": 1684.0,
+    "ghcn": null
+  },
+  {
+    "icao": "SAEZ",
+    "name": "Buenos Aires",
+    "timezone": "America/Argentina/Buenos_Aires",
+    "lat": -34.822,
+    "lon": -58.536,
+    "elevation_m": 16.0,
+    "ghcn": null
+  }
+]
