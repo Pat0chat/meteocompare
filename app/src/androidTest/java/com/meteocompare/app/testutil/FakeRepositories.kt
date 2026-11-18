@@ -62,6 +62,12 @@ class FakeCityRepository @Inject constructor() : CityRepository {
         favorites.value = (favorites.value + city).distinctBy(City::id)
     }
 
+    override suspend fun reorderFavorites(cityIds: List<String>) {
+        favorites.value = com.meteocompare.app.domain.util.FavoriteCityOrder.apply(
+            favorites.value, cityIds, City::id
+        )
+    }
+
     override suspend fun removeFavorite(cityId: String) {
         favorites.value = favorites.value.filterNot { it.id == cityId }
     }

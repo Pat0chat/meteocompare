@@ -1232,4 +1232,12 @@ dato</string>
     <string name="condition_explanation_source_title">Metodo di calcolo</string>
     <string name="condition_explanation_alternatives_title">Scenari possibili</string>
     <string name="condition_explanation_reasons_title">Perché questo stato?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Riordina località</string>
+    <string name="home_reorder_hint">Tieni premuta la maniglia per trascinare una località oppure usa le frecce.</string>
+    <string name="home_reorder_up">Sposta %1$s su</string>
+    <string name="home_reorder_down">Sposta %1$s giù</string>
+    <string name="home_reorder_drag">Tieni premuto e trascina %1$s</string>
+    <string name="home_reorder_apply">Salva ordine</string>
+    <string name="home_reorder_save_error">Impossibile salvare il nuovo ordine.</string>
 </resources>

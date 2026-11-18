@@ -82,6 +82,26 @@ class CityListContentTest {
     }
 
     @Test
+    fun reorderActionIsVisibleWithTwoCitiesAndForwardsClick() {
+        var reorder = false
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        CityCardState(TestFixtures.lyon, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {},
+                    onReorderClick = { reorder = true }
+                )
+            }
+        }
+        composeRule.onNodeWithTag("home_reorder_action").assertIsDisplayed().performClick()
+        composeRule.runOnIdle { assertTrue(reorder) }
+    }
+
+    @Test
     fun smartphone_cards_keep_standard_style_and_forward_selected_id() {
         var selectedId: String? = null
         val confidence = DayConfidence(

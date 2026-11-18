@@ -1240,4 +1240,12 @@
     <string name="condition_explanation_source_title">Hesaplama yöntemi</string>
     <string name="condition_explanation_alternatives_title">Olası senaryolar</string>
     <string name="condition_explanation_reasons_title">Bu durumun nedeni nedir?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Konumları yeniden sırala</string>
+    <string name="home_reorder_hint">Bir konumu taşımak için tutamacı basılı tutup sürükleyin veya okları kullanın.</string>
+    <string name="home_reorder_up">%1$s yukarı taşı</string>
+    <string name="home_reorder_down">%1$s aşağı taşı</string>
+    <string name="home_reorder_drag">%1$s basılı tutup sürükle</string>
+    <string name="home_reorder_apply">Sırayı kaydet</string>
+    <string name="home_reorder_save_error">Yeni sıra kaydedilemedi.</string>
 </resources>

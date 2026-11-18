@@ -1244,4 +1244,12 @@
     <string name="condition_explanation_source_title">Méthode de calcul</string>
     <string name="condition_explanation_alternatives_title">Scénarios possibles</string>
     <string name="condition_explanation_reasons_title">Pourquoi ce statut ?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Réorganiser les localités</string>
+    <string name="home_reorder_hint">Maintenez la poignée pour déplacer une localité, ou utilisez les flèches.</string>
+    <string name="home_reorder_up">Monter %1$s</string>
+    <string name="home_reorder_down">Descendre %1$s</string>
+    <string name="home_reorder_drag">Maintenir et déplacer %1$s</string>
+    <string name="home_reorder_apply">Enregistrer l’ordre</string>
+    <string name="home_reorder_save_error">Impossible d’enregistrer le nouvel ordre.</string>
 </resources>

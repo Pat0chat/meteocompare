@@ -12,6 +12,7 @@ import com.meteocompare.app.core.network.NetworkMonitor
 import com.meteocompare.app.core.network.apiCall
 import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.mapper.toDomain
+import com.meteocompare.app.domain.util.FavoriteCityOrder
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.City
@@ -32,18 +33,20 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 private val Context.favoritesDataStore by preferencesDataStore(name = "favorites")
 private val FAVORITES_KEY = stringPreferencesKey("cities")
+private val HOME_ORDER_KEY = stringPreferencesKey("home_city_order")
 
 /**
  * Stockage des favoris : sérialisation JSON dans une seule clé DataStore Preferences.
  *
- * Pour un MVP ce choix est délibérément simple : pas de Room, pas de migrations,
- * pas de DAO. Tant qu'on reste sous ~100 favoris ça tient sans problème.
- * On migrera vers Room le jour où on aura besoin de requêter (recherche, tri, etc.).
+ * Les données des favoris restent inchangées par le classement : une préférence
+ * indépendante conserve les identifiants dans l'ordre choisi sur Home.
+ * Aucun changement de schéma ou de migration n'est nécessaire.
  */
 @Singleton
 class CityRepositoryImpl @Inject constructor(
@@ -61,6 +64,7 @@ class CityRepositoryImpl @Inject constructor(
     }
 
     private val cityListSerializer = ListSerializer(City.serializer())
+    private val orderSerializer = ListSerializer(String.serializer())
     /** Déduplique l'enrichissement d'un même favori lancé par Home et Détails. */
     private val departmentResolutionLocks = ConcurrentHashMap<String, Mutex>()
 
@@ -101,7 +105,11 @@ class CityRepositoryImpl @Inject constructor(
                     .getOrDefault(emptyList())
             }.orEmpty()
             val current = location.asCity(context)
-            if (current == null) favorites else favorites + current
+            val allCities = if (current == null) favorites else favorites + current
+            val savedOrder = prefs[HOME_ORDER_KEY]?.let { raw ->
+                runCatching { json.decodeFromString(orderSerializer, raw) }.getOrDefault(emptyList())
+            }.orEmpty()
+            FavoriteCityOrder.apply(allCities, savedOrder, City::id)
         }
             .distinctUntilChanged()
             .flowOn(ioDispatcher)
@@ -119,6 +127,21 @@ class CityRepositoryImpl @Inject constructor(
         Unit
     }
 
+    override suspend fun reorderFavorites(cityIds: List<String>) = withContext(ioDispatcher) {
+        // Reordering never modifies favorites themselves: only an independent,
+        // stable ID list. The GPS position uses a canonical marker, not a grid ID.
+        val currentLocation = locationStore.state.first().asCity(context)
+        context.favoritesDataStore.edit { prefs ->
+            val favorites = prefs[FAVORITES_KEY]
+                ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
+                .orEmpty()
+            val available = favorites.map(City::id) + listOfNotNull(currentLocation?.id)
+            val requested = FavoriteCityOrder.normalize(cityIds, available)
+            prefs[HOME_ORDER_KEY] = json.encodeToString(orderSerializer, requested)
+        }
+        Unit
+    }
+
     override suspend fun removeFavorite(cityId: String) = withContext(ioDispatcher) {
         if (CurrentLocationStore.isCurrentCity(cityId)) {
             locationController.disable()
@@ -129,6 +152,16 @@ class CityRepositoryImpl @Inject constructor(
                 ?.let { runCatching { json.decodeFromString(cityListSerializer, it) }.getOrDefault(emptyList()) }
                 ?: emptyList()
             prefs[FAVORITES_KEY] = json.encodeToString(cityListSerializer, current.filterNot { it.id == cityId })
+            // An explicitly deleted favorite must not regain its old position
+            // if the user chooses to add it back later.
+            prefs[HOME_ORDER_KEY]?.let { raw ->
+                val saved = runCatching { json.decodeFromString(orderSerializer, raw) }.getOrNull()
+                if (saved != null) {
+                    prefs[HOME_ORDER_KEY] = json.encodeToString(
+                        orderSerializer, saved.filterNot { it == cityId }
+                    )
+                }
+            }
         }
         Unit
     }

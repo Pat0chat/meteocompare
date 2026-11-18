@@ -1226,4 +1226,12 @@ Daten</string>
     <string name="condition_explanation_source_title">Berechnungsmethode</string>
     <string name="condition_explanation_alternatives_title">Mögliche Szenarien</string>
     <string name="condition_explanation_reasons_title">Warum dieser Status?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Orte neu anordnen</string>
+    <string name="home_reorder_hint">Zum Verschieben den Griff gedrückt halten oder die Pfeile verwenden.</string>
+    <string name="home_reorder_up">%1$s nach oben</string>
+    <string name="home_reorder_down">%1$s nach unten</string>
+    <string name="home_reorder_drag">%1$s gedrückt halten und ziehen</string>
+    <string name="home_reorder_apply">Reihenfolge speichern</string>
+    <string name="home_reorder_save_error">Die neue Reihenfolge konnte nicht gespeichert werden.</string>
 </resources>

@@ -1243,4 +1243,12 @@
     <string name="condition_explanation_source_title">Calculation method</string>
     <string name="condition_explanation_alternatives_title">Possible scenarios</string>
     <string name="condition_explanation_reasons_title">Why this status?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Reorder locations</string>
+    <string name="home_reorder_hint">Hold the handle to drag a location, or use the arrows.</string>
+    <string name="home_reorder_up">Move %1$s up</string>
+    <string name="home_reorder_down">Move %1$s down</string>
+    <string name="home_reorder_drag">Hold and drag %1$s</string>
+    <string name="home_reorder_apply">Save order</string>
+    <string name="home_reorder_save_error">Could not save the new order.</string>
 </resources>
