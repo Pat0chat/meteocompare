@@ -35,11 +35,13 @@ CONTINUOUS = {
 METHODS = (
     'MULTI', 'SCENARIOS', 'CALIB_REANALYSE', 'ADAPTIVE_REANALYSE',
     'CALIB_OBS', 'ADAPTIVE_OBS', 'DECROISSANT_OBS', 'DECROISSANT_POIDS_OBS',
-    'MEDIANE_SIMPLE', 'ECMWF_SEUL', 'MEILLEUR_RECENT',
+    'DECROISSANT_POIDS_OBS_30J', 'MEDIANE_SIMPLE', 'ECMWF_SEUL', 'MEILLEUR_RECENT',
 )
 PRECIP_METHODS = ('MULTI', 'CALIB_REANALYSE', 'ADAPTIVE_REANALYSE', 'CALIB_OBS', 'ADAPTIVE_OBS',
-                  'PROBA_RECALIBREE')
-INTERVALS = ('MULTI', 'CALIB_REANALYSE', 'EMPIRIQUE')
+                  'PROBA_RECALIBREE', 'PROBA_RECALIBREE_VILLE')
+INTERVALS = ('MULTI', 'CALIB_REANALYSE', 'EMPIRIQUE', 'EMPIRIQUE_CALIB_OBS')
+# L'app ne conserve que 30 jours d'historique par ville (purge à 35 jours).
+APP_WINDOW_DAYS = 30
 
 
 class Metric:
@@ -106,6 +108,9 @@ def evaluate(cities: List[CityData], leads, eval_start: date, eval_end: date) ->
                 decay = {m: variants.DecaySeries([(d, s.forecast - s.observation) for d, s in h.items()])
                          for m, h in hist_obs.items()}
                 past_errors: List[Tuple[date, float]] = []
+                past_calib_errors: List[Tuple[date, float]] = []
+                errors_obs = {m: sorted((d, s.forecast - s.observation) for d, s in h.items())
+                              for m, h in hist_obs.items()}
                 for day in days:
                     truth = observed.get(day)
                     entries = [engines.Entry(m, s[variable][day]) for m, s in by_model.items()
@@ -136,6 +141,14 @@ def evaluate(cities: List[CityData], leads, eval_start: date, eval_end: date) ->
                         entries, states, tight, wide, skill_weights=False, minimum=minimum)
                     centrals['DECROISSANT_POIDS_OBS'] = variants.decayed_consensus(
                         entries, states, tight, wide, skill_weights=True, minimum=minimum)
+                    # Même variante, avec seulement les 30 jours que l'app conserve.
+                    since = issue - timedelta(days=APP_WINDOW_DAYS)
+                    states_30 = {}
+                    for entry in entries:
+                        window = [(d, e) for d, e in errors_obs.get(entry.model, []) if since <= d < issue]
+                        states_30[entry.model] = variants.DecaySeries(window).as_of(issue) if window else None
+                    centrals['DECROISSANT_POIDS_OBS_30J'] = variants.decayed_consensus(
+                        entries, states_30, tight, wide, skill_weights=True, minimum=minimum)
                     values = sorted(e.value for e in entries)
                     middle = len(values) // 2
                     centrals['MEDIANE_SIMPLE'] = (values[middle] if len(values) % 2
@@ -162,6 +175,15 @@ def evaluate(cities: List[CityData], leads, eval_start: date, eval_end: date) ->
                                          empirical[1], truth)
                     if best is not None:
                         past_errors.append((day, truth - best))
+                    # Fourchette empirique autour de la centrale Calibration (ce que l'app calcule).
+                    calib = centrals['CALIB_OBS']
+                    window = [e for d, e in past_calib_errors if issue - timedelta(days=APP_WINDOW_DAYS) <= d < issue]
+                    empirical = variants.empirical_interval(calib, window) if calib is not None else None
+                    if empirical:
+                        _record_interval(interval_stats, (variable, lead, 'EMPIRIQUE_CALIB_OBS'), empirical[0],
+                                         empirical[1], truth)
+                    if calib is not None:
+                        past_calib_errors.append((day, truth - calib))
 
             _precipitation(city, lead, days, metrics, city_metrics, precip_records)
 
@@ -226,8 +248,10 @@ def _precipitation(city: CityData, lead: int, days, metrics, city_metrics, recor
                            result.central_amount_mm, truth, wet)
         multi = results['MULTI']
         if multi.probability_percent is not None:
+            reanalysis = city.reanalysis.get('precip', {}).get(day)
             records.append({'city': city.icao, 'lead': lead, 'day': day, 'issue': issue,
                             'p': multi.probability_percent / 100.0, 'wet': wet,
+                            'wet_reanalysis': None if reanalysis is None else reanalysis > 0.1,
                             'amount': multi.central_amount_mm, 'truth': truth})
 
 
@@ -253,6 +277,15 @@ def _recalibrate_precipitation(records, metrics, city_metrics, window_days: int 
             p = variants.recalibrated_probability(record['p'], history)
             metrics[('precip_brier', lead, 'PROBA_RECALIBREE')].add((p - record['wet']) ** 2)
             city_metrics[('precip_brier', lead, 'PROBA_RECALIBREE', record['city'])].add((p - record['wet']) ** 2)
+            # Ce que l'app peut faire : sa ville, ses 30 derniers jours, pluie de la réanalyse.
+            since = record['issue'] - timedelta(days=APP_WINDOW_DAYS)
+            local = [(r['p'], r['wet_reanalysis']) for r in items
+                     if r['city'] == record['city'] and since <= r['day'] < record['issue']
+                     and r['wet_reanalysis'] is not None]
+            p_city = variants.recalibrated_probability(record['p'], local)
+            metrics[('precip_brier', lead, 'PROBA_RECALIBREE_VILLE')].add((p_city - record['wet']) ** 2)
+            city_metrics[('precip_brier', lead, 'PROBA_RECALIBREE_VILLE', record['city'])].add(
+                (p_city - record['wet']) ** 2)
             if record['amount'] is not None:
                 metrics[('precip_mm', lead, 'PROBA_RECALIBREE')].add(record['amount'] - record['truth'])
 

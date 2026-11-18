@@ -12,6 +12,9 @@ LABELS = {
     'ADAPTIVE_OBS': 'Adaptatif, profils sur stations',
     'DECROISSANT_OBS': 'Proposé : biais décroissant',
     'DECROISSANT_POIDS_OBS': 'Proposé : biais décroissant + poids',
+    'DECROISSANT_POIDS_OBS_30J': 'Proposé : biais décroissant + poids, 30 jours (app)',
+    'PROBA_RECALIBREE_VILLE': 'Proposé : probabilité recalibrée par ville, 30 j, réanalyse (app)',
+    'EMPIRIQUE_CALIB_OBS': 'Proposé : fourchette empirique autour de la Calibration, 30 j (app)',
     'MEDIANE_SIMPLE': 'Repère : médiane simple',
     'ECMWF_SEUL': 'Repère : ECMWF IFS seul',
     'MEILLEUR_RECENT': 'Repère : meilleur modèle récent',
@@ -68,7 +71,7 @@ def render(results: dict) -> str:
     lines.append('')
 
     order = ['MULTI', 'SCENARIOS', 'CALIB_REANALYSE', 'ADAPTIVE_REANALYSE', 'CALIB_OBS', 'ADAPTIVE_OBS',
-             'DECROISSANT_OBS', 'DECROISSANT_POIDS_OBS', 'MEDIANE_SIMPLE', 'ECMWF_SEUL', 'MEILLEUR_RECENT']
+             'DECROISSANT_OBS', 'DECROISSANT_POIDS_OBS', 'DECROISSANT_POIDS_OBS_30J', 'MEDIANE_SIMPLE', 'ECMWF_SEUL', 'MEILLEUR_RECENT']
     for variable, (title, unit) in VARIABLE_TITLES.items():
         lines += [f'## {title} — erreur absolue moyenne ({unit})', '',
                   'Entre parenthèses : écart relatif au Multi-consensus (négatif = mieux).', '',
@@ -92,7 +95,8 @@ def render(results: dict) -> str:
 
     lines += ['## Pluie', '', '### Probabilité de pluie — score de Brier (plus bas = mieux)', '',
               '| Méthode | ' + ' | '.join(f'J+{l}' for l in leads) + ' |', '|---|' + '---:|' * len(leads)]
-    for method in ('MULTI', 'CALIB_REANALYSE', 'ADAPTIVE_REANALYSE', 'CALIB_OBS', 'ADAPTIVE_OBS', 'PROBA_RECALIBREE'):
+    for method in ('MULTI', 'CALIB_REANALYSE', 'ADAPTIVE_REANALYSE', 'CALIB_OBS', 'ADAPTIVE_OBS', 'PROBA_RECALIBREE',
+                   'PROBA_RECALIBREE_VILLE'):
         cells = []
         for lead in leads:
             metric = _get(results, 'precip_brier', lead, method)
@@ -117,7 +121,7 @@ def render(results: dict) -> str:
               '| Variable | Fourchette | ' + ' | '.join(f'J+{l}' for l in leads) + ' | Largeur moyenne J+1 |',
               '|---|---|' + '---:|' * len(leads) + '---:|']
     for variable, (title, unit) in VARIABLE_TITLES.items():
-        for kind in ('MULTI', 'CALIB_REANALYSE', 'EMPIRIQUE'):
+        for kind in ('MULTI', 'CALIB_REANALYSE', 'EMPIRIQUE', 'EMPIRIQUE_CALIB_OBS'):
             cells = []
             for lead in leads:
                 stat = results['intervals'].get(f'{variable}|{lead}|{kind}', {})
