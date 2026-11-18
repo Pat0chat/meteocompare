@@ -51,6 +51,26 @@ Ce que ces chiffres disent :
    56 % à J+7, et seulement 23 % pour le vent. La fourchette empirique tient
    73–75 % à toutes les échéances.
 
+### Ce que l'app peut reproduire
+
+L'app ne garde que 30 jours d'historique par ville et observe la pluie sur la
+réanalyse. Rejouées dans ces conditions, les variantes donnent :
+
+- **Tmax calibrée sur stations** : désormais faite par l'app, avec la même
+  définition journalière (`FetchBiasObservationsUseCase`,
+  `MetarDailyMaxTemperature`). Le vent et la pluie restent sur la réanalyse.
+- **Biais décroissant + poids, sur 30 jours** : Tmax 0,78 / 1,02 / 1,40 / 1,92 °C
+  à J+1 / J+3 / J+5 / J+7, contre 0,79 / 1,02 / 1,39 / 1,88 pour la Calibration
+  actuelle sur stations. Aucun gain : la calibration de l'app reste telle quelle.
+- **Probabilité de pluie recalibrée par ville** (30 jours, pluie de la
+  réanalyse) : Brier 0,114 à J+1, moins bon que le Multi-consensus (0,111). Le
+  gain de 36 % venait de l'historique de tout le panel et de la pluie GHCN ;
+  la recalibration n'est pas portée.
+- **Fourchette empirique autour de la Calibration, sur 30 jours** : 73, 72, 71
+  et 72 % des Tmax observées tombent dedans de J+1 à J+7, pour 2,3 °C de large,
+  contre 74 % à J+1 et 56 % à J+7 pour la fourchette actuelle (3,0 °C). C'est la
+  seule de ces trois variantes qui apporte un gain.
+
 ## Lancer
 
 ```bash
@@ -91,7 +111,7 @@ proposées suivent la même règle.
 (y compris l'arrondi `roundToInt` et l'addition naïve de `sumOf`).
 Deux garde-fous tournent en CI :
 
-- `scripts/tests/test_backtest.py` compare le catalogue, les lignées et les
+- `scripts/tests/test_backtest_engines.py` compare le catalogue, les lignées et les
   constantes du portage au code Kotlin ;
 - `ForecastEngineV3ParityTest` rejoue 720 cas générés par
   `python3 -m scripts.backtest.parity` avec le moteur Kotlin et exige les
