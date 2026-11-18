@@ -28,6 +28,13 @@ data class CalibrationPoint(
     /** Identifie la référence : un changement impose de repartir d'un historique vide. */
     val key: String get() = station?.let { "metar:${it.icao}" } ?: REANALYSIS_KEY
 
+    /**
+     * Vrai quand l'historique construit sur [storedKey] doit être effacé puis
+     * reconstruit. Sans clé enregistrée, l'historique existant date d'avant
+     * cette fonctionnalité et repose donc sur la réanalyse.
+     */
+    fun requiresRebuild(storedKey: String?): Boolean = (storedKey ?: REANALYSIS_KEY) != key
+
     companion object {
         const val REANALYSIS_KEY = "reanalysis"
 

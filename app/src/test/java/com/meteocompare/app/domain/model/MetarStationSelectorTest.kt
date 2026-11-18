@@ -26,4 +26,17 @@ class MetarStationSelectorTest {
         // Orléans : ~110 km d'Orly.
         assertNull(MetarStationSelector.select(47.90, 1.90, 100.0, listOf(orly, bourget)))
     }
+
+    @Test
+    fun `l'historique n'est reconstruit que si la reference change`() {
+        val city = City(id = "1", name = "Paris", country = "France", latitude = 48.857, longitude = 2.352)
+        val reanalysis = CalibrationPoint.reanalysis(city)
+        val atOrly = CalibrationPoint.of(city, orly)
+
+        assertEquals(false, reanalysis.requiresRebuild(null))
+        assertEquals(true, atOrly.requiresRebuild(null))
+        assertEquals(false, atOrly.requiresRebuild("metar:LFPO"))
+        assertEquals(true, atOrly.requiresRebuild("metar:LFPB"))
+        assertEquals(true, reanalysis.requiresRebuild("metar:LFPO"))
+    }
 }
