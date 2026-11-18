@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -182,6 +183,10 @@ class FetchBiasObservationsUseCase @Inject constructor(
     ): Map<LocalDate, Double> {
         val from = start.minusDays(1)
         val until = end.plusDays(2)
+        // IEM refuse les requêtes rapprochées : espacer les villes successives.
+        val wait = lastMetarCallMs + METAR_MIN_SPACING_MS - clock.millis()
+        if (wait > 0) delay(wait)
+        lastMetarCallMs = clock.millis()
         return runSuspendCatching {
             val csv = metarApi.hourly(
                 station = icao,
@@ -199,8 +204,12 @@ class FetchBiasObservationsUseCase @Inject constructor(
         }
     }
 
+    @Volatile
+    private var lastMetarCallMs = Long.MIN_VALUE / 2
+
     companion object {
         private const val LOG_TAG = "MeteoCompare/Bias"
+        private const val METAR_MIN_SPACING_MS = 2_000L
 
         /**
          * Nombre max de jours à fetcher en une passe. Aligné sur la fenêtre du

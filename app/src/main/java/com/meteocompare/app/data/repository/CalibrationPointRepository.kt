@@ -42,9 +42,7 @@ class CalibrationPointRepository @Inject constructor(
             MetarStationSelector.select(city.latitude, city.longitude, elevation, stations)
         }
         val point = CalibrationPoint.of(city, station)
-        // Historique antérieur à cette fonctionnalité : toujours sur la réanalyse.
-        val stored = prefs.getString(pointKey(city), CalibrationPoint.REANALYSIS_KEY)
-        Resolution(point, changed = stored != point.key)
+        Resolution(point, changed = point.requiresRebuild(prefs.getString(pointKey(city), null)))
     }
 
     /** À appeler une fois l'historique reconstruit sur [point]. */
