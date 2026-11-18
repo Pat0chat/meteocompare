@@ -49,8 +49,12 @@ class NetworkRefreshContractsTest(unittest.TestCase):
         code = kotlin('data/repository/ForecastRepositoryImpl.kt')
         for event in ('cacheRead(', 'fetchStarted()', 'fetchCoalesced()', 'logFetchDiagnostics()'):
             self.assertIn(event, code)
-        self.assertIn('val batched = api.getForecastBatched(', code)
-        self.assertLess(code.index('fetchDiagnostics.fetchStarted()'), code.index('val batched = api.getForecastBatched('))
+        # Chaque endpoint (Forecast API, Ensemble API) n'est appelé qu'après
+        # le comptage de la tentative HTTP.
+        started = code.index('fetchDiagnostics.fetchStarted()')
+        for call in ('api.getForecastBatched(', 'ensembleApi.getEnsembleBatched('):
+            self.assertIn(call, code)
+            self.assertLess(started, code.index(call))
 
 
 if __name__ == '__main__':

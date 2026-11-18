@@ -177,7 +177,7 @@ class ForecastNavigationCacheTest {
             }
         }
         val repository: ForecastRepository = ForecastRepositoryImpl(
-            api, ForecastMapper(), cache, json,
+            api, mockk(), ForecastMapper(), cache, json,
             mockk<NetworkMonitor> { every { isOnline() } returns true }, clock,
             mockk(relaxed = true), mockk<Context>(relaxed = true), dispatcher, dispatcher
         )

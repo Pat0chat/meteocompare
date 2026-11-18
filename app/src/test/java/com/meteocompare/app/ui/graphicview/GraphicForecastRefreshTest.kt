@@ -163,7 +163,7 @@ class GraphicForecastRefreshTest {
         }
         val context = mockk<Context>(relaxed = true)
         val repository = ForecastRepositoryImpl(
-            api, ForecastMapper(), cache, json,
+            api, mockk(), ForecastMapper(), cache, json,
             mockk<NetworkMonitor> { every { isOnline() } returns true }, clock,
             mockk(relaxed = true), context, dispatcher, dispatcher
         )

@@ -8,6 +8,7 @@ import com.meteocompare.app.data.remote.PreviousRunsApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.model.ForecastEndpoint
 import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.ModelBias
 import com.meteocompare.app.domain.model.WeatherModel
@@ -79,7 +80,10 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         requestedDays: Int = DEFAULT_BOOTSTRAP_LOOKBACK_DAYS
     ): BiasHistoryBootstrapResult = withContext(io) {
         require(requestedDays > 0) { "requestedDays must be positive" }
-        if (models.isEmpty()) {
+        // Les modèles publiés uniquement en ensemble n'ont pas de série
+        // Previous Runs : Open-Meteo renverrait 64 membres entièrement nuls.
+        val previousRunsModels = models.filter { it.endpoint == ForecastEndpoint.FORECAST }
+        if (previousRunsModels.isEmpty()) {
             return@withContext BiasHistoryBootstrapResult(requestedDays, 0, 0, 0)
         }
 
@@ -88,7 +92,7 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         val response = api.getPreviousDayOne(
             latitude = city.latitude,
             longitude = city.longitude,
-            models = models.joinToString(",", transform = WeatherModel::apiKey),
+            models = previousRunsModels.joinToString(",", transform = WeatherModel::apiKey),
             timezone = apiTimezoneOrAuto(city.timezone),
             startDate = startDate.format(ISO_DATE),
             endDate = endDate.format(ISO_DATE)
@@ -103,16 +107,17 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
 
         val expectedHoursByDate = timeline.groupingBy(TimelineEntry::date).eachCount()
         val records = ArrayList<ForecastBiasRecord>(
-            models.size * requestedDays * BiasVariable.entries.size * PreviousRunsApi.MAX_LEAD_DAY
+            previousRunsModels.size * requestedDays * BiasVariable.entries.size *
+                PreviousRunsApi.MAX_LEAD_DAY
         )
         val coveredDates = linkedSetOf<LocalDate>()
         val coveredModels = linkedSetOf<WeatherModel>()
         val coverageByLead = linkedMapOf<Int, MutableMap<WeatherModel, MutableMap<BiasVariable, Int>>>()
-        val singleModelMode = models.size == 1
+        val singleModelMode = previousRunsModels.size == 1
         val zone = validZoneOrNull(city.timezone) ?: resolveZoneOrUtc(response.timezone)
 
         for (leadDay in PreviousRunsApi.MIN_LEAD_DAY..PreviousRunsApi.MAX_LEAD_DAY) {
-            for (model in models) {
+            for (model in previousRunsModels) {
                 val temperature = hourly.lookupSeries(
                     baseKey = "temperature_2m",
                     model = model,

@@ -49,7 +49,8 @@ private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
     WeatherModel.DMI_HARMONIE_EU to Color(0xFF8D6E63),
     WeatherModel.METEOSWISS_ICON_CH2 to Color(0xFFD32F2F),
     WeatherModel.JMA_GSM to Color(0xFF00897B),
-    WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE to Color(0xFF5E35B1)
+    WeatherModel.CHMI_ALADIN_CENTRAL_EUROPE to Color(0xFF5E35B1),
+    WeatherModel.GOOGLE_WEATHERNEXT2 to Color(0xFF558B2F)
 )
 
 /**

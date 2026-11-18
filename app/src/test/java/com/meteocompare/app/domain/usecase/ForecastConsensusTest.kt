@@ -330,4 +330,12 @@ class ForecastConsensusTest {
         assertTrue(chmi != ForecastConsensus.groupFor(WeatherModel.ICON_EU))
     }
 
+    @Test
+    fun `WeatherNext 2 dispose de sa propre lignee de consensus`() {
+        val weatherNext = ForecastConsensus.groupFor(WeatherModel.GOOGLE_WEATHERNEXT2)
+        assertEquals(ForecastConsensus.Group.GOOGLE_WEATHERNEXT, weatherNext)
+        assertTrue(weatherNext != ForecastConsensus.groupFor(WeatherModel.ECMWF_AIFS))
+        assertTrue(weatherNext != ForecastConsensus.groupFor(WeatherModel.NCEP_AIGFS))
+    }
+
 }

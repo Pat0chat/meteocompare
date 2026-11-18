@@ -4,7 +4,7 @@
 [![F-Droid](https://img.shields.io/f-droid/v/com.meteocompare.app)](https://f-droid.org/packages/com.meteocompare.app/)
 [![Liberapay patrons](https://img.shields.io/liberapay/patrons/Pat0chat.svg?logo=liberapay)](https://liberapay.com/Pat0chat)
 
-Application Android de comparaison de **22 modèles météorologiques** (AROME, ARPEGE, ICON, GFS, HRRR, NOAA AIGFS, ECMWF IFS/AIFS, UKMO, GEM, JMA GSM, MET Nordic, HARMONIE KNMI/DMI, ICON-CH2, CHMI ALADIN, ACCESS, GRAPES…) basée sur l'API [Open-Meteo](https://open-meteo.com), avec un horizon d'affichage allant jusqu'à **10 jours** et la Vigilance officielle Météo-France relayée par le Worker public MeteoCompare.
+Application Android de comparaison de **23 modèles météorologiques** (AROME, ARPEGE, ICON, GFS, HRRR, NOAA AIGFS, ECMWF IFS/AIFS, UKMO, GEM, JMA GSM, MET Nordic, HARMONIE KNMI/DMI, ICON-CH2, CHMI ALADIN, ACCESS, GRAPES, WeatherNext 2…) basée sur l'API [Open-Meteo](https://open-meteo.com), avec un horizon d'affichage allant jusqu'à **10 jours** et la Vigilance officielle Météo-France relayée par le Worker public MeteoCompare.
 
 L'app se concentre sur **les données brutes et l'incertitude** : au lieu d'agréger silencieusement les modèles en une seule prévision, elle expose les désaccords entre modèles pour que l'utilisateur puisse juger lui-même du niveau de confiance à accorder à la prévision.
 
@@ -23,7 +23,7 @@ Depuis la v1.0, l'app suit aussi **le biais historique de chaque modèle sur cha
 
 ## Fonctionnalités
 
-- **Comparaison multi-modèles** : jusqu'à **22 modèles météo** (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, JMA, MET Norway, KNMI, DMI, MeteoSwiss, CHMI, BOM, CMA), dont deux approches IA avec **ECMWF AIFS** et **NOAA AIGFS**, ainsi que le nouveau global **JMA GSM**
+- **Comparaison multi-modèles** : jusqu'à **23 modèles météo** (Météo-France, DWD, NOAA, ECMWF, UK Met Office, ECCC, JMA, MET Norway, KNMI, DMI, MeteoSwiss, CHMI, BOM, CMA, Google DeepMind), dont trois approches IA avec **ECMWF AIFS**, **NOAA AIGFS** et **Google WeatherNext 2**, ainsi que le nouveau global **JMA GSM**
 - **Moteur de prévision V3 sélectionnable** : Multi-consensus robuste, Calibration locale, Scénarios et Adaptatif. Le moteur choisi pilote Home, Détails et widgets sans modifier les sorties brutes des modèles.
 - **Condition météo à consensus hiérarchique** : le moteur dédié `WeatherConditionConsensus` consolide les codes WMO par grandes familles météorologiques (précipitation / non-précipitation, puis ciel/brouillard et liquide/neige/verglas/orage) avant de choisir la condition précise. La branche ciel utilise la nébulosité centrale V3 pour éviter de sur-représenter « Couvert ».
 - **Comparaison des moteurs** : page dédiée calculant les quatre moteurs sur exactement le même forecast brut, sur **10 jours futurs** dans le fuseau de la ville, avec graphiques Tmax/Tmin/pluie/vent/rafales/nuages et frise de divergence.
@@ -136,6 +136,7 @@ Listés dans `WeatherModel.kt` avec leur résolution native (km), leur horizon, 
 | **BOM ACCESS**     | 15 km      | Global           | 10 j    | Bureau of Meteorology (Australie) |            |
 | **CMA GRAPES**     | 15 km      | Global           | 10 j    | China Meteorological Administration |            |
 | **CHMI ALADIN**   | **2,3 km** | Europe centrale  | 3 j     | CHMI (Tchéquie)     |            |
+| **WeatherNext 2**  | 28 km (0,25°) | Global (**IA**, médiane d'ensemble) | 15 j | Google DeepMind |            |
 
 Les modèles marqués "Par défaut" sont activés dès la première ouverture ; les autres sont activables dans les Settings, désormais **triables par zone, par famille ou par finesse** (résolution native).
 
@@ -151,6 +152,7 @@ Les modèles marqués "Par défaut" sont activés dès la première ouverture ; 
 - **MeteoSwiss ICON-CH2** ajoute un scénario régional 2 km sur la Suisse et l'Europe centrale ; il partage la lignée ICON dans le consensus, comme dans la version web 1.16
 - **CHMI ALADIN** ajoute le domaine natif Europe centrale (2,3 km, 3 jours), sans repli vers ECMWF hors couverture ou au-delà de son horizon. Sélectionnable, désactivé par défaut
 - **BOM ACCESS** et **CMA GRAPES** ajoutent une diversité méthodologique non-occidentale — sources indépendantes de biais éventuels du pool européen/nord-américain
+- **Google WeatherNext 2** est un modèle IA publié par Open-Meteo uniquement en ensemble (64 membres, via l'Ensemble API). Ses membres étant tous générés avec du bruit, il n'a pas de membre de contrôle non perturbé : MeteoCompare en affiche la **médiane des membres**, échéance par échéance (moyenne circulaire pour la direction du vent, code météo le plus fréquent), plutôt qu'un tirage arbitraire. Pas de rafales ni de probabilité de précipitation dans ce produit. Faute d'archive Previous Runs, sa fiabilité locale se construit à partir des prévisions J+1 enregistrées par l'application à chaque actualisation (instantanés conservés 5 jours) : elle progresse au fil de l'usage, sans rattrapage d'archive
 
 **Autres modèles régionaux pouvant intéresser la France** : Open-Meteo expose également MeteoSwiss ICON-CH1 (1 km), GeoSphere AROME Austria (2,5 km) et ItaliaMeteo ICON-2I (2 km). Leur domaine est régional et ils ne figurent pas au catalogue actuel.
 
@@ -391,4 +393,4 @@ Fait :
 
 [Apache License 2.0](LICENSE) — vous pouvez utiliser, modifier et redistribuer le code librement, à condition de conserver la notice de copyright.
 
-Les données météo sont fournies par [Open-Meteo](https://open-meteo.com) (également open-source, AGPL-3.0). Les modèles eux-mêmes sont produits par leurs organismes respectifs : Météo-France (AROME, ARPEGE), DWD (ICON, ICON-D2), NOAA (GFS, HRRR, AIGFS), ECMWF (IFS et AIFS), UK Met Office (UKMO), Environnement et Changement climatique Canada (GEM), Japan Meteorological Agency (GSM), MET Norway (MET Nordic), KNMI et DMI (HARMONIE), MeteoSwiss (ICON-CH2), Bureau of Meteorology Australie (ACCESS), China Meteorological Administration (GRAPES), CHMI (ALADIN).
+Les données météo sont fournies par [Open-Meteo](https://open-meteo.com) (également open-source, AGPL-3.0). Les modèles eux-mêmes sont produits par leurs organismes respectifs : Météo-France (AROME, ARPEGE), DWD (ICON, ICON-D2), NOAA (GFS, HRRR, AIGFS), ECMWF (IFS et AIFS), UK Met Office (UKMO), Environnement et Changement climatique Canada (GEM), Japan Meteorological Agency (GSM), MET Norway (MET Nordic), KNMI et DMI (HARMONIE), MeteoSwiss (ICON-CH2), Bureau of Meteorology Australie (ACCESS), China Meteorological Administration (GRAPES), CHMI (ALADIN), Google DeepMind (WeatherNext 2).
