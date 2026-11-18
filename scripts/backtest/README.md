@@ -12,6 +12,45 @@ réellement mesuré. Il sert à deux choses :
 
 Rien ici n'est embarqué dans l'application.
 
+## Premiers résultats (mai–septembre 2026, 20 stations)
+
+Rapport complet : [`results/2026-05-a-2026-09.md`](results/2026-05-a-2026-09.md).
+Erreur absolue moyenne à J+1, écart relatif au Multi-consensus entre parenthèses :
+
+| Méthode | Tmax | Tmin | Vent max | Pluie (Brier) |
+|---|---:|---:|---:|---:|
+| Multi-consensus (défaut de l'app) | 0,97 °C | 1,28 °C | 8,1 km/h | 0,111 |
+| Calibration actuelle (réanalyse) | 1,05 (+9 %) | 1,28 (non calibrée) | 8,2 (+2 %) | 0,104 |
+| Adaptatif actuel (réanalyse) | 1,05 (+8 %) | 1,29 (+1 %) | 8,2 (+2 %) | 0,104 |
+| Scénarios | 1,01 (+4 %) | 1,29 (+1 %) | 8,2 (+1 %) | — |
+| Calibration sur stations | 0,79 (−19 %) | 1,01 (−21 %) | 3,6 (−56 %) | 0,089 |
+| Biais décroissant + poids, sur stations | 0,78 (−20 %) | 0,98 (−23 %) | 3,6 (−56 %) | — |
+| Probabilité de pluie recalibrée | — | — | — | 0,071 (−36 %) |
+
+Ce que ces chiffres disent :
+
+1. **La calibration actuelle dégrade la Tmax à J+1** (+9 %) et n'aide qu'un
+   peu à J+5–J+7. La cause est la référence : face aux stations, la
+   réanalyse est trop froide de 0,5 °C en Tmax et sous-estime le vent max de
+   8 km/h. Corriger les modèles vers elle ajoute ce biais.
+2. **Calibrer sur les observations des stations** fait mieux que le
+   Multi-consensus dans 20 villes sur 20 en Tmax et 18 sur 20 en Tmin
+   (−19 % et −21 % d'erreur), et le biais tombe à presque zéro. Sur le vent, le gain de −56 % vient surtout de l'exposition
+   des anémomètres d'aéroport (voir les limites).
+3. **La méthode d'estimation compte peu à côté de la référence** : biais à
+   décroissance et poids de fiabilité ne gagnent qu'un à deux points de plus
+   que la moyenne sur 30 jours, mais sans seuil à 14 jours.
+4. **Le moteur Adaptatif dilue la calibration** : même avec des profils sur
+   stations, il ne gagne que 7 % en Tmax, contre 19 % pour la Calibration.
+5. **Le moteur Scénarios n'améliore aucune variable journalière** : il est
+   moins bon que le Multi-consensus dans 18 villes sur 20 en Tmax.
+6. **La probabilité de pluie est mal calibrée** : la convertir en fréquence
+   observée par classe réduit le score de Brier de 36 %.
+7. **Les fourchettes de l'app sont trop étroites et le deviennent de plus en
+   plus avec l'échéance** : 74 % des Tmax observées tombent dedans à J+1,
+   56 % à J+7, et seulement 23 % pour le vent. La fourchette empirique tient
+   73–75 % à toutes les échéances.
+
 ## Lancer
 
 ```bash
