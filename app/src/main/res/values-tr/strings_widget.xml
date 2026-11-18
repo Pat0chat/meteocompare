@@ -96,4 +96,8 @@
     <string name="widget_sun_minutes_short">%1$d dk</string>
     <string name="widget_sun_hours_short">%1$s sa</string>
     <string name="widget_forecast_convergence_compact">U %1$d%%</string>
+    <string name="widget_config_text_size">Metin boyutu</string>
+    <string name="widget_config_text_size_note">Otomatik, yeterli alan varsa metni büyütür. Küçük widgetlarda kırpılmayı önlemek için manuel boyut sınırlandırılır.</string>
+    <string name="widget_config_text_size_auto">Otomatik ayarla</string>
+    <string name="widget_config_text_size_value">%1$d %%</string>
 </resources>

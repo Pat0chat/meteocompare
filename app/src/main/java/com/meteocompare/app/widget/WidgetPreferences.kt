@@ -93,6 +93,15 @@ internal object WidgetPreferences {
     val CornerRadiusDpKey = intPreferencesKey("widget_corner_radius_dp")
     /** Espacement ENTRE le bord coloré et le contenu, jamais une marge extérieure. */
     val ContentSpacingKey = stringPreferencesKey("widget_content_spacing")
+
+    /** Typography belongs to each widget instance, not to global app settings. */
+    val TextSizePctKey = intPreferencesKey("widget_text_size_pct")
+    val AutoTextSizeKey = booleanPreferencesKey("widget_text_size_auto")
+    const val DEFAULT_TEXT_SIZE_PCT = 100
+    const val MIN_TEXT_SIZE_PCT = 85
+    const val MAX_TEXT_SIZE_PCT = 140
+    const val DEFAULT_AUTO_TEXT_SIZE = true
+
     const val DEFAULT_CORNER_RADIUS_DP = 24
     const val MAX_CORNER_RADIUS_DP = 64
 

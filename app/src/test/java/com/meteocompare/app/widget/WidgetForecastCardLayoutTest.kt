@@ -16,6 +16,17 @@ class WidgetForecastCardLayoutTest {
     }
 
     @Test
+    fun `larger text uses real vertical budget and preserves metric priority`() {
+        val metrics = listOf(WidgetForecastMetric.CLOUD, WidgetForecastMetric.RAIN,
+            WidgetForecastMetric.SUNSHINE, WidgetForecastMetric.CONVERGENCE)
+        val normal = forecastMetricLayout(80f, ForecastCardHeightProfile.DENSE, metrics)
+        val enlarged = forecastMetricLayout(80f, ForecastCardHeightProfile.DENSE, metrics, 1.4f)
+        assertTrue(enlarged.visible.size <= normal.visible.size)
+        assertTrue(enlarged.textSp <= 10f)
+        assertTrue(enlarged.visible.contains(WidgetForecastMetric.RAIN))
+    }
+
+    @Test
     fun `forecast card profile uses the real child height`() {
         assertEquals(ForecastCardHeightProfile.DENSE, forecastCardHeightProfile(60f))
         assertEquals(ForecastCardHeightProfile.COMPACT, forecastCardHeightProfile(84f))

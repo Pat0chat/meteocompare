@@ -37,7 +37,8 @@ internal object WidgetHeatmapTrendForecastRenderer {
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
         profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
-        units: WeatherUnits = WeatherUnits()
+        units: WeatherUnits = WeatherUnits(),
+        textScale: Float = 1f
     ): Bitmap {
         val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -71,7 +72,8 @@ internal object WidgetHeatmapTrendForecastRenderer {
                 MiniForecastSizeProfile.COMPACT_2X2 -> 12f
                 MiniForecastSizeProfile.MEDIUM_3X2 -> 13f
                 MiniForecastSizeProfile.EXPANDED_4X2 -> 16f
-            }.coerceAtMost(columnWidth * 0.55f)
+            }.times(textScale.coerceIn(0.85f, 1.4f))
+                .coerceAtMost(columnWidth * 0.55f)
             color = withAlpha(textColorArgb, 0xD8)
         }
         val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -81,7 +83,8 @@ internal object WidgetHeatmapTrendForecastRenderer {
                 MiniForecastSizeProfile.COMPACT_2X2 -> 12f
                 MiniForecastSizeProfile.MEDIUM_3X2 -> 13f
                 MiniForecastSizeProfile.EXPANDED_4X2 -> 16f
-            }.coerceAtMost(columnWidth * 0.65f)
+            }.times(textScale.coerceIn(0.85f, 1.4f))
+                .coerceAtMost(columnWidth * 0.65f)
         }
 
         val tempValues = temps.mapNotNull(::metricPlotValue)

@@ -103,4 +103,8 @@
     <string name="widget_sun_minutes_short">%1$d min</string>
     <string name="widget_sun_hours_short">%1$s h</string>
     <string name="widget_forecast_convergence_compact">C %1$d%%</string>
+    <string name="widget_config_text_size">Taille des textes</string>
+    <string name="widget_config_text_size_note">Auto adapte légèrement les textes à l’espace disponible. En manuel, la taille choisie est limitée si le widget est trop petit.</string>
+    <string name="widget_config_text_size_auto">Adapter automatiquement</string>
+    <string name="widget_config_text_size_value">%1$d %%</string>
 </resources>

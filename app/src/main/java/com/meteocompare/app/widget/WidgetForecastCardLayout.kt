@@ -51,12 +51,14 @@ private fun forecastCardFixedContentHeightDp(profile: ForecastCardHeightProfile)
 internal fun forecastMetricLayout(
     availableCardHeightDp: Float,
     profile: ForecastCardHeightProfile,
-    metrics: List<WidgetForecastMetric>
+    metrics: List<WidgetForecastMetric>,
+    textScale: Float = 1f
 ): ForecastMetricLayout {
     // Réserve prudente : en-tête, grand pictogramme météo et température.
-    val fixedContentDp = forecastCardFixedContentHeightDp(profile)
+    val safeScale = textScale.coerceIn(0.85f, 1.4f)
+    val fixedContentDp = forecastCardFixedContentHeightDp(profile) * safeScale
     val availableForMetrics = (availableCardHeightDp - fixedContentDp).coerceAtLeast(0f)
-    val rowCapacity = (availableForMetrics / 7f).toInt().coerceIn(0, 4)
+    val rowCapacity = (availableForMetrics / (7f * safeScale)).toInt().coerceIn(0, 4)
     // Lorsque tout ne rentre pas, éviter les lignes tronquées. La pluie garde
     // une priorité élevée, sans changer l'ordre canonique des lignes retenues.
     val priority = listOf(
@@ -88,12 +90,14 @@ internal fun forecastMetricLayout(
 internal fun forecastFittingCardProfile(
     heightDp: Float,
     requested: ForecastCardHeightProfile,
-    metricCount: Int
+    metricCount: Int,
+    textScale: Float = 1f
 ): ForecastCardHeightProfile {
     val candidates = ForecastCardHeightProfile.entries.take(requested.ordinal + 1).asReversed()
-    val requiredRows = metricCount.coerceIn(0, 4) * 7f
+    val safeScale = textScale.coerceIn(0.85f, 1.4f)
+    val requiredRows = metricCount.coerceIn(0, 4) * 7f * safeScale
     return candidates.firstOrNull { candidate ->
-        heightDp >= forecastCardFixedContentHeightDp(candidate) + requiredRows
+        heightDp >= forecastCardFixedContentHeightDp(candidate) * safeScale + requiredRows
     } ?: ForecastCardHeightProfile.DENSE
 }
 

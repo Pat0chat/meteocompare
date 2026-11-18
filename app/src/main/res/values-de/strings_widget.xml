@@ -78,4 +78,8 @@
     <string name="widget_sun_minutes_short">%1$d Min.</string>
     <string name="widget_sun_hours_short">%1$s Std.</string>
     <string name="widget_forecast_convergence_compact">K %1$d%%</string>
+    <string name="widget_config_text_size">Textgröße</string>
+    <string name="widget_config_text_size_note">Automatisch vergrößert den Text bei ausreichend Platz. Bei sehr kleinen Widgets wird die manuelle Größe begrenzt.</string>
+    <string name="widget_config_text_size_auto">Automatisch anpassen</string>
+    <string name="widget_config_text_size_value">%1$d %%</string>
 </resources>

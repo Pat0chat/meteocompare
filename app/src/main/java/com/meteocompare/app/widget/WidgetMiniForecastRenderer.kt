@@ -111,7 +111,8 @@ internal object WidgetMiniForecastRenderer {
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
         profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
-        units: WeatherUnits = WeatherUnits()
+        units: WeatherUnits = WeatherUnits(),
+        textScale: Float = 1f
     ): Bitmap {
         require(widthPx > 0) { "widthPx doit être > 0, reçu $widthPx" }
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
@@ -130,17 +131,18 @@ internal object WidgetMiniForecastRenderer {
         val columnWidth = (widthPx - outerPadding * 2f) / COLUMNS_PER_ROW
         val cellGap = (columnWidth * metrics.cellGapFraction).coerceAtLeast(1f)
 
+        val safeTextScale = textScale.coerceIn(0.85f, 1.4f)
         val baseTimeTextSize = min(
-            rowHeight * metrics.timeTextFraction,
-            columnWidth * metrics.timeWidthLimitFraction
+            rowHeight * metrics.timeTextFraction * safeTextScale,
+            columnWidth * metrics.timeWidthLimitFraction * 1.25f
         ).coerceAtLeast(7f)
         val baseTempTextSize = min(
-            rowHeight * metrics.tempTextFraction,
-            columnWidth * metrics.tempWidthLimitFraction
+            rowHeight * metrics.tempTextFraction * safeTextScale,
+            columnWidth * metrics.tempWidthLimitFraction * 1.25f
         ).coerceAtLeast(11f)
         val basePrecipTextSize = min(
-            rowHeight * metrics.precipTextFraction,
-            columnWidth * metrics.precipWidthLimitFraction
+            rowHeight * metrics.precipTextFraction * safeTextScale,
+            columnWidth * metrics.precipWidthLimitFraction * 1.25f
         ).coerceAtLeast(7f)
 
         val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

@@ -170,6 +170,10 @@ internal class MeteoWidget : GlanceAppWidget() {
             val customCornerRadiusDp = (prefs[WidgetPreferences.CornerRadiusDpKey]
                 ?: WidgetPreferences.DEFAULT_CORNER_RADIUS_DP).coerceIn(0, WidgetPreferences.MAX_CORNER_RADIUS_DP)
             val contentSpacing = WidgetContentSpacing.fromStored(prefs[WidgetPreferences.ContentSpacingKey])
+            val textSizePct = (prefs[WidgetPreferences.TextSizePctKey]
+                ?: WidgetPreferences.DEFAULT_TEXT_SIZE_PCT)
+            val autoTextSize = prefs[WidgetPreferences.AutoTextSizeKey]
+                ?: WidgetPreferences.DEFAULT_AUTO_TEXT_SIZE
             // Chargement des données asynchrone. `remember` persiste la
             // dernière donnée bonne à travers les recompositions ; LaunchedEffect
             // re-fetch quand cityId/forecastMode/refreshTick change.
@@ -193,7 +197,11 @@ internal class MeteoWidget : GlanceAppWidget() {
             CompositionLocalProvider(
                 LocalContext provides appCtx,
                 LocalNightMode provides night,
-                LocalWeatherUnits provides WeatherUnits(data.unitSystem)
+                LocalWeatherUnits provides WeatherUnits(data.unitSystem),
+                LocalWidgetTextScale provides widgetTextScale(
+                    LocalSize.current.width.value, LocalSize.current.height.value,
+                    autoTextSize, textSizePct
+                )
             ) {
                 GlanceTheme {
                     WidgetContent(
@@ -466,7 +474,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider, units: Weat
             text = formatTemp(data.currentTemp, units = units),
             style = TextStyle(
                 color = onContainer,
-                fontSize = tempSize,
+                fontSize = (tempSize).widgetScaled(),
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1
@@ -477,7 +485,7 @@ private fun TinyLayout(data: WidgetData, onContainer: ColorProvider, units: Weat
                     text = "$it%",
                     style = TextStyle(
                         color = confidenceTextColor(it),
-                        fontSize = if (dense) 7.sp else 9.sp,
+                        fontSize = (if (dense) 7.sp else 9.sp).widgetScaled(),
                         fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1
@@ -544,7 +552,7 @@ private fun SmallLayout(
                         text = it,
                         style = TextStyle(
                             color = onContainer,
-                            fontSize = citySize,
+                            fontSize = (citySize).widgetScaled(),
                             fontWeight = FontWeight.Medium
                         ),
                         maxLines = 1
@@ -556,7 +564,7 @@ private fun SmallLayout(
                 text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = onContainer,
-                    fontSize = tempSize,
+                    fontSize = (tempSize).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -566,7 +574,7 @@ private fun SmallLayout(
                     text = "$it%",
                     style = TextStyle(
                         color = confidenceTextColor(it),
-                        fontSize = confidenceSize,
+                        fontSize = (confidenceSize).widgetScaled(),
                         fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1
@@ -601,7 +609,7 @@ internal fun WidgetMinMaxWithApparent(
             prefix = context.getString(R.string.apparent_temperature_widget_prefix),
             show = showApparent
         ),
-        style = TextStyle(color = onContainerMuted, fontSize = minMaxSize),
+        style = TextStyle(color = onContainerMuted, fontSize = (minMaxSize).widgetScaled()),
         maxLines = 1
     )
 }
@@ -652,7 +660,7 @@ private fun MediumLayout(
                 text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = onContainer,
-                    fontSize = tempSize,
+                    fontSize = (tempSize).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -673,7 +681,7 @@ private fun MediumLayout(
                     text = it,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = citySize,
+                        fontSize = (citySize).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -754,7 +762,7 @@ private fun LargeLayout(
             Spacer(GlanceModifier.width(if (profile == SingleRowWidgetHeightProfile.VERY_DENSE) 4.dp else 6.dp))
             Text(
                 text = formatTemp(data.currentTemp, units = units),
-                style = TextStyle(color = onContainer, fontSize = currentTempSize, fontWeight = FontWeight.Bold),
+                style = TextStyle(color = onContainer, fontSize = (currentTempSize).widgetScaled(), fontWeight = FontWeight.Bold),
                 maxLines = 1
             )
         }
@@ -777,7 +785,7 @@ private fun LargeLayout(
                     text = it,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = citySize,
+                        fontSize = (citySize).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -796,7 +804,7 @@ private fun LargeLayout(
                 Spacer(GlanceModifier.height(1.dp))
                 Text(
                     text = extras,
-                    style = TextStyle(color = onContainerMuted, fontSize = extrasSize),
+                    style = TextStyle(color = onContainerMuted, fontSize = (extrasSize).widgetScaled()),
                     maxLines = 1
                 )
             }
@@ -906,7 +914,7 @@ private fun CompactTallLayout(
                             text = it,
                             style = TextStyle(
                                 color = onContainer,
-                                fontSize = if (narrow) 10.sp else 12.sp,
+                                fontSize = (if (narrow) 10.sp else 12.sp).widgetScaled(),
                                 fontWeight = FontWeight.Bold
                             ),
                             maxLines = 1
@@ -916,7 +924,7 @@ private fun CompactTallLayout(
                         text = formatTemp(data.currentTemp, units = units),
                         style = TextStyle(
                             color = onContainer,
-                            fontSize = if (smallHeader) 18.sp else if (narrow) 21.sp else 24.sp,
+                            fontSize = (if (smallHeader) 18.sp else if (narrow) 21.sp else 24.sp).widgetScaled(),
                             fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1
@@ -937,7 +945,7 @@ private fun CompactTallLayout(
                             text = "$it%",
                             style = TextStyle(
                                 color = confidenceTextColor(it),
-                                fontSize = if (narrow) 8.sp else 9.sp,
+                                fontSize = (if (narrow) 8.sp else 9.sp).widgetScaled(),
                                 fontWeight = FontWeight.Bold
                             ),
                             maxLines = 1
@@ -1002,7 +1010,7 @@ private fun CompactTallLayout(
                         } else "…",
                         style = TextStyle(
                             color = onContainerMuted,
-                            fontSize = 10.sp,
+                            fontSize = (10.sp).widgetScaled(),
                             fontWeight = FontWeight.Medium
                         ),
                         maxLines = 2
@@ -1113,7 +1121,7 @@ private fun ExtraLargeLayout(
                     Spacer(GlanceModifier.width(5.dp))
                     Text(
                         text = formatTemp(data.currentTemp, units = units),
-                        style = TextStyle(color = onContainer, fontSize = 19.sp, fontWeight = FontWeight.Bold),
+                        style = TextStyle(color = onContainer, fontSize = (19.sp).widgetScaled(), fontWeight = FontWeight.Bold),
                         maxLines = 1
                     )
                     data.cityName?.let { city ->
@@ -1121,7 +1129,7 @@ private fun ExtraLargeLayout(
                         Text(
                             text = city,
                             modifier = GlanceModifier.defaultWeight(),
-                            style = TextStyle(color = onContainerMuted, fontSize = 10.sp),
+                            style = TextStyle(color = onContainerMuted, fontSize = (10.sp).widgetScaled()),
                             maxLines = 1
                         )
                     }
@@ -1141,11 +1149,11 @@ private fun ExtraLargeLayout(
                         text = formatTemp(data.currentTemp, units = units),
                         style = TextStyle(
                             color = onContainer,
-                            fontSize = when {
+                            fontSize = (when {
                                 veryCompact -> 22.sp
                                 compactHeight -> 25.sp
                                 else -> 28.sp
-                            },
+                            }).widgetScaled(),
                             fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1
@@ -1158,11 +1166,11 @@ private fun ExtraLargeLayout(
                                 text = it,
                                 style = TextStyle(
                                     color = onContainer,
-                                    fontSize = when {
+                                    fontSize = (when {
                                         veryCompact -> 11.sp
                                         compactHeight -> 14.sp
                                         else -> 16.sp
-                                    },
+                                    }).widgetScaled(),
                                     fontWeight = FontWeight.Medium
                                 ),
                                 maxLines = 1
@@ -1188,7 +1196,7 @@ private fun ExtraLargeLayout(
                                     text = extras,
                                     style = TextStyle(
                                         color = onContainerMuted,
-                                        fontSize = if (compactHeight) 9.sp else 11.sp
+                                        fontSize = (if (compactHeight) 9.sp else 11.sp).widgetScaled()
                                     ),
                                     maxLines = 1
                                 )
@@ -1235,7 +1243,7 @@ private fun ExtraLargeLayout(
             ) {
                 Text(
                     text = "…",
-                    style = TextStyle(color = onContainerMuted, fontSize = 12.sp)
+                    style = TextStyle(color = onContainerMuted, fontSize = (12.sp).widgetScaled())
                 )
             }
             else -> ForecastTimelinePanel(
@@ -1305,6 +1313,7 @@ private fun TwelveHourForecastStrip(
     )
     val heightPx = (chartHeightDp * renderDensity).toInt().coerceAtLeast(1)
     val precipColorArgb = 0xFF1976D2.toInt()
+    val bitmapTextScale = LocalWidgetTextScale.current
 
     val displayLocale = context.resources.configuration.locales[0]
     val formatter = remember(displayLocale, data.clockFormatPreference) {
@@ -1328,7 +1337,8 @@ private fun TwelveHourForecastStrip(
         widthPx,
         heightPx,
         textColorArgb,
-        profile
+        profile,
+        bitmapTextScale
     ) {
         if (data.forecastMode?.isModernHeatmapChartForecast() == true) {
             WidgetHeatmapTrendForecastRenderer.render(
@@ -1344,7 +1354,8 @@ private fun TwelveHourForecastStrip(
                 textColorArgb = textColorArgb,
                 timelineLabels = timelineLabels,
                 profile = profile,
-                units = units
+                units = units,
+                textScale = bitmapTextScale
             )
         } else if (data.forecastMode?.isHeatmapChartForecast() == true) {
             WidgetHeatmapForecastRenderer.render(
@@ -1360,7 +1371,8 @@ private fun TwelveHourForecastStrip(
                 textColorArgb = textColorArgb,
                 timelineLabels = timelineLabels,
                 profile = profile,
-                units = units
+                units = units,
+                textScale = bitmapTextScale
             )
         } else {
             WidgetMiniForecastRenderer.render(
@@ -1376,7 +1388,8 @@ private fun TwelveHourForecastStrip(
                 textColorArgb = textColorArgb,
                 timelineLabels = timelineLabels,
                 profile = profile,
-                units = units
+                units = units,
+                textScale = bitmapTextScale
             )
         }
     }
@@ -1533,7 +1546,7 @@ private fun ModernConfidencePanel(
                     modifier = GlanceModifier.defaultWeight(),
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = if (compact) 9.sp else 10.sp,
+                        fontSize = (if (compact) 9.sp else 10.sp).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -1542,7 +1555,7 @@ private fun ModernConfidencePanel(
                     text = ctx.getString(R.string.widget_forecast_confidence_hint),
                     style = TextStyle(
                         color = onContainerMuted,
-                        fontSize = if (compact) 6.sp else 7.sp,
+                        fontSize = (if (compact) 6.sp else 7.sp).widgetScaled(),
                         fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1
@@ -1602,7 +1615,7 @@ private fun ConfidenceDayCard(
             text = day.label,
             style = TextStyle(
                 color = onContainer,
-                fontSize = if (compact) 7.sp else 9.sp,
+                fontSize = (if (compact) 7.sp else 9.sp).widgetScaled(),
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1
@@ -1611,7 +1624,7 @@ private fun ConfidenceDayCard(
             text = "${day.modelCount}/${day.totalModelCount}",
             style = TextStyle(
                 color = onContainerMuted,
-                fontSize = if (compact) 6.sp else 7.sp
+                fontSize = (if (compact) 6.sp else 7.sp).widgetScaled()
             ),
             maxLines = 1
         )
@@ -1628,7 +1641,7 @@ private fun ConfidenceDayCard(
                     modifier = GlanceModifier.defaultWeight(),
                     style = TextStyle(
                         color = onContainerMuted,
-                        fontSize = if (compact) 6.sp else 7.sp,
+                        fontSize = (if (compact) 6.sp else 7.sp).widgetScaled(),
                         fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1
@@ -1637,7 +1650,7 @@ private fun ConfidenceDayCard(
                     text = bucket.value,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = if (compact) 7.sp else 9.sp,
+                        fontSize = (if (compact) 7.sp else 9.sp).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -1660,7 +1673,7 @@ private fun ConfidenceDayCard(
                     text = "${bucket.percent}%",
                     style = TextStyle(
                         color = confidenceTextColor(bucket.percent),
-                        fontSize = if (compact) 6.sp else 7.sp,
+                        fontSize = (if (compact) 6.sp else 7.sp).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -1707,7 +1720,7 @@ private fun ErrorLayout(
                 text = symbol,
                 style = TextStyle(
                     color = onContainer,
-                    fontSize = 18.sp,
+                    fontSize = (18.sp).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -1730,7 +1743,7 @@ private fun ErrorLayout(
                     text = symbol,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = 15.sp,
+                        fontSize = (15.sp).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -1742,7 +1755,7 @@ private fun ErrorLayout(
                 modifier = GlanceModifier.defaultWeight(),
                 style = TextStyle(
                     color = onContainerMuted,
-                    fontSize = 10.sp,
+                    fontSize = (10.sp).widgetScaled(),
                     fontWeight = FontWeight.Medium
                 ),
                 maxLines = 2
@@ -1768,7 +1781,7 @@ private fun ErrorLayout(
                     text = symbol,
                     style = TextStyle(
                         color = onContainer,
-                        fontSize = if (tiny) 15.sp else 18.sp,
+                        fontSize = (if (tiny) 15.sp else 18.sp).widgetScaled(),
                         fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
@@ -1779,7 +1792,7 @@ private fun ErrorLayout(
                 text = message,
                 style = TextStyle(
                     color = onContainerMuted,
-                    fontSize = if (tiny) 8.sp else 12.sp
+                    fontSize = (if (tiny) 8.sp else 12.sp).widgetScaled()
                 ),
                 maxLines = if (tiny) 2 else 3
             )
@@ -1843,7 +1856,8 @@ private fun ForecastTimelineItem(
         item.forecastConfidencePct
     )
     val profile = forecastFittingCardProfile(
-        availableCardHeightDp, requestedProfile, WidgetForecastMetric.entries.size
+        availableCardHeightDp, requestedProfile, availableMetrics.size,
+        LocalWidgetTextScale.current
     )
     val horizontalPadding = when (profile) {
         ForecastCardHeightProfile.DENSE -> 4.dp
@@ -1905,7 +1919,7 @@ private fun ForecastTimelineItem(
                 text = item.label,
                 style = TextStyle(
                     color = if (emphasized) onContainer else onContainerMuted,
-                    fontSize = labelSize,
+                    fontSize = (labelSize).widgetScaled(),
                     fontWeight = if (emphasized) FontWeight.Bold else FontWeight.Medium
                 ),
                 maxLines = 1
@@ -1917,7 +1931,7 @@ private fun ForecastTimelineItem(
             text = formatTemp(item.temp, units = units),
             style = TextStyle(
                 color = onContainer,
-                fontSize = temperatureSize,
+                fontSize = (temperatureSize).widgetScaled(),
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1
@@ -1929,7 +1943,8 @@ private fun ForecastTimelineItem(
         val metricLayout = forecastMetricLayout(
             availableCardHeightDp = availableCardHeightDp,
             profile = profile,
-            metrics = availableMetrics
+            metrics = availableMetrics,
+            textScale = LocalWidgetTextScale.current
         )
         metricLayout.visible.forEach { metric ->
             val icon: String
@@ -1975,7 +1990,7 @@ private fun ForecastTimelineItem(
             ) {
                 Text(
                     text = icon,
-                    style = TextStyle(color = color, fontSize = metricLayout.iconSp.sp),
+                    style = TextStyle(color = color, fontSize = (metricLayout.iconSp.sp).widgetScaled()),
                     maxLines = 1
                 )
                 Spacer(GlanceModifier.width(1.dp))
@@ -1983,7 +1998,7 @@ private fun ForecastTimelineItem(
                     text = value,
                     style = TextStyle(
                         color = color,
-                        fontSize = metricLayout.textSp.sp,
+                        fontSize = (metricLayout.textSp.sp).widgetScaled(),
                         fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1
@@ -2031,7 +2046,7 @@ private fun ConfidencePill(percent: Int, compact: Boolean = false) {
             text = "$percent%",
             style = TextStyle(
                 color = fg,
-                fontSize = if (compact) 9.sp else 11.sp,
+                fontSize = (if (compact) 9.sp else 11.sp).widgetScaled(),
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1
