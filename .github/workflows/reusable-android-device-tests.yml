@@ -1,0 +1,77 @@
+name: Android instrumentation (reusable)
+
+# Tests instrumentés sur émulateur API 35, répartis en parties exécutées en
+# parallèle (AndroidJUnitRunner numShards / shardIndex). Chaque partie publie
+# son propre artefact `<artifact-name>-shard-<n>` : les rapports ne
+# s'écrasent pas entre eux et le rapport consolidé les relit tous.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Préfixe des artefacts de rapports instrumentés.
+        required: true
+        type: string
+      shards:
+        description: Liste JSON des parties à exécuter en parallèle, par exemple "[1, 2]".
+        required: false
+        type: string
+        default: '[1]'
+      timeout-minutes:
+        description: Délai maximal par partie.
+        required: false
+        type: number
+        default: 60
+
+jobs:
+  device:
+    name: Android instrumentation (API 35), part ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.shards) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-android
+        with:
+          install-sdk: 'false'
+
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests without external network fixtures
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          script: >-
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.numShards=${{ strategy.job-total }}
+            -Pandroid.testInstrumentationRunnerArguments.shardIndex=${{ strategy.job-index }}
+
+      - name: Show Android test failures in GitHub job summary
+        if: always()
+        shell: bash
+        run: |
+          python3 scripts/summarize_android_test_results.py \
+            --results app/build/outputs/androidTest-results/connected \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve failing device test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}-shard-${{ strategy.job-index }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: warn

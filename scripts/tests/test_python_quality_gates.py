@@ -13,6 +13,10 @@ import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+import sys as _sys  # noqa: E402
+if str(Path(__file__).resolve().parents[2]) not in _sys.path:
+    _sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ci_workflows import expanded_workflow  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -150,7 +154,7 @@ fun HelperWithoutPreview() { UncoveredComposable() }
         self.assertNotIn('gradlew', result.stdout)
 
     def test_release_ci_executes_all_unittest_style_python_guards(self):
-        workflow = (ROOT / '.github/workflows/release-fdroid.yml').read_text(encoding='utf-8')
+        workflow = expanded_workflow('release-fdroid.yml')
         self.assertIn("python3 -m unittest discover -s scripts/tests -p 'test_*.py'", workflow)
         self.assertIn('python3 scripts/verify_atmospheric_localizations.py', workflow)
         # All test functions live inside unittest.TestCase classes; otherwise

@@ -7,6 +7,11 @@ from pathlib import Path
 import re
 import unittest
 
+import sys
+if str(Path(__file__).resolve().parents[2]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ci_workflows import all_workflow_and_action_files, expanded_workflow  # noqa: E402
+
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / '.github' / 'workflows'
@@ -24,7 +29,7 @@ EXPECTED_ACTIONS = {
 class GithubActionsNode24Test(unittest.TestCase):
     def test_all_official_actions_use_node24_compatible_major_versions(self):
         encountered = set()
-        for workflow in sorted(WORKFLOWS.glob('*.yml')):
+        for workflow in all_workflow_and_action_files():
             data = workflow.read_text(encoding='utf-8')
             for action, major in re.findall(
                     r'^\s*(?:-\s*)?uses:\s*([\w-]+/(?:[\w-]+/)?[\w-]+)@(v\d+)\s*$',
@@ -43,7 +48,7 @@ class GithubActionsNode24Test(unittest.TestCase):
         self.assertIn('node scripts/update-sponsors.mjs', data)
 
     def test_quality_workflow_preserves_tests_and_artifact_names(self):
-        data = (WORKFLOWS / 'quality-checks.yml').read_text(encoding='utf-8')
+        data = expanded_workflow('quality-checks.yml')
         for expected in (
                 'scripts/generate_weather_regression_corpus.py --check',
                 ':app:testDebugUnitTest :app:testReleaseUnitTest',
@@ -58,7 +63,7 @@ class GithubActionsNode24Test(unittest.TestCase):
                 self.assertIn(expected, data)
 
     def test_release_gates_and_signed_artifacts_remain_intact(self):
-        data = (WORKFLOWS / 'release-fdroid.yml').read_text(encoding='utf-8')
+        data = expanded_workflow('release-fdroid.yml')
         for expected in (
                 ':app:connectedDebugAndroidTest',
                 ':app:bundleRelease',

@@ -9,6 +9,9 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'report_test_results.py'
 spec = importlib.util.spec_from_file_location('ci_test_report', SCRIPT)
 report = importlib.util.module_from_spec(spec)
 import sys
+if str(Path(__file__).resolve().parents[2]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ci_workflows import expanded_workflow  # noqa: E402
 sys.modules[spec.name] = report
 spec.loader.exec_module(report)
 
@@ -151,10 +154,11 @@ class GitHubTestSummaryTest(unittest.TestCase):
         repo = Path(__file__).resolve().parents[2]
         for workflow in ('quality-checks.yml', 'release-fdroid.yml'):
             with self.subTest(workflow=workflow):
-                data = (repo / '.github/workflows' / workflow).read_text(encoding='utf-8')
+                caller = (repo / '.github/workflows' / workflow).read_text(encoding='utf-8')
+                data = expanded_workflow(workflow)
                 title = ('name: Consolidated test report' if workflow == 'quality-checks.yml'
                          else 'name: Release validation — consolidated test report')
-                self.assertIn(title, data)
+                self.assertIn(title, caller)
                 self.assertIn('if: always()', data)
                 self.assertIn('scripts/report_test_results.py', data)
                 self.assertIn('actions/download-artifact@v7', data)

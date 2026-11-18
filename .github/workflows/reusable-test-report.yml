@@ -1,0 +1,72 @@
+name: Consolidated test report (reusable)
+
+# Rassemble les résultats JVM, instrumentés (toutes les parties) et Python,
+# même quand un job amont a échoué, et publie un rapport unique.
+
+on:
+  workflow_call:
+    inputs:
+      unit-artifact:
+        description: Artefact des XML JUnit JVM (testDebugUnitTest et testReleaseUnitTest).
+        required: true
+        type: string
+      android-artifact-prefix:
+        description: Préfixe des artefacts instrumentés (un par partie).
+        required: true
+        type: string
+      python-artifact:
+        description: Artefact du journal des tests Python.
+        required: true
+        type: string
+      report-artifact-name:
+        description: Nom de l'artefact du rapport consolidé.
+        required: true
+        type: string
+
+jobs:
+  report:
+    name: Publish consolidated report
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download JVM unit-test XML
+        uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: ${{ inputs.unit-artifact }}
+          path: ci-artifacts/unit
+
+      - name: Download device-test XML (every shard)
+        uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          pattern: ${{ inputs.android-artifact-prefix }}-shard-*
+          path: ci-artifacts/android
+
+      - name: Download Python test log
+        uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: ${{ inputs.python-artifact }}
+          path: ci-artifacts/python
+
+      - name: Publish consolidated test totals and corpus scenarios
+        run: |
+          python3 scripts/report_test_results.py \
+            --debug ci-artifacts/unit/testDebugUnitTest \
+            --release ci-artifacts/unit/testReleaseUnitTest \
+            --android ci-artifacts/android \
+            --python-log ci-artifacts/python/python-test-output.log \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --markdown ci-test-summary.md \
+            --json ci-test-summary.json
+
+      - name: Export machine-readable and Markdown reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.report-artifact-name }}
+          path: |
+            ci-test-summary.md
+            ci-test-summary.json
