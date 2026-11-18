@@ -1,10 +1,13 @@
 package com.meteocompare.app.domain.usecase
 
 import com.meteocompare.app.data.remote.ClimateArchiveApi
+import com.meteocompare.app.data.remote.MetarArchiveApi
 import com.meteocompare.app.data.remote.dto.ArchiveDailyDto
 import com.meteocompare.app.data.remote.dto.ArchiveResponseDto
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.CalibrationPoint
 import com.meteocompare.app.domain.model.City
+import com.meteocompare.app.domain.model.MetarStation
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ObservationBiasRecord
 import io.mockk.coEvery
@@ -13,6 +16,7 @@ import io.mockk.mockk
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -20,6 +24,7 @@ import org.junit.Test
 class FetchBiasObservationsUseCaseTest {
 
     private lateinit var api: ClimateArchiveApi
+    private lateinit var metarApi: MetarArchiveApi
     private lateinit var repository: BiasSampleRepository
     private lateinit var useCase: FetchBiasObservationsUseCase
 
@@ -36,6 +41,7 @@ class FetchBiasObservationsUseCaseTest {
     @Before
     fun setUp() {
         api = mockk()
+        metarApi = mockk()
         repository = mockk(relaxed = true)
         coEvery { repository.recordObservations(any()) } coAnswers {
             firstArg<List<ObservationBiasRecord>>().forEach { record ->
@@ -46,6 +52,7 @@ class FetchBiasObservationsUseCaseTest {
         }
         useCase = FetchBiasObservationsUseCase(
             archiveApi = api,
+            metarApi = metarApi,
             biasRepository = repository,
             io = Dispatchers.Unconfined
         )
@@ -212,6 +219,77 @@ class FetchBiasObservationsUseCaseTest {
             api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
         }
     }
+
+    @Test
+    fun `avec une station la Tmax vient des METAR et le reste de la reanalyse au meme point`() = runTest {
+        val station = MetarStation("LFPO", 48.717, 2.384, 88.0)
+        val point = CalibrationPoint.of(city, station)
+        coEvery {
+            repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
+        } returns LocalDate.of(2026, 7, 13)
+        coEvery {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns stationArchive()
+        coEvery {
+            metarApi.hourly("LFPO", 2026, 7, 12, 2026, 7, 16)
+        } returns metarFixture().toResponseBody()
+
+        assertEquals(2, useCase(city, today, point))
+
+        coVerify(exactly = 1) {
+            api.archive(
+                latitude = station.latitude,
+                longitude = station.longitude,
+                startDate = "2026-07-13",
+                endDate = "2026-07-14",
+                daily = any(),
+                timezone = any(),
+                windSpeedUnit = any(),
+                precipitationUnit = any()
+            )
+        }
+        // La fixture n'a assez d'heures que le 13 : le 14 reste sans Tmax, sans repli.
+        coVerify(exactly = 1) {
+            repository.recordObservation(city.id, BiasVariable.TEMPERATURE, LocalDate.of(2026, 7, 13), 29.5)
+        }
+        coVerify(exactly = 1) { repository.recordObservation(city.id, BiasVariable.TEMPERATURE, any(), any()) }
+        coVerify(exactly = 2) { repository.recordObservation(city.id, BiasVariable.PRECIPITATION, any(), any()) }
+        coVerify(exactly = 2) { repository.recordObservation(city.id, BiasVariable.WIND_SPEED, any(), any()) }
+    }
+
+    @Test
+    fun `une panne METAR laisse la Tmax vide sans repli sur la reanalyse`() = runTest {
+        val point = CalibrationPoint.of(city, MetarStation("LFPO", 48.717, 2.384, 88.0))
+        coEvery {
+            repository.earliestMissingReferenceDate(city.id, today.minusDays(1))
+        } returns LocalDate.of(2026, 7, 13)
+        coEvery {
+            api.archive(any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns stationArchive()
+        coEvery { metarApi.hourly(any(), any(), any(), any(), any(), any(), any()) } throws
+            java.io.IOException("HTTP 429")
+
+        assertEquals(2, useCase(city, today, point))
+
+        coVerify(exactly = 0) { repository.recordObservation(city.id, BiasVariable.TEMPERATURE, any(), any()) }
+        coVerify(exactly = 2) { repository.recordObservation(city.id, BiasVariable.PRECIPITATION, any(), any()) }
+    }
+
+    private fun metarFixture(): String =
+        requireNotNull(javaClass.classLoader?.getResource("metar/lfpo_hourly.csv")).readText()
+
+    private fun stationArchive() = ArchiveResponseDto(
+        latitude = 48.717,
+        longitude = 2.384,
+        timezone = "Europe/Paris",
+        daily = ArchiveDailyDto(
+            time = listOf("2026-07-13", "2026-07-14"),
+            tempMax = listOf(10.0, 10.0),
+            tempMin = listOf(5.0, 5.0),
+            precipSum = listOf(0.0, 3.0),
+            windSpeedMax = listOf(12.0, 14.0)
+        )
+    )
 
     private fun emptyArchive() = ArchiveResponseDto(
         latitude = city.latitude,

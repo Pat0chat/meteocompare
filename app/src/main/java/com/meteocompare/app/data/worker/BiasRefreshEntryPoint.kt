@@ -1,6 +1,7 @@
 package com.meteocompare.app.data.worker
 
 import com.meteocompare.app.data.local.ForecastCacheDao
+import com.meteocompare.app.data.repository.CalibrationPointRepository
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -32,6 +33,7 @@ internal interface BiasRefreshEntryPoint {
     fun biasSampleRepository(): BiasSampleRepository
     fun fetchBiasObservationsUseCase(): FetchBiasObservationsUseCase
     fun bootstrapBiasHistoryUseCase(): BootstrapBiasHistoryUseCase
+    fun calibrationPointRepository(): CalibrationPointRepository
     fun userPreferencesRepository(): UserPreferencesRepository
     fun clock(): Clock
 

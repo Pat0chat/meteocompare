@@ -1,4 +1,5 @@
 """Banc d'essai : agrégation des données et variantes proposées (hors ligne)."""
+import csv
 import sys
 import unittest
 from datetime import date, timedelta
@@ -36,6 +37,18 @@ class DatasetTest(unittest.TestCase):
         daily = dataset.metar_daily(rows, 'Europe/Paris')
         self.assertEqual(20.0, daily['tmax'][date(2026, 7, 1)])
         self.assertAlmostEqual(10 * dataset.KNOT_TO_KMH, daily['wind'][date(2026, 7, 1)])
+
+    def test_metar_fixture_matches_the_app_aggregation(self):
+        # Same fixture as MetarDailyMaxTemperatureTest: the app and the bench must agree.
+        fixture = ROOT / 'app' / 'src' / 'test' / 'resources' / 'metar'
+        with open(fixture / 'lfpo_hourly.csv', encoding='utf-8') as handle:
+            rows = list(csv.DictReader(handle))
+        expected = {}
+        for line in (fixture / 'lfpo_hourly_expected.tsv').read_text(encoding='utf-8').splitlines():
+            if line and not line.startswith('#'):
+                day, value = line.split('\t')
+                expected[date.fromisoformat(day)] = float(value)
+        self.assertEqual(expected, dataset.metar_daily(rows, 'Europe/Paris')['tmax'])
 
     def test_ghcn_shift_is_chosen_against_the_reference(self):
         reference = {date(2026, 7, d): (5.0 if d % 3 == 0 else 0.0) for d in range(1, 29)}

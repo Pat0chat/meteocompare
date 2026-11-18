@@ -415,7 +415,7 @@ Daten</string>
     <string name="bias_sheet_title_prefix">Mittlere Abweichung </string>
     <string name="bias_sheet_title_suffix"> gegenüber der historischen Referenz.</string>
 
-    <string name="bias_history_preparing">Lokale Zuverlässigkeit wird vorbereitet. Jeden Tag wird die am Vortag (D+1) ausgegebene Prognose jedes Modells mit einer Reanalyse verglichen. Seine Indikatoren erscheinen nach %1$d verglichenen Tagen; der Zähler unter seinem Namen zeigt den Fortschritt.</string>
+    <string name="bias_history_preparing">Lokale Zuverlässigkeit wird vorbereitet. Jeden Tag wird die am Vortag (D+1) ausgegebene Prognose jedes Modells mit den Messwerten einer nahen Station (Tmax) oder, falls keine vorhanden ist, mit einer Reanalyse verglichen. Seine Indikatoren erscheinen nach %1$d verglichenen Tagen; der Zähler unter seinem Namen zeigt den Fortschritt.</string>
     <string name="bias_history_partial">Zuverlässigkeitsindikatoren für %1$d von %2$d Modellen verfügbar. Die übrigen werden täglich ergänzt; der Zähler unter ihrem Namen zeigt den Fortschritt.</string>
     <string name="bias_history_best_progress">Am weitesten fortgeschrittenes Modell: %1$d/%2$d verglichene Tage.</string>
     <string name="bias_history_fetch_action">Verlauf jetzt abrufen</string>
@@ -441,7 +441,7 @@ Daten</string>
     <string name="bias_reliability_local_index">Lokaler Zuverlässigkeitsindex</string>
     <string name="bias_reliability_score_suffix">/ 100</string>
     <string name="bias_reliability_rank">Lokaler Rang %1$d / %2$d</string>
-    <string name="bias_reliability_score_explanation">Lehrreiche Zusammenfassung der am Vortag erfassten Vorhersagen im Vergleich zu historischen Reanalysedaten von Open-Meteo.</string>
+    <string name="bias_reliability_score_explanation">Lehrreiche Zusammenfassung der am Vortag erfassten Vorhersagen im Vergleich zu den Messwerten einer nahen Station für Tmax und zu historischen Reanalysedaten von Open-Meteo für den Rest.</string>
     <string name="bias_reliability_level_excellent">Ausgezeichnet</string>
     <string name="bias_reliability_level_good">Gut</string>
     <string name="bias_reliability_level_fair">Ordentlich</string>
@@ -490,7 +490,7 @@ Daten</string>
     <string name="bias_reliability_balance_over_badge">%1$d%% darüber</string>
     <string name="bias_reliability_direction_balance">%1$d%% darüber · %2$d%% nahe · %3$d%% darunter</string>
     <string name="bias_reliability_sample_coverage">Verwendeter Verlauf: %1$d Tage in einem Fenster von %2$d Tagen.</string>
-    <string name="bias_reliability_method_note">Lokaler Index aus gespeicherten D+1-Vorhersagen und Open-Meteo-Reanalyse über vergleichbare Daten. Nass ab %1$s. Nur Orientierung, keine offizielle Note.</string>
+    <string name="bias_reliability_method_note">Lokaler Index aus gespeicherten D+1-Vorhersagen im Vergleich zu einer nahen Station (Tmax) oder zur Open-Meteo-Reanalyse über vergleichbare Daten. Nass ab %1$s. Nur Orientierung, keine offizielle Note.</string>
     <string name="bias_chip_calibrating_progress_a11y">Kalibrierung: %1$d von %2$d Stichproben gesammelt</string>
 
     <string name="sun_times_a11y">Sonnenaufgang um %1$s, Sonnenuntergang um %2$s</string>

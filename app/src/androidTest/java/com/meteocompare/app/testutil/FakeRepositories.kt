@@ -371,4 +371,6 @@ class FakeBiasSampleRepository @Inject constructor() : BiasSampleRepository {
         upToDate: LocalDate
     ): LocalDate? = null
     override suspend fun purgeOlderThan(beforeDate: LocalDate) = Unit
+
+    override suspend fun deleteCity(cityId: String) = Unit
 }
