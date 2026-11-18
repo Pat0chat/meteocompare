@@ -6,21 +6,46 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
-# Permission minimale nécessaire pour créer / mettre à jour une GitHub Release.
+# Lecture seule par défaut : seul le job `publish` reçoit le droit d'écrire
+# la GitHub Release.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: fdroid-release-${{ github.ref }}
   cancel-in-progress: false
 
+# Les contrôles Python, les tests instrumentés et la compilation signée
+# tournent en parallèle. Rien n'est publié tant que les trois ne sont pas
+# verts : `publish` dépend de chacun d'eux.
 jobs:
+  python:
+    name: Release validation — Python checks
+    uses: ./.github/workflows/reusable-python-checks.yml
+    with:
+      artifact-name: release-python-test-log
+
   android-device-gate:
     name: Release gate — Android instrumentation (API 35)
+    uses: ./.github/workflows/reusable-android-device-tests.yml
+    with:
+      artifact-name: release-androidTest-reports
+      shards: '[1, 2]'
+      timeout-minutes: 70
+
+  build-apk:
+    name: Build signed reproducible APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.release_artifacts.outputs.version }}
+
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout exact source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Ensure Git tag matches Android version
         if: github.ref_type == 'tag'
@@ -33,107 +58,16 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-java@v6
+      # AGP 9.4 utilise Build Tools 36 pour construire.
+      # Build Tools 34 est installé séparément uniquement pour apksigner,
+      # car F-Droid recommande apksigner 34 pour les reproducible builds.
+      # Le wrapper Gradle est vérifié avant toute exécution. Pas de cache
+      # Gradle : la release reproductible reste construite comme avant.
+      - uses: ./.github/actions/setup-android
         with:
-          distribution: temurin
-          java-version: '21'
-      - uses: gradle/actions/setup-gradle@v6
-
-      - name: Enable emulator hardware acceleration
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run release instrumentation gate
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_5
-          disable-animations: true
-          script: |
-            chmod +x ./gradlew
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest
-
-      - name: Show Android test failures in GitHub job summary
-        if: always()
-        shell: bash
-        run: |
-          python3 scripts/summarize_android_test_results.py \
-            --results app/build/outputs/androidTest-results/connected \
-            --summary "$GITHUB_STEP_SUMMARY"
-
-      - name: Preserve failing instrumentation reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-androidTest-reports
-          path: |
-            app/build/reports/androidTests/
-            app/build/outputs/androidTest-results/
-          if-no-files-found: warn
-
-  build-apk:
-    needs: [android-device-gate]
-    name: Build signed reproducible APK
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-
-      # Vérifie que gradle-wrapper.jar est bien un wrapper Gradle officiel.
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v6
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      # Sous Windows, le bit exécutable Unix de gradlew peut être facile à perdre.
-      # Ce chmod garantit qu'il sera exécutable sur le runner Linux.
-      - name: Make Gradle Wrapper executable
-        shell: bash
-        run: chmod +x ./gradlew
-
-      - name: Install Android SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
-          if [[ ! -x "$SDKMANAGER" ]]; then
-            SDKMANAGER="$(command -v sdkmanager)"
-          fi
-
-          COMPILE_SDK="$(
-            python3 - <<'PY'
-          import tomllib
-          with open("gradle/libs.versions.toml", "rb") as f:
-              data = tomllib.load(f)
-          print(data["versions"]["compileSdk"])
-          PY
-          )"
-
-          echo "compileSdk=${COMPILE_SDK}"
-          echo "sdkmanager=${SDKMANAGER}"
-
-          # AGP 9.4 utilise Build Tools 36 pour construire.
-          # Build Tools 34 est installé séparément uniquement pour apksigner,
-          # car F-Droid recommande apksigner 34 pour les reproducible builds.
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-${COMPILE_SDK}" \
-            "build-tools;36.0.0" \
-            "build-tools;34.0.0"
+          extra-build-tools: '34.0.0'
+          gradle-cache: 'false'
+          validate-wrapper: 'true'
 
       - name: Show build environment
         shell: bash
@@ -142,29 +76,6 @@ jobs:
           java -version
           ./gradlew --version
           "${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" version
-
-      - name: Verify weather regression golden corpus (SHA256 and generated expectations)
-        run: |
-          python3 scripts/generate_weather_regression_corpus.py --check
-          python3 -m unittest scripts.tests.test_weather_regression_corpus -v
-
-      - name: Validate repository release gates
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/validate-compose-previews.py
-          python3 scripts/check_android_strings.py
-          python3 scripts/verify_atmospheric_localizations.py
-          scripts/validate-fdroid-metadata.sh
-          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v 2>&1 | tee python-test-output.log
-
-      - name: Preserve release Python test counts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-python-test-log
-          path: python-test-output.log
-          if-no-files-found: warn
 
       # IMPORTANT :
       # On NE fournit AUCUN secret de signature à Gradle.
@@ -200,7 +111,7 @@ jobs:
       - name: Show JVM and corpus test counts
         if: always()
         run: |
-          python3 scripts/report_test_results.py --require-corpus both --python-log python-test-output.log --summary "$GITHUB_STEP_SUMMARY"
+          python3 scripts/report_test_results.py --require-corpus both --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Preserve release unit-test XML
         if: always()
@@ -458,11 +369,31 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  publish:
+    name: Publish GitHub Release
+    needs: [python, android-device-gate, build-apk]
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download signed APK and AAB
+        uses: actions/download-artifact@v7
+        with:
+          name: MeteoCompare-${{ needs.build-apk.outputs.version }}
+          path: dist
+
       # Sur un tag vX.Y.Z, conserver le nom exact de l'APK attendu par F-Droid :
       # https://github.com/Pat0chat/meteocompare/releases/download/v%v/MeteoCompare-%v.apk
       # Publier l'AAB signé à côté, pour la distribution Google Play.
       - name: Create or update GitHub Release
-        if: github.event_name == 'push' && github.ref_type == 'tag'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -470,8 +401,8 @@ jobs:
           set -euo pipefail
 
           TAG="${GITHUB_REF_NAME}"
-          APK="${{ steps.release_artifacts.outputs.signed_apk }}"
-          AAB="${{ steps.release_artifacts.outputs.signed_aab }}"
+          APK="dist/MeteoCompare-${{ needs.build-apk.outputs.version }}.apk"
+          AAB="dist/MeteoCompare-${{ needs.build-apk.outputs.version }}.aab"
           test -s "$APK"
           test -s "$AAB"
           NOTES_FILE=".github/release-notes/${TAG}.md"
@@ -499,43 +430,11 @@ jobs:
 
   test-report:
     name: Release validation — consolidated test report
-    needs: [android-device-gate, build-apk]
+    needs: [python, android-device-gate, build-apk]
     if: always()
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-      - name: Download release unit-test XML
-        uses: actions/download-artifact@v7
-        continue-on-error: true
-        with:
-          name: release-unit-test-results
-          path: ci-artifacts/unit
-      - name: Download release instrumentation XML
-        uses: actions/download-artifact@v7
-        continue-on-error: true
-        with:
-          name: release-androidTest-reports
-          path: ci-artifacts/android
-      - name: Download release Python test log
-        uses: actions/download-artifact@v7
-        continue-on-error: true
-        with:
-          name: release-python-test-log
-          path: ci-artifacts/python
-      - name: Publish release test counts and verified corpus scenarios
-        run: |
-          python3 scripts/report_test_results.py \
-            --debug ci-artifacts/unit/testDebugUnitTest \
-            --release ci-artifacts/unit/testReleaseUnitTest \
-            --android ci-artifacts/android/outputs/androidTest-results/connected \
-            --python-log ci-artifacts/python/python-test-output.log \
-            --summary "$GITHUB_STEP_SUMMARY" \
-            --markdown ci-test-summary.md \
-            --json ci-test-summary.json
-      - name: Preserve release test summary
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-consolidated-test-report
-          path: |
-            ci-test-summary.md
-            ci-test-summary.json
+    uses: ./.github/workflows/reusable-test-report.yml
+    with:
+      unit-artifact: release-unit-test-results
+      android-artifact-prefix: release-androidTest-reports
+      python-artifact: release-python-test-log
+      report-artifact-name: release-consolidated-test-report

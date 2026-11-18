@@ -7,6 +7,10 @@ alone cannot detect missing Hilt bindings introduced by a new repository.
 import re
 import unittest
 from pathlib import Path
+import sys as _sys  # noqa: E402
+if str(Path(__file__).resolve().parents[2]) not in _sys.path:
+    _sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ci_workflows import expanded_workflow  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / 'app'
@@ -27,7 +31,7 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertIn('override suspend fun get(city: City)', fake.read_text(encoding='utf-8'))
 
     def test_release_workflow_compiles_android_instrumentation(self):
-        workflow = (ROOT / '.github/workflows/release-fdroid.yml').read_text(encoding='utf-8')
+        workflow = expanded_workflow('release-fdroid.yml')
         self.assertIn(':app:assembleDebugAndroidTest', workflow)
         self.assertIn(':app:testDebugUnitTest', workflow)
         self.assertIn(':app:testReleaseUnitTest', workflow)
