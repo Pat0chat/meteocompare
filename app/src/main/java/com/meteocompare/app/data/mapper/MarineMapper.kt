@@ -1,5 +1,6 @@
 package com.meteocompare.app.data.mapper
 
+import com.meteocompare.app.core.util.haversineKm
 import com.meteocompare.app.data.remote.dto.MarineResponseDto
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.MarineDaily
@@ -9,10 +10,8 @@ import com.meteocompare.app.domain.model.MarineHourly
 import com.meteocompare.app.domain.repository.MarineRepository
 import java.time.LocalDateTime
 import java.time.ZoneId
-import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 internal fun MarineResponseDto.toDomain(
     city: City,
@@ -141,14 +140,4 @@ private fun circularMean(
     }
     if (total == 0.0 || (x == 0.0 && y == 0.0)) return null
     return (Math.toDegrees(kotlin.math.atan2(y, x)) + 360.0) % 360.0
-}
-
-private fun haversineKm(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
-    val radiusKm = 6371.0
-    val dLat = Math.toRadians(bLat - aLat)
-    val dLon = Math.toRadians(bLon - aLon)
-    val q = sin(dLat / 2) * sin(dLat / 2) +
-        cos(Math.toRadians(aLat)) * cos(Math.toRadians(bLat)) *
-        sin(dLon / 2) * sin(dLon / 2)
-    return 2 * radiusKm * asin(sqrt(q.coerceIn(0.0, 1.0)))
 }
