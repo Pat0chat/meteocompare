@@ -339,10 +339,12 @@ class LocalityComparisonTest {
         )
         fun series(model: WeatherModel, temp: Double, rain: Double, clouds: Int, probability: Int) =
             ForecastSeries(model, HourlyForecast(
-                timestamps = listOf(target), temperature2m = listOf(temp),
-                precipitation = listOf(rain), windSpeed10m = listOf(18.0),
-                windDirection10m = listOf(if (model == WeatherModel.GFS) 350 else 10),
-                precipitationProbability = listOf(probability), cloudCover = listOf(clouds)
+                timestamps = listOf(target, target.plusSeconds(3600)),
+                temperature2m = listOf(temp, temp),
+                // Prior-hour signal differs deliberately from H -> H+1.
+                precipitation = listOf(99.0, rain), windSpeed10m = listOf(18.0, 18.0),
+                windDirection10m = List(2) { if (model == WeatherModel.GFS) 350 else 10 },
+                precipitationProbability = listOf(100, probability), cloudCover = List(2) { clouds }
             ), daily)
         val forecast = CityForecast(
             City("hour", "Hour", null, "France", 48.0, 2.0, "UTC"),
@@ -369,6 +371,28 @@ class LocalityComparisonTest {
         assertEquals(7.8, dayMetrics.uvMax!!, 0.001)
         assertEquals(350, dayMetrics.windDirectionDeg)
         assertNull(buildLocalityHourMetrics(forecast, date, 13, calculator, uv))
+    }
+
+    @Test fun localityHourRainDoesNotBorrowPreviousHourWhenNextSampleIsMissing() {
+        val target = Instant.parse("2026-06-20T14:00:00Z")
+        val hourly = HourlyForecast(
+            timestamps = listOf(target), temperature2m = listOf(18.0),
+            precipitation = listOf(4.0), windSpeed10m = emptyList(),
+            precipitationProbability = listOf(95), cloudCover = listOf(40)
+        )
+        val daily = DailyForecast(
+            dates = listOf(day), tempMax = listOf(25.0), tempMin = listOf(12.0),
+            precipitationSum = listOf(4.0), windSpeedMax = listOf(10.0)
+        )
+        val forecast = CityForecast(
+            City("one", "One", null, "France", 48.0, 2.0, "UTC"),
+            mapOf(WeatherModel.GFS to ForecastSeries(WeatherModel.GFS, hourly, daily))
+        )
+        val result = requireNotNull(buildLocalityHourMetrics(
+            forecast, day, 14, ConfidenceCalculator(EqualWeighting())
+        ))
+        assertNull(result.precipitationMm)
+        assertNull(result.rainProbabilityPercent)
     }
 
     @Test fun hourlyUv_respectsFractionalTimeZoneOffsets() {

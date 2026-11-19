@@ -491,11 +491,19 @@ fun buildLocalityHourMetrics(
     val dewPoint = medianAvailable(samples.mapNotNull { (data, i) ->
         data.dewPoint2m.getOrNull(i)?.takeIf(Double::isFinite)
     })
-    val rain = medianAvailable(samples.mapNotNull { (data, i) ->
-        data.precipitation.getOrNull(i)?.takeIf { it.isFinite() && it >= 0.0 }
+    // Each displayed local hour H represents [H, H+1h). Open-Meteo stamps
+    // rainfall and its probability at H+1 because they refer to the previous
+    // hour; unlike instantaneous temperature/cloud/UV, these cannot use index i.
+    // The lookup stays model-local and exact (including :15/:30 UTC offsets and DST).
+    val rain = medianAvailable(samples.mapNotNull { (data, _) ->
+        val next = data.timestamps.indexOf(instant.plusSeconds(3600L))
+        next.takeIf { it >= 0 }?.let { data.precipitation.getOrNull(it) }
+            ?.takeIf { it.isFinite() && it >= 0.0 }
     })
-    val probability = medianAvailable(samples.mapNotNull { (data, i) ->
-        data.precipitationProbability.getOrNull(i)?.takeIf { it in 0..100 }?.toDouble()
+    val probability = medianAvailable(samples.mapNotNull { (data, _) ->
+        val next = data.timestamps.indexOf(instant.plusSeconds(3600L))
+        next.takeIf { it >= 0 }?.let { data.precipitationProbability.getOrNull(it) }
+            ?.takeIf { it in 0..100 }?.toDouble()
     })?.roundToInt()
     val clouds = medianAvailable(samples.mapNotNull { (data, i) ->
         data.cloudCover.getOrNull(i)?.takeIf { it in 0..100 }?.toDouble()

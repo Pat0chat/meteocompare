@@ -1423,13 +1423,15 @@ class CityListViewModelTest {
                     WeatherModel.GFS to ForecastSeries(
                         model = WeatherModel.GFS,
                         hourly = HourlyForecast(
-                            timestamps = listOf(testNow),
-                            temperature2m = listOf(18.0),
-                            precipitation = listOf(1.2),
-                            windSpeed10m = listOf(8.0),
-                            weatherCode = listOf(61),
-                            precipitationProbability = listOf(80),
-                            cloudCover = listOf(90)
+                            // WMO/temperature at H describe H; the rain displayed for
+                            // [H, H+1h) is timestamped H+1 by Open-Meteo.
+                            timestamps = listOf(testNow, testNow.plusSeconds(3600)),
+                            temperature2m = listOf(18.0, 18.0),
+                            precipitation = listOf(0.0, 1.2),
+                            windSpeed10m = listOf(8.0, 8.0),
+                            weatherCode = listOf(61, 61),
+                            precipitationProbability = listOf(5, 80),
+                            cloudCover = listOf(90, 90)
                         ),
                         daily = daily
                     )
