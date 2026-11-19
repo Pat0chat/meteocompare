@@ -7,6 +7,7 @@ import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -45,6 +46,9 @@ class ForecastConditionResolverTest {
             cityForecast(WeatherModel.GFS to List(hours.size) { 0 }), date, zone)
         assertEquals(WeatherCondition.CLEAR, result.condition)
         assertEquals(ConditionStatus.RELIABLE, result.status)
+        assertEquals(date.atStartOfDay(zone).toInstant(), result.timeWindow?.start)
+        assertEquals(date.plusDays(1).atStartOfDay(zone).toInstant(), result.timeWindow?.endExclusive)
+        assertEquals(zone, result.timeWindow?.zone)
     }
 
     @Test fun `provable majority with missing hours remains explicitly incomplete`() {
@@ -66,6 +70,28 @@ class ForecastConditionResolverTest {
         assertEquals(ConditionStatus.AMBIGUOUS, result.status)
         assertTrue(WeatherCondition.CLEAR in result.alternatives)
         assertTrue(WeatherCondition.RAIN in result.alternatives)
+    }
+
+    @Test fun `different model solar bounds do not claim a shared time window`() {
+        val forecast = cityForecast(
+            WeatherModel.GFS to List(hours.size) { 0 },
+            WeatherModel.ECMWF to List(hours.size) { 0 }
+        )
+        val firstSunrise = Instant.parse("2026-11-13T06:30:00Z")
+        val sunset = Instant.parse("2026-11-13T16:30:00Z")
+        val withDistinctSolarWindows = forecast.copy(seriesByModel = forecast.seriesByModel.mapValues { (model, series) ->
+            series.copy(daily = DailyForecast(
+                dates = listOf(date),
+                tempMax = listOf(null), tempMin = listOf(null),
+                precipitationSum = listOf(null), windSpeedMax = listOf(null),
+                sunrise = listOf(if (model == WeatherModel.GFS) firstSunrise else firstSunrise.plusSeconds(900)),
+                sunset = listOf(sunset)
+            ))
+        })
+        val result = ForecastConditionResolver.periodConsensus(
+            withDistinctSolarWindows, date, zone, DailyConditionPeriod.DAY)
+        assertEquals(WeatherCondition.CLEAR, result.condition)
+        assertEquals(null, result.timeWindow)
     }
 
     @Test fun `genuinely absent conditions stay unavailable`() {

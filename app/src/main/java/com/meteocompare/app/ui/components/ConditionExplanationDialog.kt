@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
@@ -25,10 +26,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.core.locale.LocalClockFormatPreference
+import com.meteocompare.app.core.locale.WeatherTimeFormat
+import com.meteocompare.app.core.locale.formatConditionTimeWindow
+import com.meteocompare.app.domain.util.ConditionTimeWindow
+import com.meteocompare.app.domain.util.ConditionWindowKind
 import com.meteocompare.app.core.locale.weatherConditionLabelRes
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionOrigin
+import com.meteocompare.app.domain.util.ConditionReason
 import com.meteocompare.app.domain.util.ConditionStatus
 import com.meteocompare.app.domain.util.visibleConditionAlternatives
 import kotlin.math.roundToInt
@@ -53,6 +60,9 @@ internal fun ConditionExplanationDialog(
         onDismiss = onDismiss
     ) {
         ConditionHero(condition, status, isNight)
+        decision?.timeWindow?.let { timeWindow ->
+            ConditionTimeWindowPanel(timeWindow, decision)
+        }
         Text(
             stringResource(status?.let(::statusDescriptionRes)
                 ?: R.string.condition_status_not_specified_desc),
@@ -236,5 +246,53 @@ private fun DiagnosticProgress(label: String, progress: Float, tag: String) {
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
         )
+    }
+}
+
+/** The same panel is used for model/hourly consensus and daily day/night summaries.
+ * The interval is taken from the diagnostic, never inferred from the device clock.
+ */
+@Composable
+private fun ConditionTimeWindowPanel(window: ConditionTimeWindow, decision: ConditionDecision) {
+    val locale = LocalConfiguration.current.locales[0]
+    val preference = LocalClockFormatPreference.current
+    val clock = WeatherTimeFormat.clock(locale, preference)
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("condition_time_window"),
+        shape = RoundedCornerShape(16.dp),
+        color = scheme.primaryContainer.copy(alpha = 0.42f)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(
+                stringResource(R.string.condition_explanation_window_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = scheme.onSurfaceVariant
+            )
+            Text(
+                formatConditionTimeWindow(window, locale, clock),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = scheme.onSurface,
+                modifier = Modifier.testTag("condition_time_window_value")
+            )
+            Text(
+                stringResource(when {
+                    decision.status == ConditionStatus.UNAVAILABLE ->
+                        R.string.condition_explanation_window_unavailable_note
+                    window.kind == ConditionWindowKind.HOURLY ->
+                        R.string.condition_explanation_window_hourly_note
+                    decision.origin == ConditionOrigin.DAILY_WMO_MAXIMUM ||
+                        ConditionReason.DAILY_WMO_IS_MAXIMUM in decision.reasons ->
+                        R.string.condition_explanation_window_daily_wmo_note
+                    else -> R.string.condition_explanation_window_period_note
+                }),
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant
+            )
+        }
     }
 }

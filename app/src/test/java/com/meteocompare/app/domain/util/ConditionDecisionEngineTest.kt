@@ -211,4 +211,45 @@ class ConditionDecisionEngineTest {
         assertEquals(WeatherCondition.CLEAR, result.condition)
         assertEquals(true, result.coverage > 0.5)
     }
+    @Test fun `hourly condition exposes represented hour even when unavailable`() {
+        val instant = Instant.parse("2026-11-13T08:00:00Z")
+        val valid = ConditionDecisionEngine.hourly(source(listOf(instant), wmo = listOf(0)).hourly, 0)
+        assertEquals(instant, valid.timeWindow?.start)
+        assertEquals(instant.plusSeconds(3600), valid.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.HOURLY, valid.timeWindow?.kind)
+        val absent = ConditionDecisionEngine.hourly(source(listOf(instant)).hourly, 0)
+        assertEquals(ConditionStatus.UNAVAILABLE, absent.status)
+        assertEquals(valid.timeWindow, absent.timeWindow)
+        assertEquals(null, ConditionDecisionEngine.hourly(source(emptyList()).hourly, 0).timeWindow)
+    }
+
+    @Test fun `full day window uses real 23 or 25 hour UTC duration`() {
+        val zone = ZoneId.of("Europe/Paris")
+        for ((date, expectedHours) in listOf("2026-03-29" to 23L, "2026-10-25" to 25L)) {
+            val localDate = LocalDate.parse(date)
+            val expectedStart = localDate.atStartOfDay(zone).toInstant()
+            val expectedEnd = localDate.plusDays(1).atStartOfDay(zone).toInstant()
+            val result = ConditionDecisionEngine.period(source(emptyList()), localDate, zone)
+            assertEquals(expectedStart, result.timeWindow?.start)
+            assertEquals(expectedEnd, result.timeWindow?.endExclusive)
+            assertEquals(zone, result.timeWindow?.zone)
+            assertEquals(expectedHours, java.time.Duration.between(expectedStart, expectedEnd).toHours())
+        }
+    }
+
+    @Test fun `night window displays sunset until following sunrise even with missing hours`() {
+        val zone = ZoneId.of("Europe/Paris")
+        val start = Instant.parse("2026-11-13T16:42:00Z")
+        val end = Instant.parse("2026-11-14T06:57:00Z")
+        val current = ForecastSolarWindow(Instant.parse("2026-11-13T06:48:00Z"), start)
+        val following = ForecastSolarWindow(end, Instant.parse("2026-11-14T16:40:00Z"))
+        val result = ConditionDecisionEngine.period(source(emptyList()), day, zone,
+            DailyConditionPeriod.NIGHT, current, following)
+        assertEquals(start, result.timeWindow?.start)
+        assertEquals(end, result.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.PERIOD, result.timeWindow?.kind)
+        assertEquals(zone, result.timeWindow?.zone)
+        assertEquals(ConditionStatus.UNAVAILABLE, result.status)
+    }
+
 }

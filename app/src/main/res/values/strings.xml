@@ -1240,6 +1240,11 @@
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Détails de la prévision</string>
     <string name="condition_explanation_no_condition">Condition indéterminée</string>
+    <string name="condition_explanation_window_title">Plage horaire de la condition</string>
+    <string name="condition_explanation_window_hourly_note">Pour cette heure, le code météo décrit l’état à l’échéance indiquée ; les données de précipitations peuvent concerner l’heure précédente.</string>
+    <string name="condition_explanation_window_period_note">La condition résume les heures disponibles sur cette période. La couverture est précisée ci-dessous.</string>
+    <string name="condition_explanation_window_unavailable_note">La plage indique l’échéance prévue, mais les données reçues ne permettent pas de calculer une condition.</string>
+    <string name="condition_explanation_window_daily_wmo_note">Le code météo quotidien signale le phénomène le plus sévère de la journée, pas nécessairement le temps dominant heure par heure.</string>
     <string name="condition_explanation_data_title">Données et provenance</string>
     <string name="condition_explanation_source_title">Méthode de calcul</string>
     <string name="condition_explanation_alternatives_title">Scénarios possibles</string>

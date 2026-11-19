@@ -1239,6 +1239,11 @@
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Forecast details</string>
     <string name="condition_explanation_no_condition">Undetermined condition</string>
+    <string name="condition_explanation_window_title">Weather condition time window</string>
+    <string name="condition_explanation_window_hourly_note">For an hourly forecast, the weather code describes the instant at the stated hour; precipitation data may cover the previous hour.</string>
+    <string name="condition_explanation_window_period_note">The condition summarizes the available hours in this period. See coverage below.</string>
+    <string name="condition_explanation_window_unavailable_note">This is the forecast interval, not a range with usable weather evidence: the received data cannot determine a condition.</string>
+    <string name="condition_explanation_window_daily_wmo_note">The daily weather code identifies the most severe phenomenon of the day, not necessarily the weather that dominated each hour.</string>
     <string name="condition_explanation_data_title">Data and provenance</string>
     <string name="condition_explanation_source_title">Calculation method</string>
     <string name="condition_explanation_alternatives_title">Possible scenarios</string>

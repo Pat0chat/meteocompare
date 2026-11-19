@@ -402,6 +402,9 @@ class ForecastAggregatesTest {
         assertEquals(strip.conditionDiagnostics.first(), current)
         assertEquals(strip.conditions.first(), current.condition)
         assertEquals(ConditionStatus.AMBIGUOUS, current.status)
+        assertEquals(now, current.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), current.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.HOURLY, current.timeWindow?.kind)
     }
 
     @Test
@@ -414,6 +417,8 @@ class ForecastAggregatesTest {
         val current = ForecastAggregates.currentConditionDecision(forecast, now)
         assertNull(current.condition)
         assertEquals(ConditionStatus.UNAVAILABLE, current.status)
+        assertEquals(now, current.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), current.timeWindow?.endExclusive)
         assertEquals(current, ForecastAggregates.next12h(forecast, now, true).conditionDiagnostics.first())
     }
 

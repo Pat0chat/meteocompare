@@ -1222,6 +1222,11 @@ Daten</string>
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Vorhersagedetails</string>
     <string name="condition_explanation_no_condition">Wetterlage unbestimmt</string>
+    <string name="condition_explanation_window_title">Zeitraum der Wetterlage</string>
+    <string name="condition_explanation_window_hourly_note">Bei Stundenprognosen beschreibt der Wettercode den Zeitpunkt der angegebenen Stunde; Niederschlagsdaten können die vorherige Stunde betreffen.</string>
+    <string name="condition_explanation_window_period_note">Die Wetterlage fasst die verfügbaren Stunden dieses Zeitraums zusammen. Die Abdeckung steht unten.</string>
+    <string name="condition_explanation_window_unavailable_note">Dies ist der Vorhersagezeitraum, kein nachweislich durch Daten abgedecktes Intervall: Die vorhandenen Daten reichen für keine Wetterlage aus.</string>
+    <string name="condition_explanation_window_daily_wmo_note">Der tägliche Wettercode bezeichnet das stärkste Wetterereignis des Tages, nicht unbedingt die über die Stunden vorherrschende Wetterlage.</string>
     <string name="condition_explanation_data_title">Daten und Herkunft</string>
     <string name="condition_explanation_source_title">Berechnungsmethode</string>
     <string name="condition_explanation_alternatives_title">Mögliche Szenarien</string>

@@ -25,6 +25,7 @@ import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.DailyConditionPeriod
 import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionDecisionEngine
+import com.meteocompare.app.domain.util.inZone
 import com.meteocompare.app.domain.util.ConditionOrigin
 import com.meteocompare.app.domain.util.ConditionReason
 import com.meteocompare.app.domain.util.ConditionStatus
@@ -259,6 +260,7 @@ private fun buildHourlyTimeline(
         ) ?: return@mapNotNull null
         val solarWindow = requireNotNull(solarWindows[timestamp.atZone(zone).toLocalDate()])
         point.copy(
+            conditionDiagnostic = point.conditionDiagnostic?.inZone(zone),
             isNight = nightAt(solarWindow, timestamp),
             estimatedSunHours = estimatedHourlySunshineFromModels(
                 forecast, timestamp, solarWindow, point.cloudCoverPercent
@@ -806,7 +808,9 @@ private fun timelineConditionDiagnostic(
             if (status == ConditionStatus.UNAVAILABLE) add(ConditionReason.MISSING_DATA)
         },
         notablePhenomenon = winners.mapNotNull { it.notablePhenomenon }
-            .maxByOrNull { it.severityRank }
+            .maxByOrNull { it.severityRank },
+        timeWindow = all.mapNotNull { it.timeWindow }
+            .distinctBy { it.start to it.endExclusive }.singleOrNull()
     )
 }
 

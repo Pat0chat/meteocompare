@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
@@ -71,6 +72,7 @@ internal object ForecastAggregates {
         val clouds = if (includeConditions) ArrayList<Int?>(hourCount) else null
         val diagnostics = if (includeConditions) ArrayList<ConditionDecision>(hourCount) else null
         val startInstant = HourlySampling.anchor(forecast, now)
+        val cityZone = forecast.city.timezone?.let { runCatching { ZoneId.of(it) }.getOrNull() }
 
         repeat(hourCount) { hourOffset ->
             val target = startInstant.plusSeconds(hourOffset * 3_600L)
@@ -159,7 +161,9 @@ internal object ForecastAggregates {
                     supportModels = supportModels,
                     localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD)
                 )
-                diagnostics?.add(result)
+                diagnostics?.add(result.copy(timeWindow = ConditionTimeWindow(
+                    target, target.plusSeconds(3_600L), cityZone, ConditionWindowKind.HOURLY
+                )))
                 conditions += result.condition
             }
         }

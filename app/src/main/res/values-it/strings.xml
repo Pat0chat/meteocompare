@@ -1228,6 +1228,11 @@ dato</string>
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Dettagli delle previsioni</string>
     <string name="condition_explanation_no_condition">Condizione indeterminata</string>
+    <string name="condition_explanation_window_title">Intervallo della condizione meteo</string>
+    <string name="condition_explanation_window_hourly_note">Nelle previsioni orarie il codice meteo descrive l’istante indicato; i dati sulle precipitazioni possono riferirsi all’ora precedente.</string>
+    <string name="condition_explanation_window_period_note">La condizione riassume le ore disponibili nell’intervallo. La copertura è indicata sotto.</string>
+    <string name="condition_explanation_window_unavailable_note">Questo è l’intervallo della previsione, non un periodo con dati sufficienti: non è possibile determinare una condizione meteo.</string>
+    <string name="condition_explanation_window_daily_wmo_note">Il codice meteo giornaliero indica il fenomeno più intenso della giornata, non necessariamente il tempo dominante ora per ora.</string>
     <string name="condition_explanation_data_title">Dati e provenienza</string>
     <string name="condition_explanation_source_title">Metodo di calcolo</string>
     <string name="condition_explanation_alternatives_title">Scenari possibili</string>

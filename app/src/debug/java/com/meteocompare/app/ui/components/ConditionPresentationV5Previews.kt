@@ -12,6 +12,10 @@ import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionOrigin
 import com.meteocompare.app.domain.util.ConditionReason
 import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.domain.util.ConditionTimeWindow
+import com.meteocompare.app.domain.util.ConditionWindowKind
+import java.time.Instant
+import java.time.ZoneId
 import com.meteocompare.app.ui.preview.MeteoComponentPreview
 import com.meteocompare.app.ui.preview.MeteoPreviewSurface
 
@@ -62,7 +66,12 @@ private fun ConditionExplanationV5Preview() {
                 ConditionOrigin.HOURLY_DOMINANT,
                 coverage = .75,
                 agreement = .65,
-                reasons = setOf(ConditionReason.PARTIAL_PERIOD, ConditionReason.IRREVERSIBLE_MAJORITY)
+                reasons = setOf(ConditionReason.PARTIAL_PERIOD, ConditionReason.IRREVERSIBLE_MAJORITY),
+                timeWindow = ConditionTimeWindow(
+                    Instant.parse("2026-11-13T16:42:00Z"),
+                    Instant.parse("2026-11-14T06:57:00Z"),
+                    ZoneId.of("Europe/Paris"), ConditionWindowKind.PERIOD
+                )
             ),
             isNight = false,
             onDismiss = {}

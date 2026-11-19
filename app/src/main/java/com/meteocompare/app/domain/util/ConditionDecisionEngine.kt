@@ -28,6 +28,24 @@ enum class ConditionReason {
     NO_DOMINANT_CONDITION, MISSING_SOLAR_WINDOW, MISSING_FOLLOWING_SUNRISE,
     MODEL_DISAGREEMENT, DAILY_WMO_IS_MAXIMUM
 }
+/** A half-open forecast window. For hourly codes this is the hour *represented* by
+ * the instantaneous WMO value; for daily conditions it is the actual aggregation
+ * window (sunrise/sunset or local civil day), including DST transitions.
+ */
+enum class ConditionWindowKind { HOURLY, PERIOD }
+data class ConditionTimeWindow(
+    val start: Instant,
+    val endExclusive: Instant,
+    val zone: ZoneId? = null,
+    val kind: ConditionWindowKind = ConditionWindowKind.PERIOD
+) {
+    init { require(start < endExclusive) }
+}
+
+/** Attach the destination city timezone without altering the UTC evidence window. */
+internal fun ConditionDecision.inZone(zone: ZoneId): ConditionDecision =
+    copy(timeWindow = timeWindow?.copy(zone = zone))
+
 data class ConditionDecision(
     val condition: WeatherCondition?,
     val status: ConditionStatus,
@@ -37,7 +55,8 @@ data class ConditionDecision(
     val alternatives: List<WeatherCondition> = emptyList(),
     val reasons: Set<ConditionReason> = emptySet(),
     /** Most severe *represented* hourly phenomenon; never substitutes the dominant icon. */
-    val notablePhenomenon: WeatherCondition? = null
+    val notablePhenomenon: WeatherCondition? = null,
+    val timeWindow: ConditionTimeWindow? = null
 ) {
     init {
         require(coverage.isFinite() && coverage in 0.0..1.0)
@@ -58,6 +77,13 @@ internal object ConditionDecisionEngine {
 
     fun hourly(hourly: HourlyForecast, index: Int): ConditionDecision {
         if (index !in hourly.timestamps.indices) return missing()
+        val start = hourly.timestamps[index].truncatedTo(ChronoUnit.HOURS)
+        return classifyHour(hourly, index).copy(timeWindow = ConditionTimeWindow(
+            start, start.plusSeconds(HOUR_SECONDS), kind = ConditionWindowKind.HOURLY
+        ))
+    }
+
+    private fun classifyHour(hourly: HourlyForecast, index: Int): ConditionDecision {
         val code = hourly.weatherCode.getOrNull(index)
         val native = WeatherCondition.fromWmoCode(code)?.takeUnless { it == WeatherCondition.UNKNOWN }
         if (native != null) {
@@ -168,12 +194,22 @@ internal object ConditionDecisionEngine {
             ConditionReason.MISSING_FOLLOWING_SUNRISE else ConditionReason.MISSING_SOLAR_WINDOW))
         if (end <= start) return missing(setOf(ConditionReason.MISSING_SOLAR_WINDOW))
         return periodBetween(series, start, end, dailyIndex, period == DailyConditionPeriod.FULL_DAY)
+            .inZone(zone)
     }
 
     /** For deterministic fixture testing, independent of sunrise/sunset lookup. */
     internal fun periodBetween(
         series: ForecastSeries, start: Instant, end: Instant,
         dailyIndex: Int = -1, allowDailyMaximum: Boolean = false
+    ): ConditionDecision {
+        if (end <= start) return missing()
+        return classifyPeriodBetween(series, start, end, dailyIndex, allowDailyMaximum)
+            .copy(timeWindow = ConditionTimeWindow(start, end))
+    }
+
+    private fun classifyPeriodBetween(
+        series: ForecastSeries, start: Instant, end: Instant,
+        dailyIndex: Int, allowDailyMaximum: Boolean
     ): ConditionDecision {
         val duration = Duration.between(start, end).seconds
         if (duration <= 0) return missing()

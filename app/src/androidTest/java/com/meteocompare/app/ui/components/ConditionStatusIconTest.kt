@@ -14,6 +14,10 @@ import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionOrigin
 import com.meteocompare.app.domain.util.ConditionReason
 import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.domain.util.ConditionTimeWindow
+import com.meteocompare.app.domain.util.ConditionWindowKind
+import java.time.Instant
+import java.time.ZoneId
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import org.junit.Rule
 import org.junit.Test
@@ -169,6 +173,43 @@ class ConditionStatusIconTest {
         composeRule.onNodeWithText(context.getString(R.string.condition_status_unavailable_desc))
             .assertIsDisplayed()
         composeRule.onNodeWithTag("condition_coverage").assertDoesNotExist()
+    }
+
+    @Test
+    fun hourly_condition_dialog_shows_city_local_time_window() {
+        val paris = ZoneId.of("Europe/Paris")
+        val start = Instant.parse("2026-11-13T14:00:00Z")
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(
+                    WeatherCondition.CLEAR,
+                    ConditionDecision(WeatherCondition.CLEAR, ConditionStatus.RELIABLE,
+                        ConditionOrigin.HOURLY_WMO, coverage = 1.0,
+                        timeWindow = ConditionTimeWindow(
+                            start, start.plusSeconds(3600), paris, ConditionWindowKind.HOURLY
+                        ))
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_reliable), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_time_window").assertExists()
+        composeRule.onNodeWithTag("condition_time_window_value", useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun unknown_time_window_is_not_fabricated() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(null, ConditionDecision(null, ConditionStatus.UNAVAILABLE, ConditionOrigin.NONE))
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_unavailable), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_time_window").assertDoesNotExist()
     }
 
 }
