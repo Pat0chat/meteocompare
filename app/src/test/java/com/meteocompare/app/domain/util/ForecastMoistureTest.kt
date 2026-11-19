@@ -49,4 +49,17 @@ class ForecastMoistureTest {
         assertNull(moisture.humidityPercent)
         assertNull(moisture.dewPointC)
     }
+    @Test fun validLaterDuplicateCanSupplyMissingMoistureMetric() {
+        val validTimes = List(25) { start.plusSeconds(it * 3600L) }
+        val allTimes = validTimes + validTimes
+        val source = series(50, allTimes)
+        val updated = source.copy(hourly = source.hourly.copy(
+            relativeHumidity2m = List(25) { null } + List(25) { 75 },
+            dewPoint2m = List(25) { null } + List(25) { 9.5 }
+        ))
+        val result = updated.dailyMoisture(autumn, zone)
+        assertEquals(75.0, result.humidityPercent ?: error("humidity missing"), 1e-9)
+        assertEquals(9.5, result.dewPointC ?: error("dew point missing"), 1e-9)
+    }
+
 }

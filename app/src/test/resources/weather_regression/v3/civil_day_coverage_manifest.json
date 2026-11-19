@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "dataset": "civil_day_hourly_coverage",
+  "cases": 357,
+  "sha256": "cbf23b4ec8db81e62abb47ded6d3c8ce2fe874e3827207c772850e011693f95e",
+  "zonesAndDates": 17,
+  "dayLengthsInHours": {
+    "24.0": 5,
+    "23.0": 5,
+    "25.0": 5,
+    "24.5": 1,
+    "23.5": 1
+  },
+  "coverage": "Open-Meteo precipitation at H is [H-1,H); instantaneous H is [H,H+1)."
+}

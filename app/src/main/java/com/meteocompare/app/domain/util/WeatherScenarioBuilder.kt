@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.util
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.PrecipitationThresholds
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
@@ -86,12 +87,12 @@ object WeatherScenarioBuilder {
                 add(
                     Sample(
                         offset = offset,
-                        temperature = series.hourly.temperature2m.getOrNull(index),
+                        temperature = ForecastPhysicalLimits.temperature(series.hourly.temperature2m.getOrNull(index)),
                         // The scenario's slot is [H,H+1h): precipitation
                         // stamped H+1 accumulates over exactly that interval.
                         precipitation = with(HourlySampling) {
                             series.hourly.timestamps.exactIndex(target.plusSeconds(3_600L))
-                        }?.let { series.hourly.precipitation.getOrNull(it) },
+                        }?.let { ForecastPhysicalLimits.precipitation(series.hourly.precipitation.getOrNull(it)) },
                         // A derived wet condition at H belongs to the already elapsed
                         // [H-1h,H) and must not make upcoming [H,H+1h) wet.
                         condition = ConditionDecisionEngine.hourly(series.hourly, index).let { decision ->
@@ -99,8 +100,8 @@ object WeatherScenarioBuilder {
                                 decision.timeWindow?.kind == ConditionWindowKind.HOURLY_PRECEDING
                             }
                         },
-                        cloudCover = series.hourly.cloudCover.getOrNull(index),
-                        gust = series.hourly.windGusts10m.getOrNull(index)
+                        cloudCover = ForecastPhysicalLimits.percentage(series.hourly.cloudCover.getOrNull(index)),
+                        gust = ForecastPhysicalLimits.gust(series.hourly.windGusts10m.getOrNull(index))
                     )
                 )
             }

@@ -168,6 +168,30 @@ class WeatherScenarioBuilderTest {
     }
 
     @Test
+    fun `12h scenarios reject corrupt extremes rather than publishing NaN and infinity`() {
+        val timestamps = (0..12).map { now.plusSeconds(it * 3_600L) }
+        val source = HourlyForecast(
+            timestamps = timestamps,
+            temperature2m = List(13) { if (it == 5) Double.NaN else 16.0 },
+            precipitation = List(13) { if (it == 7) Double.POSITIVE_INFINITY else 0.2 },
+            windSpeed10m = List(13) { 10.0 },
+            weatherCode = List(13) { 0 },
+            cloudCover = List(13) { if (it == 8) 200 else 10 },
+            windGusts10m = List(13) { if (it == 9) Double.POSITIVE_INFINITY else 30.0 }
+        )
+        val scenario = WeatherScenarioBuilder.next12h(
+            forecastOf(WeatherModel.GFS to source), now
+        ).single()
+        // A single corrupt precipitation hour invalidates the twelve-hour sum.
+        assertEquals(null, scenario.precipitationMinMm)
+        assertEquals(null, scenario.precipitationMaxMm)
+        assertEquals(16.0, scenario.temperatureMinC ?: error("missing temperature"), 1e-9)
+        assertEquals(16.0, scenario.temperatureMaxC ?: error("missing temperature"), 1e-9)
+        assertEquals(30.0, scenario.gustMaxKmh ?: error("missing gust"), 1e-9)
+        assertTrue(scenario.cloudCoverMaxPercent in 0..100)
+    }
+
+    @Test
     fun `12h incomplete future last interval does not invent a total`() {
         val source = HourlyForecast(
             timestamps = (0L..11L).map { now.plusSeconds(it * 3600L) },

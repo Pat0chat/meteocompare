@@ -5,11 +5,10 @@ import com.meteocompare.app.data.local.ForecastEvolutionDao
 import com.meteocompare.app.data.local.ForecastEvolutionEntity
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.ForecastEvolutionVariable
-import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherModel
-import java.time.LocalDate
-import java.time.ZoneId
+import com.meteocompare.app.domain.util.hasCompleteCivilDayHourlyCoverage
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -42,9 +41,11 @@ class ForecastEvolutionRecorder @Inject constructor(
                     // cela créerait de faux changements (surtout sur le cumul
                     // pluie). On n'historise donc chaque métrique que si sa
                     // série horaire couvre entièrement la journée civile.
-                    if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.TEMPERATURE, zone)) {
-                        series.daily.tempMax.getOrNull(index)
-                            ?.takeIf(Double::isFinite)
+                    if (series.hasCompleteCivilDayHourlyCoverage(date, ForecastEvolutionVariable.TEMPERATURE, zone)) {
+                        ForecastPhysicalLimits.dailyTemperaturePair(
+                            series.daily.tempMax.getOrNull(index),
+                            series.daily.tempMin.getOrNull(index)
+                        ).first
                             ?.let { value ->
                                 add(
                                     entity(
@@ -59,9 +60,10 @@ class ForecastEvolutionRecorder @Inject constructor(
                                 )
                             }
                     }
-                    if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.PRECIPITATION, zone)) {
-                        series.daily.precipitationSum.getOrNull(index)
-                            ?.takeIf { it.isFinite() && it >= 0.0 }
+                    if (series.hasCompleteCivilDayHourlyCoverage(date, ForecastEvolutionVariable.PRECIPITATION, zone)) {
+                        ForecastPhysicalLimits.precipitation(
+                            series.daily.precipitationSum.getOrNull(index)
+                        )
                             ?.let { value ->
                                 add(
                                     entity(
@@ -76,9 +78,10 @@ class ForecastEvolutionRecorder @Inject constructor(
                                 )
                             }
                     }
-                    if (hasCompleteHourlyCoverage(series, date, ForecastEvolutionVariable.WIND, zone)) {
-                        series.daily.windSpeedMax.getOrNull(index)
-                            ?.takeIf { it.isFinite() && it >= 0.0 }
+                    if (series.hasCompleteCivilDayHourlyCoverage(date, ForecastEvolutionVariable.WIND, zone)) {
+                        ForecastPhysicalLimits.wind(
+                            series.daily.windSpeedMax.getOrNull(index)
+                        )
                             ?.let { value ->
                                 add(
                                     entity(
@@ -102,32 +105,6 @@ class ForecastEvolutionRecorder @Inject constructor(
             samples = entities
         )
         if (inserted) dao.purgeCapturedBefore(capturedMs - RETENTION_MS)
-    }
-
-    private fun hasCompleteHourlyCoverage(
-        series: ForecastSeries,
-        date: LocalDate,
-        variable: ForecastEvolutionVariable,
-        zone: ZoneId
-    ): Boolean {
-        val indices = series.hourly.timestamps.indices.filter { index ->
-            series.hourly.timestamps[index].atZone(zone).toLocalDate() == date
-        }
-        if (indices.size !in COMPLETE_CIVIL_DAY_HOURS) return false
-
-        val validCount = indices.count { index ->
-            when (variable) {
-                ForecastEvolutionVariable.TEMPERATURE ->
-                    series.hourly.temperature2m.getOrNull(index)?.isFinite() == true
-                ForecastEvolutionVariable.PRECIPITATION ->
-                    series.hourly.precipitation.getOrNull(index)
-                        ?.let { it.isFinite() && it >= 0.0 } == true
-                ForecastEvolutionVariable.WIND ->
-                    series.hourly.windSpeed10m.getOrNull(index)
-                        ?.let { it.isFinite() && it >= 0.0 } == true
-            }
-        }
-        return validCount == indices.size
     }
 
     suspend fun clearCity(cityId: String) = withContext(io) {
@@ -157,7 +134,6 @@ class ForecastEvolutionRecorder @Inject constructor(
     companion object {
         /** Au plus un snapshot utile par tranche de 3 h et par valeur métier. */
         internal const val SNAPSHOT_BUCKET_MS = 3L * 60L * 60L * 1000L
-        private val COMPLETE_CIVIL_DAY_HOURS = 23..25
         private const val RETENTION_MS = 5L * 24L * 60L * 60L * 1000L
     }
 }

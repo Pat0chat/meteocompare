@@ -41,4 +41,21 @@ class DailyAtmosphericMetricsTest {
         assertNull(daily.apparentMaxC)
         assertNull(daily.meanPressureHpa)
     }
+    @Test fun invalidFirstDuplicateCannotMaskValidPressureOrApparentTemperature() {
+        val date = LocalDate.of(2026, 10, 25)
+        val zone = ZoneId.of("Europe/Paris")
+        val start = date.atStartOfDay(zone).toInstant()
+        val hours = List(25) { start.plusSeconds(it * 3600L) }
+        val series = ForecastSeries(WeatherModel.GFS, HourlyForecast(
+            timestamps = hours + hours,
+            temperature2m = emptyList(), precipitation = emptyList(), windSpeed10m = emptyList(),
+            apparentTemperature = List(25) { Double.NaN } + List(25) { 15.0 },
+            pressureMsl = List(25) { 2000.0 } + List(25) { 1012.0 }
+        ), DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
+        val daily = series.dailyAtmosphericMetrics(date, zone)
+        assertEquals(15.0, daily.apparentMinC ?: error("apparent temp missing"), 1e-9)
+        assertEquals(15.0, daily.apparentMaxC ?: error("apparent temp missing"), 1e-9)
+        assertEquals(1012.0, daily.meanPressureHpa ?: error("pressure missing"), 1e-9)
+    }
+
 }
