@@ -279,10 +279,31 @@ private fun ConditionTimeWindowPanel(window: ConditionTimeWindow, decision: Cond
                 color = scheme.onSurface,
                 modifier = Modifier.testTag("condition_time_window_value")
             )
+            if (window.kind == ConditionWindowKind.HOURLY_MIXED) {
+                val precedingWindow = ConditionTimeWindow(
+                    window.start.minusSeconds(3_600L), window.start, window.zone,
+                    ConditionWindowKind.HOURLY_PRECEDING
+                )
+                Text(
+                    stringResource(R.string.condition_explanation_window_precipitation_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onSurfaceVariant
+                )
+                Text(
+                    formatConditionTimeWindow(precedingWindow, locale, clock),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurface,
+                    modifier = Modifier.testTag("condition_time_window_precipitation")
+                )
+            }
             Text(
                 stringResource(when {
                     decision.status == ConditionStatus.UNAVAILABLE ->
                         R.string.condition_explanation_window_unavailable_note
+                    window.kind == ConditionWindowKind.HOURLY_PRECEDING ->
+                        R.string.condition_explanation_window_hourly_precip_note
+                    window.kind == ConditionWindowKind.HOURLY_MIXED ->
+                        R.string.condition_explanation_window_hourly_mixed_note
                     window.kind == ConditionWindowKind.HOURLY ->
                         R.string.condition_explanation_window_hourly_note
                     decision.origin == ConditionOrigin.DAILY_WMO_MAXIMUM ||

@@ -337,7 +337,7 @@ class ForecastSeriesConditionResolutionTest {
                 timestamps = times, temperature2m = List(30) { 15.0 },
                 precipitation = List(30) { 0.0 }, windSpeed10m = List(30) { 10.0 },
                 cloudCover = List(30) { if (it in 6..17) 10 else 95 },
-                precipitationProbability = List(30) { if (it in 18..29) 80 else 5 }
+                precipitationProbability = List(30) { if (it in 19..29) 80 else 5 }
             ),
             daily = DailyForecast(listOf(date), listOf(20.0), listOf(10.0),
                 listOf(1.0), listOf(15.0), precipitationProbabilityMax = listOf(80))
@@ -350,6 +350,44 @@ class ForecastSeriesConditionResolutionTest {
         assertEquals(80, forecast.dailyPeriodMetrics(DailyConditionPeriod.NIGHT, solar, next)?.precipitationProbabilityMax)
         assertEquals(10, forecast.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)?.cloudCoverMean)
         assertEquals(95, forecast.dailyPeriodMetrics(DailyConditionPeriod.NIGHT, solar, next)?.cloudCoverMean)
+    }
+
+    @Test
+    fun `probability ending after sunrise overlaps first half hour of day`() {
+        val end = Instant.parse("2026-08-24T07:00:00Z")
+        val forecast = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(end), temperature2m = listOf(14.0),
+                precipitation = listOf(1.0), windSpeed10m = listOf(3.0),
+                precipitationProbability = listOf(92), cloudCover = listOf(5)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val solar = ForecastSolarWindow(end.minusSeconds(1800), end.plusSeconds(3600))
+        assertEquals(92, forecast.dailyPeriodMetrics(DailyConditionPeriod.DAY, solar)?.precipitationProbabilityMax)
+        val afterInterval = ForecastSolarWindow(end, end.plusSeconds(3600))
+        assertEquals(null, forecast.dailyPeriodMetrics(DailyConditionPeriod.DAY, afterInterval)?.precipitationProbabilityMax)
+    }
+
+    @Test
+    fun `probability ending at sunset is included but next hour is not`() {
+        val sunset = Instant.parse("2026-08-24T18:00:00Z")
+        val forecast = ForecastSeries(
+            model = WeatherModel.GFS,
+            hourly = HourlyForecast(
+                timestamps = listOf(sunset, sunset.plusSeconds(3600)),
+                temperature2m = listOf(14.0, 14.0),
+                precipitation = listOf(0.0, 3.0), windSpeed10m = listOf(3.0, 3.0),
+                precipitationProbability = listOf(10, 90)
+            ),
+            daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
+        )
+        val day = ForecastSolarWindow(sunset.minusSeconds(3600), sunset)
+        val night = ForecastSolarWindow(sunset.minusSeconds(3600), sunset)
+        val next = ForecastSolarWindow(sunset.plusSeconds(7200), sunset.plusSeconds(10800))
+        assertEquals(10, forecast.dailyPeriodMetrics(DailyConditionPeriod.DAY, day)?.precipitationProbabilityMax)
+        assertEquals(90, forecast.dailyPeriodMetrics(DailyConditionPeriod.NIGHT, night, next)?.precipitationProbabilityMax)
     }
 
     @Test

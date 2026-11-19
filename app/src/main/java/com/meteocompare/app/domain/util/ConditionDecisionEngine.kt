@@ -10,7 +10,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.math.max
 import kotlin.math.min
 
@@ -28,11 +27,13 @@ enum class ConditionReason {
     NO_DOMINANT_CONDITION, MISSING_SOLAR_WINDOW, MISSING_FOLLOWING_SUNRISE,
     MODEL_DISAGREEMENT, DAILY_WMO_IS_MAXIMUM
 }
-/** A half-open forecast window. For hourly codes this is the hour *represented* by
- * the instantaneous WMO value; for daily conditions it is the actual aggregation
- * window (sunrise/sunset or local civil day), including DST transitions.
+/** Temporal meaning of the evidence, not merely a one-hour display slot.
+ * HOURLY: WMO / cloud conditions at the timestamp H (instantaneous).
+ * HOURLY_PRECEDING: precipitation accumulation/probability over [H-1h, H).
+ * HOURLY_MIXED: a multi-model vote uses both instantaneous and preceding-hour data.
+ * PERIOD: daily or solar aggregation over [start, endExclusive), including DST.
  */
-enum class ConditionWindowKind { HOURLY, PERIOD }
+enum class ConditionWindowKind { HOURLY, HOURLY_PRECEDING, HOURLY_MIXED, PERIOD }
 data class ConditionTimeWindow(
     val start: Instant,
     val endExclusive: Instant,
@@ -77,10 +78,21 @@ internal object ConditionDecisionEngine {
 
     fun hourly(hourly: HourlyForecast, index: Int): ConditionDecision {
         if (index !in hourly.timestamps.indices) return missing()
-        val start = hourly.timestamps[index].truncatedTo(ChronoUnit.HOURS)
-        return classifyHour(hourly, index).copy(timeWindow = ConditionTimeWindow(
-            start, start.plusSeconds(HOUR_SECONDS), kind = ConditionWindowKind.HOURLY
-        ))
+        // Open-Meteo returns local wall-clock hours. In half-hour offset zones
+        // (e.g. Asia/Kolkata), their UTC instants are not on a UTC whole hour.
+        // Preserve the original timestamp rather than truncating away 30 minutes.
+        val start = hourly.timestamps[index]
+        val decision = classifyHour(hourly, index)
+        val precipitationEvidence = ConditionReason.PRECEDING_HOUR_PRECIPITATION in decision.reasons
+        return decision.copy(timeWindow = if (precipitationEvidence) {
+            ConditionTimeWindow(start.minusSeconds(HOUR_SECONDS), start,
+                kind = ConditionWindowKind.HOURLY_PRECEDING)
+        } else {
+            // The end is a metadata sentinel for the hourly slot; the UI displays
+            // only H because the WMO/cloud evidence itself is instantaneous.
+            ConditionTimeWindow(start, start.plusSeconds(HOUR_SECONDS),
+                kind = ConditionWindowKind.HOURLY)
+        })
     }
 
     private fun classifyHour(hourly: HourlyForecast, index: Int): ConditionDecision {
@@ -213,34 +225,44 @@ internal object ConditionDecisionEngine {
     ): ConditionDecision {
         val duration = Duration.between(start, end).seconds
         if (duration <= 0) return missing()
-        // WMO at H describes the weather at H, represented for the bucket [H,H+1h).
-        // Use real UTC instants: DST creates 23/25 distinct buckets, never duplicates.
-        // Deduplicate repeated instants; native WMO supersedes derived evidence.
-        val buckets = linkedMapOf<Instant, ConditionDecision>()
-        series.hourly.timestamps.indices.forEach { i ->
-            val timestamp = series.hourly.timestamps[i].truncatedTo(ChronoUnit.HOURS)
-            if (timestamp >= end || timestamp.plusSeconds(HOUR_SECONDS) <= start) return@forEach
-            val decision = hourly(series.hourly, i)
-            val previous = buckets[timestamp]
-            if (previous == null || (previous.origin != ConditionOrigin.HOURLY_WMO &&
-                decision.origin == ConditionOrigin.HOURLY_WMO) ||
-                (previous.condition == null && decision.condition != null)) {
-                buckets[timestamp] = decision
-            }
+        // WMO describes the instant H (projected into [H,H+1h) to determine
+        // a period's dominant weather); precipitation-derived weather instead
+        // describes the preceding accumulation interval [H-1h,H).
+        // Never truncate UTC instants: half-hour zones have :30 UTC anchors.
+        // On overlapping evidence, native WMO wins and time is counted ONCE.
+        val byInstant = linkedMapOf<Instant, ConditionDecision>()
+        series.hourly.timestamps.indices.forEach { index ->
+            val timestamp = series.hourly.timestamps[index]
+            val decision = hourly(series.hourly, index)
+            val window = decision.timeWindow ?: return@forEach
+            if (!window.endExclusive.isAfter(start) || !window.start.isBefore(end)) return@forEach
+            val previous = byInstant[timestamp]
+            if (previous == null ||
+                (previous.origin != ConditionOrigin.HOURLY_WMO && decision.origin == ConditionOrigin.HOURLY_WMO) ||
+                (previous.condition == null && decision.condition != null)
+            ) byInstant[timestamp] = decision
         }
+        val evidence = byInstant.values.filter { it.condition != null && it.timeWindow != null }
+        val boundaries = (listOf(start, end) + evidence.flatMap { decision ->
+            val window = requireNotNull(decision.timeWindow)
+            listOf(maxOf(start, window.start), minOf(end, window.endExclusive))
+        }).filter { !it.isBefore(start) && !it.isAfter(end) }.distinct().sorted()
         val counts = mutableMapOf<WeatherCondition, Long>()
         val coveredRanges = mutableListOf<Pair<Instant, Instant>>()
         var hasDerived = false
-        buckets.toSortedMap().forEach { (hour, decision) ->
-            val c = decision.condition ?: return@forEach
-            val sliceStart = if (hour > start) hour else start
-            val bucketEnd = hour.plusSeconds(HOUR_SECONDS)
-            val sliceEnd = if (bucketEnd < end) bucketEnd else end
+        boundaries.zipWithNext().forEach { (sliceStart, sliceEnd) ->
             val seconds = Duration.between(sliceStart, sliceEnd).seconds
-            if (seconds <= 0) return@forEach
-            counts[c] = (counts[c] ?: 0L) + seconds
-            coveredRanges.add(sliceStart to sliceEnd)
-            if (decision.origin != ConditionOrigin.HOURLY_WMO) hasDerived = true
+            if (seconds <= 0L) return@forEach
+            val selected = evidence.asSequence().filter { decision ->
+                val window = requireNotNull(decision.timeWindow)
+                !window.start.isAfter(sliceStart) && !window.endExclusive.isBefore(sliceEnd)
+            }.maxWithOrNull(compareBy<ConditionDecision> {
+                if (it.origin == ConditionOrigin.HOURLY_WMO) 2 else 1
+            }.thenBy { if (it.status == ConditionStatus.RELIABLE) 1 else 0 }) ?: return@forEach
+            val condition = requireNotNull(selected.condition)
+            counts[condition] = (counts[condition] ?: 0L) + seconds
+            coveredRanges += sliceStart to sliceEnd
+            if (selected.origin != ConditionOrigin.HOURLY_WMO) hasDerived = true
         }
         val covered = counts.values.sum().coerceAtMost(duration)
         val coverage = covered.toDouble() / duration

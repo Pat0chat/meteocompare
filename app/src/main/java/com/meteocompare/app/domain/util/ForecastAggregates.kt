@@ -80,6 +80,9 @@ internal object ForecastAggregates {
             val precipRows = mutableListOf<ForecastConsensus.PrecipitationRow>()
             val conditionRows = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
             val derivedConditionRows = mutableListOf<ForecastConsensus.Entry<WeatherCondition>>()
+            // Retain evidence provenance: a derived rain decision refers to H-1 -> H,
+            // whereas native WMO and derived sky conditions describe instant H.
+            val precedingHourModels = mutableSetOf<com.meteocompare.app.domain.model.WeatherModel>()
             val cloudRows = mutableListOf<ForecastConsensus.Entry<Double>>()
 
             forecast.seriesByModel.forEach { (model, series) ->
@@ -89,8 +92,14 @@ internal object ForecastAggregates {
                 series.hourly.temperature2m.getOrNull(index)?.let {
                     tempRows += ForecastConsensus.Entry(model, it)
                 }
-                val amount = series.hourly.precipitation.getOrNull(index)
-                val probability = series.hourly.precipitationProbability.getOrNull(index)
+                // The cell labelled H covers upcoming [H,H+1h). Open-Meteo
+                // precipitation/probability at H+1 describe precisely that hour.
+                // Never mix them with instantaneous WMO / temperature at H.
+                val precipitationIndex = with(HourlySampling) {
+                    timestamps.exactIndex(target.plusSeconds(3_600L))
+                }
+                val amount = precipitationIndex?.let { series.hourly.precipitation.getOrNull(it) }
+                val probability = precipitationIndex?.let { series.hourly.precipitationProbability.getOrNull(it) }
                 if (amount != null || probability != null) {
                     precipRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 }
@@ -99,6 +108,9 @@ internal object ForecastAggregates {
                     // same-model variables only supply a fallback when WMO is absent.
                     val decision = ConditionDecisionEngine.hourly(series.hourly, index)
                     decision.condition?.let { resolved ->
+                        if (decision.timeWindow?.kind == ConditionWindowKind.HOURLY_PRECEDING) {
+                            precedingHourModels += model
+                        }
                         val row = ForecastConsensus.Entry(model, resolved)
                         if (decision.origin == ConditionOrigin.HOURLY_WMO) conditionRows += row
                         else derivedConditionRows += row
@@ -161,9 +173,27 @@ internal object ForecastAggregates {
                     supportModels = supportModels,
                     localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD)
                 )
-                diagnostics?.add(result.copy(timeWindow = ConditionTimeWindow(
-                    target, target.plusSeconds(3_600L), cityZone, ConditionWindowKind.HOURLY
-                )))
+                // Native WMO consensus is authoritative when reliable. Otherwise,
+                // derived precipitation can participate alongside instant evidence.
+                // Do not label a mixed vote as though every input used one interval.
+                val contributors = if (result.status == ConditionStatus.RELIABLE) {
+                    conditionRows.map { it.model }
+                } else {
+                    (conditionRows + derivedConditionRows).map { it.model }
+                }
+                val usesPreceding = contributors.any { it in precedingHourModels }
+                val usesInstant = contributors.any { it !in precedingHourModels }
+                val windowKind = when {
+                    usesPreceding && usesInstant -> ConditionWindowKind.HOURLY_MIXED
+                    usesPreceding -> ConditionWindowKind.HOURLY_PRECEDING
+                    else -> ConditionWindowKind.HOURLY
+                }
+                val window = if (windowKind == ConditionWindowKind.HOURLY_PRECEDING) {
+                    ConditionTimeWindow(target.minusSeconds(3_600L), target, cityZone, windowKind)
+                } else {
+                    ConditionTimeWindow(target, target.plusSeconds(3_600L), cityZone, windowKind)
+                }
+                diagnostics?.add(result.copy(timeWindow = window))
                 conditions += result.condition
             }
         }

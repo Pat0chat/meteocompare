@@ -1236,8 +1236,11 @@
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Tahmin ayrıntıları</string>
     <string name="condition_explanation_no_condition">Belirlenemeyen hava durumu</string>
-    <string name="condition_explanation_window_title">Hava durumu zaman aralığı</string>
-    <string name="condition_explanation_window_hourly_note">Saatlik tahminde hava kodu belirtilen saatteki anlık durumu gösterir; yağış verileri önceki saate ait olabilir.</string>
+    <string name="condition_explanation_window_title">Tahmin saati veya hesaplama dönemi</string>
+    <string name="condition_explanation_window_hourly_note">Hava durumu kodu veya bulutluluk belirtilen saatteki durumu gösterir. Saatlik yağış toplamları ve olasılıkları önceki saate aittir.</string>
+    <string name="condition_explanation_window_hourly_precip_note">Koşul, önceki saatteki (H−1 ile H arası) yağışı ve varsa H saatindeki sıcaklığı kullanır.</string>
+    <string name="condition_explanation_window_hourly_mixed_note">Uzlaşma, H saatine ait veriler ile önceki saatin yağış verilerini birleştirir. Her iki zaman gösterilir.</string>
+    <string name="condition_explanation_window_precipitation_label">Yağış dönemi</string>
     <string name="condition_explanation_window_period_note">Hava durumu bu aralıktaki mevcut saatleri özetler. Kapsam aşağıda belirtilir.</string>
     <string name="condition_explanation_window_unavailable_note">Bu aralık tahmin dönemini gösterir; yeterli veri bulunduğu anlamına gelmez. Mevcut verilerle bir hava durumu belirlenemiyor.</string>
     <string name="condition_explanation_window_daily_wmo_note">Günlük hava durumu kodu, günün en şiddetli olayını gösterir; her saat için baskın hava durumunu göstermeyebilir.</string>

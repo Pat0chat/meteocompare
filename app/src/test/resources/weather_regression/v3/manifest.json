@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "dataset": "physical_hourly_precipitation_windows",
+  "cases": 300,
+  "sha256": "351e9c72212dd1454bdbe4b666d8e61a80860d24a39d8849b5e95077f76fa11f",
+  "coverage": "WMO H to H+1 representative vs rainfall H-1 to H; DST 23/25, midnight, Asia/Kolkata"
+}

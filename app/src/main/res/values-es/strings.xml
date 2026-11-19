@@ -1228,8 +1228,11 @@ datos</string>
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Detalles de la previsión</string>
     <string name="condition_explanation_no_condition">Condición indeterminada</string>
-    <string name="condition_explanation_window_title">Intervalo de la condición meteorológica</string>
-    <string name="condition_explanation_window_hourly_note">En un pronóstico horario, el código meteorológico describe el momento indicado; la precipitación puede corresponder a la hora anterior.</string>
+    <string name="condition_explanation_window_title">Hora prevista o período de cálculo</string>
+    <string name="condition_explanation_window_hourly_note">El código meteorológico o la nubosidad describen el estado a la hora indicada. Los acumulados y probabilidades de precipitación corresponden a la hora anterior.</string>
+    <string name="condition_explanation_window_hourly_precip_note">La condición utiliza la precipitación acumulada en la hora anterior (H−1 a H) y la temperatura a la hora H si está disponible.</string>
+    <string name="condition_explanation_window_hourly_mixed_note">El consenso combina datos a la hora H con precipitación de la hora anterior. Se muestran ambos horarios.</string>
+    <string name="condition_explanation_window_precipitation_label">Período de precipitación</string>
     <string name="condition_explanation_window_period_note">La condición resume las horas disponibles del intervalo. La cobertura se indica a continuación.</string>
     <string name="condition_explanation_window_unavailable_note">Este es el intervalo del pronóstico, no un periodo con datos suficientes: no se puede determinar una condición meteorológica.</string>
     <string name="condition_explanation_window_daily_wmo_note">El código meteorológico diario indica el fenómeno más intenso del día, no necesariamente el tiempo predominante durante sus horas.</string>

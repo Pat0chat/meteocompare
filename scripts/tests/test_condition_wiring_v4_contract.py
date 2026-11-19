@@ -98,7 +98,10 @@ class ConditionWiringV4Contract(unittest.TestCase):
         self.assertIn("RemoteIcon.Condition(notification.condition, notification.conditionDecision)", notifier)
         self.assertIn("decision = icon.decision", notifier)
         self.assertIn("statusLabelRes(status)", notifier)
-        self.assertIn("series.resolveHourlyCondition(index)", code("domain/util/WeatherScenarioBuilder.kt"))
+        scenario = code("domain/util/WeatherScenarioBuilder.kt")
+        self.assertIn("ConditionDecisionEngine.hourly(series.hourly, index)", scenario)
+        self.assertIn("ConditionWindowKind.HOURLY_PRECEDING", scenario)
+        self.assertIn("target.plusSeconds(3_600L)", scenario)
         self.assertIn("ConditionDecisionEngine.hourly(this, index).condition", code("domain/util/ForecastSeriesDaily.kt"))
 
     def test_diagnostics_have_one_explanation_and_visual_vocabulary(self):

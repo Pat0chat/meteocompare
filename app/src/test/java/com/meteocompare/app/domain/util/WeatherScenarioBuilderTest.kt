@@ -146,6 +146,43 @@ class WeatherScenarioBuilderTest {
         assertEquals(null, scenario.precipitationMaxMm)
     }
 
+    @Test
+    fun `12h rain total excludes preceding hour and includes ending hour`() {
+        val samples = (0..12).map { offset ->
+            now.plusSeconds(offset * 3600L)
+        }
+        val source = HourlyForecast(
+            timestamps = samples,
+            temperature2m = List(13) { 15.0 },
+            precipitation = listOf(100.0) + List(11) { 1.0 } + listOf(3.0),
+            windSpeed10m = List(13) { 10.0 },
+            weatherCode = List(13) { 61 },
+            precipitationProbability = List(13) { 90 }
+        )
+        val scenario = WeatherScenarioBuilder.next12h(
+            forecastOf(WeatherModel.GFS to source), now
+        ).single()
+        // 100 mm ending at H belongs to H-1..H, not to our next-12h total.
+        assertEquals(14.0, scenario.precipitationMinMm ?: error("missing total"), 1e-9)
+        assertEquals(14.0, scenario.precipitationMaxMm ?: error("missing total"), 1e-9)
+    }
+
+    @Test
+    fun `12h incomplete future last interval does not invent a total`() {
+        val source = HourlyForecast(
+            timestamps = (0L..11L).map { now.plusSeconds(it * 3600L) },
+            temperature2m = List(12) { 15.0 },
+            precipitation = List(12) { 1.0 },
+            windSpeed10m = List(12) { 10.0 },
+            weatherCode = List(12) { 61 }
+        )
+        val scenario = WeatherScenarioBuilder.next12h(
+            forecastOf(WeatherModel.GFS to source), now
+        ).single()
+        assertEquals(null, scenario.precipitationMinMm)
+        assertEquals(null, scenario.precipitationMaxMm)
+    }
+
     private fun simpleHourly(code: Int, cloud: Int, precip: Double): HourlyForecast = hourly(
         temperatures = List(12) { 15.0 },
         precipitations = List(12) { precip },

@@ -21,8 +21,26 @@ class ConditionTimeWindowFormattingTest {
         val text = formatConditionTimeWindow(ConditionTimeWindow(
             start, start.plusSeconds(3600), paris, ConditionWindowKind.HOURLY
         ), Locale.FRENCH, frClock)
-        assertTrue(text, text.contains("15:00 – 16:00"))
+        assertTrue(text, text.contains("15:00"))
+        assertTrue(text, !text.contains("16:00"))
         assertTrue(text, text.contains("13 nov"))
+    }
+
+    @Test fun `preceding precipitation is shown from fourteen to fifteen local`() {
+        val hour = Instant.parse("2026-11-13T14:00:00Z")
+        val text = formatConditionTimeWindow(ConditionTimeWindow(
+            hour.minusSeconds(3600), hour, paris, ConditionWindowKind.HOURLY_PRECEDING
+        ), Locale.FRENCH, frClock)
+        assertTrue(text, text.contains("14:00 – 15:00"))
+    }
+
+    @Test fun `mixed forecast shows only instantaneous timestamp in main line`() {
+        val hour = Instant.parse("2026-11-13T14:00:00Z")
+        val text = formatConditionTimeWindow(ConditionTimeWindow(
+            hour, hour.plusSeconds(3600), paris, ConditionWindowKind.HOURLY_MIXED
+        ), Locale.FRENCH, frClock)
+        assertTrue(text, text.contains("15:00"))
+        assertTrue(text, !text.contains("16:00"))
     }
 
     @Test fun `night interval shows both dates and precise sunrise minutes`() {
@@ -39,8 +57,16 @@ class ConditionTimeWindowFormattingTest {
         val start = Instant.parse("2026-10-25T00:30:00Z")
         val end = Instant.parse("2026-10-25T01:30:00Z")
         val text = formatConditionTimeWindow(ConditionTimeWindow(start, end, paris,
-            ConditionWindowKind.HOURLY), Locale.FRENCH, frClock)
+            ConditionWindowKind.HOURLY_PRECEDING), Locale.FRENCH, frClock)
         assertTrue(text, text.contains("UTC+02:00 → UTC+01:00"))
+    }
+
+    @Test fun `instantaneous code in repeated autumn hour shows its own offset`() {
+        val hour = Instant.parse("2026-10-25T01:00:00Z")
+        val text = formatConditionTimeWindow(ConditionTimeWindow(hour, hour.plusSeconds(3600), paris,
+            ConditionWindowKind.HOURLY), Locale.FRENCH, frClock)
+        assertTrue(text, text.contains("02:00"))
+        assertTrue(text, !text.contains("UTC+02:00 → UTC+01:00"))
     }
 
     @Test fun `missing city timezone falls back to explicitly labeled UTC`() {
