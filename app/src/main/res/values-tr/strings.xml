@@ -1223,6 +1223,7 @@
     <string name="condition_reason_invalid">Geçersiz hava kodu veya fiziksel değer</string>
     <string name="condition_reason_clouds">Bazı bulut katmanları eksik</string>
     <string name="condition_reason_precip">Önceki saat boyunca biriken yağış</string>
+    <string name="condition_reason_precip_upcoming">Görüntülenen saat aralığında biriken yağış</string>
     <string name="condition_reason_phase">Yağmur/kar türü belirsiz</string>
     <string name="condition_reason_partial">Dönem kısmen kapsanıyor</string>
     <string name="condition_reason_majority">Eksik saatlere rağmen çoğunluk kanıtlandı</string>
@@ -1237,7 +1238,7 @@
     <string name="condition_detail_title">Tahmin ayrıntıları</string>
     <string name="condition_explanation_no_condition">Belirlenemeyen hava durumu</string>
     <string name="condition_explanation_window_title">Tahmin saati veya hesaplama dönemi</string>
-    <string name="condition_explanation_window_hourly_note">Hava durumu kodu veya bulutluluk belirtilen saatteki durumu gösterir. Saatlik yağış toplamları ve olasılıkları önceki saate aittir.</string>
+    <string name="condition_explanation_window_hourly_note">Hava durumu kodu ve bulutluluk H anına aittir. H+1 zaman damgalı yağış toplamı ve olasılığı, gösterilen H–H+1 aralığını açıklar.</string>
     <string name="condition_explanation_window_hourly_precip_note">Koşul, önceki saatteki (H−1 ile H arası) yağışı ve varsa H saatindeki sıcaklığı kullanır.</string>
     <string name="condition_explanation_window_hourly_mixed_note">Uzlaşma, H saatine ait veriler ile önceki saatin yağış verilerini birleştirir. Her iki zaman gösterilir.</string>
     <string name="condition_explanation_window_precipitation_label">Yağış dönemi</string>

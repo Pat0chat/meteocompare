@@ -24,6 +24,7 @@ import com.meteocompare.app.domain.util.dailyCloudCoverMean
 import com.meteocompare.app.domain.util.resolveDailyCondition
 import com.meteocompare.app.domain.util.DailyConditionPeriod
 import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.ConditionDecisionEngine
 import com.meteocompare.app.domain.util.inZone
 import com.meteocompare.app.domain.util.ConditionOrigin
@@ -382,13 +383,14 @@ private fun indexHourlySnapshots(
         val pressure = series.hourly.pressureMsl.getOrNull(index)
         val humidity = series.hourly.relativeHumidity2m.getOrNull(index)?.toDouble()
         val dewPoint = series.hourly.dewPoint2m.getOrNull(index)
-        val precipitation = series.hourly.precipitation.getOrNull(index)
-        val probability = series.hourly.precipitationProbability.getOrNull(index)
+        val slotPrecipitation = HourlySampling.precipitationForSlot(series.hourly, index)
+        val precipitation = slotPrecipitation.amountMm
+        val probability = slotPrecipitation.probabilityPercent
         val cloudCover = series.hourly.effectiveCloudCover(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
         val windGust = series.hourly.windGusts10m.getOrNull(index)
         val windDirection = series.hourly.windDirection10m.getOrNull(index)
-        val decision = ConditionDecisionEngine.hourly(series.hourly, index)
+        val decision = ConditionDecisionEngine.upcomingHour(series.hourly, index)
         val nativeCondition = decision.condition?.takeIf { decision.origin == ConditionOrigin.HOURLY_WMO }
         val condition = decision.condition
         val snapshot = TimelineSnapshot(

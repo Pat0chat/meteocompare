@@ -1215,6 +1215,7 @@ dato</string>
     <string name="condition_reason_invalid">Codice o valore meteorologico non valido</string>
     <string name="condition_reason_clouds">Mancano alcuni strati nuvolosi</string>
     <string name="condition_reason_precip">Precipitazioni accumulate nell’ora precedente</string>
+    <string name="condition_reason_precip_upcoming">Precipitazioni accumulate durante l’ora mostrata</string>
     <string name="condition_reason_phase">Tipo di precipitazione pioggia/neve incerto</string>
     <string name="condition_reason_partial">Copertura parziale del periodo</string>
     <string name="condition_reason_majority">Maggioranza dimostrata nonostante le ore mancanti</string>
@@ -1229,7 +1230,7 @@ dato</string>
     <string name="condition_detail_title">Dettagli delle previsioni</string>
     <string name="condition_explanation_no_condition">Condizione indeterminata</string>
     <string name="condition_explanation_window_title">Ora prevista o periodo di calcolo</string>
-    <string name="condition_explanation_window_hourly_note">Il codice meteo o la nuvolosità descrivono le condizioni all’ora indicata. Quantità e probabilità di precipitazione si riferiscono all’ora precedente.</string>
+    <string name="condition_explanation_window_hourly_note">Il codice meteo e la nuvolosità descrivono H. Quantità e probabilità di pioggia riportate a H+1 si riferiscono all’intervallo H–H+1.</string>
     <string name="condition_explanation_window_hourly_precip_note">La condizione usa le precipitazioni accumulate nell’ora precedente (H−1–H) e la temperatura all’ora H, se disponibile.</string>
     <string name="condition_explanation_window_hourly_mixed_note">Il consenso combina dati validi all’ora H e precipitazioni dell’ora precedente. Sono mostrati entrambi gli orari.</string>
     <string name="condition_explanation_window_precipitation_label">Periodo delle precipitazioni</string>

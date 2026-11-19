@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.core.util.resolveZoneOrUtc
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.HourlyForecast
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -25,6 +26,30 @@ internal object HourlySampling {
         val secondsIntoHour = localNow.minute * 60L + localNow.second
         val rounded = if (secondsIntoHour > 30L * 60L) floor.plusHours(1) else floor
         return rounded.toInstant()
+    }
+
+    /**
+     * A display slot at H always represents [H,H+1h). The source provider
+     * timestamps precipitation, probability, gusts and sunshine at the END
+     * of their accumulation interval. WMO, temperature and clouds stay at H.
+     *
+     * Resolve the actual UTC instant instead of index+1: missing timestamps,
+     * half-hour-offset zones, midnight and both DST transitions remain safe.
+     * Never silently take an adjacent hour when H+1 is unavailable.
+     */
+    fun nextHourIndex(hourly: HourlyForecast, atIndex: Int): Int? {
+        val start = hourly.timestamps.getOrNull(atIndex) ?: return null
+        return with(this) { hourly.timestamps.exactIndex(start.plusSeconds(3_600L)) }
+    }
+
+    data class SlotPrecipitation(val amountMm: Double?, val probabilityPercent: Int?)
+
+    fun precipitationForSlot(hourly: HourlyForecast, atIndex: Int): SlotPrecipitation {
+        val source = nextHourIndex(hourly, atIndex)
+        return SlotPrecipitation(
+            source?.let { hourly.precipitation.getOrNull(it) },
+            source?.let { hourly.precipitationProbability.getOrNull(it) }
+        )
     }
 
     /**

@@ -49,8 +49,8 @@ class ForecastAggregatesTest {
         assertNull(result.precipitationAmountsMm[1])
         // Sans WMO ni nébulosité, une P(pluie) centrale < 50 % ne fabrique plus
         // une condition par vote de fallbacks individuels.
-        assertNull(result.conditions[0])
-        assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[1])
+        assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[0])
+        assertNull(result.conditions[1])
         assertNull(result.temperatures[2])
         assertNull(result.precipitationProbabilities[2])
         assertNull(result.precipitationAmountsMm[2])
@@ -407,27 +407,44 @@ class ForecastAggregatesTest {
     }
 
     @Test
-    fun `precipitation-only consensus reports the preceding hour`() {
+    fun `precipitation only home condition uses next hour and never past rain`() {
         val forecast = forecastOf(WeatherModel.GFS to hourly(
-            temperatures = listOf(12.0), precipitationProbabilities = listOf(90),
-            precipitationAmounts = listOf(2.0)
+            temperatures = listOf(12.0, 12.0),
+            precipitationProbabilities = listOf(0, 90),
+            precipitationAmounts = listOf(0.0, 2.0)
         ))
         val result = ForecastAggregates.currentConditionDecision(forecast, now)
         assertEquals(WeatherCondition.RAIN_SHOWERS, result.condition)
-        assertEquals(ConditionWindowKind.HOURLY_PRECEDING, result.timeWindow?.kind)
-        assertEquals(now.minusSeconds(3600), result.timeWindow?.start)
-        assertEquals(now, result.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
+        assertEquals(now, result.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), result.timeWindow?.endExclusive)
+        assertTrue(ConditionReason.UPCOMING_HOUR_PRECIPITATION in result.reasons ||
+            result.origin == ConditionOrigin.MODEL_CONSENSUS)
+        assertEquals(90, ForecastAggregates.next12h(forecast, now).precipitationProbabilities.first())
     }
 
     @Test
-    fun `mixed WMO and precipitation reports both evidence intervals`() {
+    fun `mixed native WMO and derived rain share the future slot`() {
         val forecast = forecastOf(
-            WeatherModel.GFS to hourly(listOf(12.0), listOf(40), listOf(0.0), listOf(3)),
-            WeatherModel.ICON_GLOBAL to hourly(listOf(12.0), listOf(90), listOf(3.0))
+            WeatherModel.GFS to hourly(listOf(12.0, 12.0), listOf(0, 40), listOf(0.0, 0.0), listOf(3, null)),
+            WeatherModel.ICON_GLOBAL to hourly(listOf(12.0, 12.0), listOf(0, 90), listOf(0.0, 3.0))
         )
         val result = ForecastAggregates.currentConditionDecision(forecast, now)
-        assertEquals(ConditionWindowKind.HOURLY_MIXED, result.timeWindow?.kind)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
         assertEquals(now, result.timeWindow?.start)
+    }
+
+    @Test
+    fun `home does not reuse previous rain if H plus one is missing`() {
+        val forecast = forecastOf(WeatherModel.GFS to hourly(
+            temperatures = listOf(12.0),
+            precipitationProbabilities = listOf(90),
+            precipitationAmounts = listOf(2.0)
+        ))
+        val result = ForecastAggregates.next12h(forecast, now, true)
+        assertNull(result.conditions.first())
+        assertNull(result.precipitationProbabilities.first())
+        assertNull(result.precipitationAmountsMm.first())
     }
 
     @Test

@@ -1226,6 +1226,7 @@
     <string name="condition_reason_invalid">Invalid weather code or physical value</string>
     <string name="condition_reason_clouds">Some cloud layers are missing</string>
     <string name="condition_reason_precip">Precipitation accumulated during the preceding hour</string>
+    <string name="condition_reason_precip_upcoming">Precipitation accumulated over the displayed hour</string>
     <string name="condition_reason_phase">Rain/snow phase is uncertain</string>
     <string name="condition_reason_partial">Partial period coverage</string>
     <string name="condition_reason_majority">Majority proven despite missing hours</string>
@@ -1240,7 +1241,7 @@
     <string name="condition_detail_title">Forecast details</string>
     <string name="condition_explanation_no_condition">Undetermined condition</string>
     <string name="condition_explanation_window_title">Forecast time or calculation period</string>
-    <string name="condition_explanation_window_hourly_note">The weather code or sky cover describes conditions at the stated hour. Hourly precipitation totals and probabilities refer to the preceding hour.</string>
+    <string name="condition_explanation_window_hourly_note">Weather code and cloud cover describe H. The precipitation amount and probability stamped H+1 describe the displayed interval H–H+1.</string>
     <string name="condition_explanation_window_hourly_precip_note">The condition uses precipitation accumulated in the preceding hour (H−1 to H), with temperature at H when available.</string>
     <string name="condition_explanation_window_hourly_mixed_note">This consensus combines evidence valid at H with precipitation from the preceding hour. Both times are shown.</string>
     <string name="condition_explanation_window_precipitation_label">Precipitation period</string>

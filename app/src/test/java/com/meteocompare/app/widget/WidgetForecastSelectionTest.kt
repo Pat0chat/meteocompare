@@ -456,6 +456,29 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
+    fun `both widget hourly paths read probability and inferred rain from H plus one`() {
+        val h = Instant.parse("2026-07-17T12:00:00Z")
+        val hourly = HourlyForecast(
+            timestamps = listOf(h, h.plusSeconds(3600)),
+            temperature2m = listOf(18.0, 18.0),
+            precipitation = listOf(0.0, 2.0),
+            precipitationProbability = listOf(0, 90),
+            windSpeed10m = listOf(10.0, 10.0),
+            cloudCover = listOf(10, 10)
+        )
+        val legacy = buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), h).first()
+        val unified = buildForecasts(
+            CityForecast(city.copy(timezone = "UTC"), mapOf(
+                WeatherModel.GFS to ForecastSeries(WeatherModel.GFS, hourly, emptyDaily())
+            )), ForecastMode.HOURLY, "UTC", h
+        ).first()
+        assertEquals(90, legacy.precipProbabilityPct)
+        assertEquals(90, unified.precipProbabilityPct)
+        assertEquals(WeatherCondition.RAIN_SHOWERS, legacy.condition)
+        assertEquals(WeatherCondition.RAIN_SHOWERS, unified.condition)
+    }
+
+    @Test
     fun `english widget hourly labels use uppercase am pm`() {
         val now = Instant.parse("2026-07-17T00:00:00Z")
         val hourly = HourlyForecast(

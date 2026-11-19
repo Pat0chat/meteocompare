@@ -1209,6 +1209,7 @@ Daten</string>
     <string name="condition_reason_invalid">Ungültiger Wettercode oder Messwert</string>
     <string name="condition_reason_clouds">Einige Wolkenschichten fehlen</string>
     <string name="condition_reason_precip">Niederschlag der vorherigen Stunde</string>
+    <string name="condition_reason_precip_upcoming">Niederschlag im angezeigten Stundenintervall</string>
     <string name="condition_reason_phase">Regen- oder Schneefall nicht eindeutig</string>
     <string name="condition_reason_partial">Zeitraum nur teilweise abgedeckt</string>
     <string name="condition_reason_majority">Mehrheit trotz fehlender Stunden nachgewiesen</string>
@@ -1223,7 +1224,7 @@ Daten</string>
     <string name="condition_detail_title">Vorhersagedetails</string>
     <string name="condition_explanation_no_condition">Wetterlage unbestimmt</string>
     <string name="condition_explanation_window_title">Prognosezeitpunkt oder Berechnungszeitraum</string>
-    <string name="condition_explanation_window_hourly_note">Wettercode oder Bewölkung beschreiben den Zustand zur angegebenen Stunde. Stündliche Niederschlagsmengen und -wahrscheinlichkeiten beziehen sich auf die vorherige Stunde.</string>
+    <string name="condition_explanation_window_hourly_note">Wettercode und Bewölkung gelten für H. Niederschlag und Wahrscheinlichkeit mit Zeitstempel H+1 gelten für das angezeigte Intervall H–H+1.</string>
     <string name="condition_explanation_window_hourly_precip_note">Die Bedingung nutzt den Niederschlag der vorherigen Stunde (H−1 bis H) und gegebenenfalls die Temperatur zum Zeitpunkt H.</string>
     <string name="condition_explanation_window_hourly_mixed_note">Dieser Konsens kombiniert Angaben zum Zeitpunkt H mit Niederschlag der vorherigen Stunde. Beide Zeitangaben werden angezeigt.</string>
     <string name="condition_explanation_window_precipitation_label">Niederschlagszeitraum</string>

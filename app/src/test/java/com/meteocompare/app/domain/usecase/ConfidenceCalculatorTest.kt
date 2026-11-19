@@ -494,11 +494,11 @@ class ConfidenceCalculatorTest {
             ForecastSeries(
                 model = model,
                 hourly = HourlyForecast(
-                    timestamps = listOf(t0),
-                    temperature2m = listOf(20.0),
-                    precipitation = listOf(10.0),
-                    windSpeed10m = listOf(10.0),
-                    precipitationProbability = listOf(50)
+                    timestamps = listOf(t0, t0.plusSeconds(3600)),
+                    temperature2m = listOf(20.0, null),
+                    precipitation = listOf(0.0, 10.0),
+                    windSpeed10m = listOf(10.0, null),
+                    precipitationProbability = listOf(0, 50)
                 ),
                 daily = emptyDaily()
             )
@@ -530,11 +530,11 @@ class ConfidenceCalculatorTest {
             ForecastSeries(
                 model = model,
                 hourly = HourlyForecast(
-                    timestamps = listOf(t0),
-                    temperature2m = listOf(20.0),
-                    precipitation = listOf(amount),
-                    windSpeed10m = listOf(10.0),
-                    precipitationProbability = listOf(100)
+                    timestamps = listOf(t0, t0.plusSeconds(3600)),
+                    temperature2m = listOf(20.0, null),
+                    precipitation = listOf(0.0, amount),
+                    windSpeed10m = listOf(10.0, null),
+                    precipitationProbability = listOf(0, 100)
                 ),
                 daily = emptyDaily()
             )
@@ -614,6 +614,23 @@ class ConfidenceCalculatorTest {
         assertEquals(0, bands.size)
     }
 
+    @Test
+    fun `hourly rain confidence uses ending timestamps but publishes start of slot`() {
+        val h = java.time.Instant.parse("2026-10-25T00:00:00Z")
+        val forecast = buildHourlyPrecipForecast(
+            timestamps = listOf(h),
+            precipByModel = mapOf(
+                WeatherModel.GFS to listOf(2.0),
+                WeatherModel.ECMWF to listOf(2.0)
+            )
+        )
+        val band = calculator.hourlyPrecipitationConfidence(forecast).single()
+        assertEquals(h, band.timestamp)
+        assertEquals(2.0, band.meanValue, 0.001)
+        // H+1 has no H+2. Its old accumulation must never be reused.
+        assertEquals(1, calculator.hourlyPrecipitationConfidence(forecast).size)
+    }
+
     // ──────────────────── Vent horaire ────────────────────
 
     @Test
@@ -682,18 +699,21 @@ class ConfidenceCalculatorTest {
         byModel: Map<WeatherModel, List<Double>>,
         picker: HourlyMetric
     ): CityForecast {
+        val alignedTimestamps = if (picker == HourlyMetric.PRECIP && timestamps.isNotEmpty()) {
+            timestamps + timestamps.last().plusSeconds(3_600L)
+        } else timestamps
         val series = byModel.mapValues { (model, values) ->
             ForecastSeries(
                 model = model,
                 hourly = HourlyForecast(
-                    timestamps = timestamps,
+                    timestamps = alignedTimestamps,
                     // Les variables non testées sont neutres pour ne pas
                     // interférer avec le calcul de la bande demandée.
-                    temperature2m = List(values.size) { 20.0 },
-                    precipitation = if (picker == HourlyMetric.PRECIP) values
+                    temperature2m = List(alignedTimestamps.size) { 20.0 },
+                    precipitation = if (picker == HourlyMetric.PRECIP) listOf(null) + values
                         else List(values.size) { 0.0 },
                     windSpeed10m = if (picker == HourlyMetric.WIND) values
-                        else List(values.size) { 10.0 }
+                        else List(alignedTimestamps.size) { 10.0 }
                 ),
                 daily = emptyDaily()
             )

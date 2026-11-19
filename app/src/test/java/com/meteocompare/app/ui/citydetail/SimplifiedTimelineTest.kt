@@ -340,16 +340,40 @@ class SimplifiedTimelineTest {
 
 
     @Test
+    fun `hourly timeline uses H plus one for rain and same slot inferred condition`() {
+        val model = WeatherModel.GFS
+        val hourly = HourlyForecast(
+            timestamps = listOf(now, now.plusSeconds(3600)),
+            temperature2m = listOf(15.0, 15.0),
+            precipitation = listOf(0.0, 2.0),
+            precipitationProbability = listOf(0, 90),
+            windSpeed10m = listOf(10.0, 10.0),
+            cloudCover = listOf(10, 10)
+        )
+        val forecast = CityForecast(paris, mapOf(
+            model to ForecastSeries(model, hourly,
+                DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
+        ))
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).first()
+        assertEquals(WeatherCondition.RAIN_SHOWERS, point.condition)
+        assertEquals(2.0, point.precipitationMm!!, 0.001)
+        assertEquals(90, point.precipitationPercent)
+        assertEquals(now, point.conditionDiagnostic?.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), point.conditionDiagnostic?.timeWindow?.endExclusive)
+        assertEquals(null, buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)[1].precipitationMm)
+    }
+
+    @Test
     fun `hourly timeline exposes rain amount convergence separately from occurrence convergence`() {
         fun hourly(model: WeatherModel, amount: Double) = ForecastSeries(
             model = model,
             hourly = HourlyForecast(
-                timestamps = listOf(now),
-                temperature2m = listOf(18.0),
-                precipitation = listOf(amount),
-                precipitationProbability = listOf(80),
-                windSpeed10m = listOf(12.0),
-                cloudCover = listOf(75)
+                timestamps = listOf(now, now.plusSeconds(3600)),
+                temperature2m = listOf(18.0, null),
+                precipitation = listOf(100.0, amount),
+                precipitationProbability = listOf(0, 80),
+                windSpeed10m = listOf(12.0, null),
+                cloudCover = listOf(75, null)
             ),
             daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
         )
@@ -362,7 +386,7 @@ class SimplifiedTimelineTest {
             )
         )
 
-        val point = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).single()
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now).first()
 
         assertEquals(100, point.consensusFor(ForecastMetric.PRECIPITATION)?.percent)
         val amountConvergence = point.precipitationAmountConvergencePercent

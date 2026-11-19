@@ -1227,6 +1227,7 @@
     <string name="condition_reason_invalid">Valeur ou code météorologique invalide</string>
     <string name="condition_reason_clouds">Certaines couches nuageuses manquent</string>
     <string name="condition_reason_precip">Cumul de précipitations de l’heure précédente</string>
+    <string name="condition_reason_precip_upcoming">Cumul de précipitations sur le créneau affiché</string>
     <string name="condition_reason_phase">Phase pluie/neige indéterminée</string>
     <string name="condition_reason_partial">Période partiellement observée par les modèles</string>
     <string name="condition_reason_majority">Majorité garantie malgré les heures manquantes</string>
@@ -1241,7 +1242,7 @@
     <string name="condition_detail_title">Détails de la prévision</string>
     <string name="condition_explanation_no_condition">Condition indéterminée</string>
     <string name="condition_explanation_window_title">Échéance ou période de calcul</string>
-    <string name="condition_explanation_window_hourly_note">Le code météo ou l’état du ciel décrit la condition à l’heure indiquée. Les cumuls et probabilités de précipitations horaires concernent l’heure précédente.</string>
+    <string name="condition_explanation_window_hourly_note">Le code météo et la nébulosité sont à l’heure affichée H. Le cumul et la probabilité de pluie de H+1 décrivent le créneau H–H+1.</string>
     <string name="condition_explanation_window_hourly_precip_note">La condition utilise les précipitations cumulées sur l’heure précédente (H−1 → H), avec la température à l’échéance si disponible.</string>
     <string name="condition_explanation_window_hourly_mixed_note">Le consensus combine des informations à l’échéance et des précipitations sur l’heure précédente. Les deux périodes sont indiquées.</string>
     <string name="condition_explanation_window_precipitation_label">Période des précipitations</string>

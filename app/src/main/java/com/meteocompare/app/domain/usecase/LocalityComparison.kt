@@ -9,6 +9,7 @@ import com.meteocompare.app.domain.util.forecastDailyWindDirection
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.validUvIndexOrNull
 import com.meteocompare.app.domain.util.forecastSolarWindow
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.ForecastSolarWindow
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.PrecipitationConfidence
@@ -495,14 +496,12 @@ fun buildLocalityHourMetrics(
     // rainfall and its probability at H+1 because they refer to the previous
     // hour; unlike instantaneous temperature/cloud/UV, these cannot use index i.
     // The lookup stays model-local and exact (including :15/:30 UTC offsets and DST).
-    val rain = medianAvailable(samples.mapNotNull { (data, _) ->
-        val next = data.timestamps.indexOf(instant.plusSeconds(3600L))
-        next.takeIf { it >= 0 }?.let { data.precipitation.getOrNull(it) }
+    val rain = medianAvailable(samples.mapNotNull { (data, i) ->
+        HourlySampling.precipitationForSlot(data, i).amountMm
             ?.takeIf { it.isFinite() && it >= 0.0 }
     })
-    val probability = medianAvailable(samples.mapNotNull { (data, _) ->
-        val next = data.timestamps.indexOf(instant.plusSeconds(3600L))
-        next.takeIf { it >= 0 }?.let { data.precipitationProbability.getOrNull(it) }
+    val probability = medianAvailable(samples.mapNotNull { (data, i) ->
+        HourlySampling.precipitationForSlot(data, i).probabilityPercent
             ?.takeIf { it in 0..100 }?.toDouble()
     })?.roundToInt()
     val clouds = medianAvailable(samples.mapNotNull { (data, i) ->

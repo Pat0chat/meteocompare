@@ -22,7 +22,7 @@ enum class ConditionStatus { RELIABLE, ESTIMATED, INCOMPLETE, AMBIGUOUS, UNAVAIL
 enum class ConditionOrigin { HOURLY_WMO, SAME_MODEL_VARIABLES, HOURLY_DOMINANT, DAILY_WMO_MAXIMUM, MODEL_CONSENSUS, NONE }
 enum class ConditionReason {
     MISSING_DATA, INVALID_WMO, INVALID_PHYSICAL_VALUE, PARTIAL_CLOUD_LAYERS,
-    PRECEDING_HOUR_PRECIPITATION, PRECIPITATION_PHASE_UNCERTAIN,
+    PRECEDING_HOUR_PRECIPITATION, UPCOMING_HOUR_PRECIPITATION, PRECIPITATION_PHASE_UNCERTAIN,
     PARTIAL_PERIOD, IRREVERSIBLE_MAJORITY, REPRESENTATIVE_SAMPLES,
     NO_DOMINANT_CONDITION, MISSING_SOLAR_WINDOW, MISSING_FOLLOWING_SUNRISE,
     MODEL_DISAGREEMENT, DAILY_WMO_IS_MAXIMUM
@@ -95,7 +95,31 @@ internal object ConditionDecisionEngine {
         })
     }
 
-    private fun classifyHour(hourly: HourlyForecast, index: Int): ConditionDecision {
+    /**
+     * Condition for the slot [H,H+1h), as used by Home, timelines and widgets.
+     * Native WMO / cloud / temperature at H are kept unchanged. In the absence
+     * of native WMO, the rain fallback reads the accumulation ending at H+1.
+     * This intentionally differs from [hourly], whose rainfall evidence is
+     * attributed to the historic interval [H-1h,H).
+     */
+    fun upcomingHour(hourly: HourlyForecast, index: Int): ConditionDecision {
+        if (index !in hourly.timestamps.indices) return missing()
+        val start = hourly.timestamps[index]
+        val nextIndex = HourlySampling.nextHourIndex(hourly, index)
+        return classifyHour(
+            hourly, index, nextIndex,
+            ConditionReason.UPCOMING_HOUR_PRECIPITATION
+        ).copy(timeWindow = ConditionTimeWindow(
+            start, start.plusSeconds(HOUR_SECONDS), kind = ConditionWindowKind.HOURLY
+        ))
+    }
+
+    private fun classifyHour(
+        hourly: HourlyForecast,
+        index: Int,
+        precipitationIndex: Int? = index,
+        precipitationReason: ConditionReason = ConditionReason.PRECEDING_HOUR_PRECIPITATION
+    ): ConditionDecision {
         val code = hourly.weatherCode.getOrNull(index)
         val native = WeatherCondition.fromWmoCode(code)?.takeUnless { it == WeatherCondition.UNKNOWN }
         if (native != null) {
@@ -113,12 +137,12 @@ internal object ConditionDecisionEngine {
         }
         val reasons = mutableSetOf<ConditionReason>()
         if (code != null) reasons += ConditionReason.INVALID_WMO
-        val precipitation = hourly.precipitation.getOrNull(index)
+        val precipitation = precipitationIndex?.let { hourly.precipitation.getOrNull(it) }
         if (precipitation != null && (!precipitation.isFinite() || precipitation < 0.0 || precipitation > 1000.0)) {
             reasons += ConditionReason.INVALID_PHYSICAL_VALUE
         }
         val validPrecipitation = precipitation?.takeIf { it.isFinite() && it in 0.0..1000.0 }
-        val occurrenceProbability = hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
+        val occurrenceProbability = precipitationIndex?.let { hourly.precipitationProbability.getOrNull(it) }?.takeIf { it in 0..100 }
         // An amount exceeding 0.1 mm can represent one possible scenario, not
         // necessarily the dominant outcome when a native P(rain) is below 50%.
         // In that case skip the derived wet icon and use independent sky evidence
@@ -134,7 +158,7 @@ internal object ConditionDecisionEngine {
                 validPrecipitation >= 1.0 -> WeatherCondition.RAIN_SHOWERS
                 else -> WeatherCondition.DRIZZLE
             }
-            reasons += ConditionReason.PRECEDING_HOUR_PRECIPITATION
+            reasons += precipitationReason
             if (temperature == null || temperature <= 2.0) {
                 return ConditionDecision(null, ConditionStatus.AMBIGUOUS,
                     ConditionOrigin.SAME_MODEL_VARIABLES, coverage = 1.0,

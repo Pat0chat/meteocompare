@@ -207,6 +207,32 @@ class WeatherScenarioBuilderTest {
         assertEquals(null, scenario.precipitationMaxMm)
     }
 
+    @Test
+    fun `scenario without WMO excludes past rain and uses rain of upcoming slot`() {
+        fun source(upcomingRain: Double): HourlyForecast = HourlyForecast(
+            timestamps = (0..12).map { now.plusSeconds(it * 3_600L) },
+            temperature2m = List(13) { 15.0 },
+            // H is the previous hour: it must NOT make the first slot wet.
+            precipitation = listOf(8.0, upcomingRain) + List(11) { 0.0 },
+            precipitationProbability = listOf(100, if (upcomingRain > 0.1) 90 else 0) + List(11) { 0 },
+            weatherCode = List(13) { null },
+            cloudCover = List(13) { 10 },
+            windSpeed10m = List(13) { 8.0 }
+        )
+        val dry = WeatherScenarioBuilder.next12h(
+            forecastOf(WeatherModel.GFS to source(0.0)), now
+        ).single()
+        assertEquals(WeatherScenarioKind.CLEAR, dry.kind)
+        assertEquals(0.0, dry.precipitationMinMm!!, 0.0)
+
+        val wet = WeatherScenarioBuilder.next12h(
+            forecastOf(WeatherModel.GFS to source(0.8)), now
+        ).single()
+        assertEquals(WeatherScenarioKind.SHOWERS, wet.kind)
+        assertEquals(WeatherScenarioTiming.EARLY, wet.timing)
+        assertEquals(0.8, wet.precipitationMinMm!!, 0.0)
+    }
+
     private fun simpleHourly(code: Int, cloud: Int, precip: Double): HourlyForecast = hourly(
         temperatures = List(12) { 15.0 },
         precipitations = List(12) { precip },

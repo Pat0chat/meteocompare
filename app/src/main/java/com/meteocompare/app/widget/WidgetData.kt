@@ -14,6 +14,7 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.forecastHourlyWindDirection
 import com.meteocompare.app.core.util.windCardinal
 import com.meteocompare.app.core.util.resolveZoneOrUtc
@@ -678,7 +679,7 @@ internal fun buildHourlyForecasts(
         val ts = hourly.timestamps[i]
         val label = ts.atZone(zone).format(formatter)
         val temp = hourly.temperature2m.getOrNull(i)
-        val conditionDecision = ConditionDecisionEngine.hourly(hourly, i)
+        val conditionDecision = ConditionDecisionEngine.upcomingHour(hourly, i)
         val condition = conditionDecision.condition
         WidgetForecastItem(
             label = label,
@@ -686,7 +687,7 @@ internal fun buildHourlyForecasts(
             temp = temp,
             conditionDecision = conditionDecision,
             cloudCoverPct = hourly.cloudCover.getOrNull(i),
-            precipProbabilityPct = hourly.precipitationProbability.getOrNull(i),
+            precipProbabilityPct = HourlySampling.precipitationForSlot(hourly, i).probabilityPercent,
             forecastConfidencePct = forecastConfidenceByTimestamp[ts]
         )
     }

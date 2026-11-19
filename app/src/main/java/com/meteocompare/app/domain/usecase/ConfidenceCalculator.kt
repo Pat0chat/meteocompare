@@ -450,7 +450,9 @@ class ConfidenceCalculator @Inject constructor(
     }
 
     /**
-     * Bandes de convergence horaires sur les précipitations (mm sur l'heure précédente).
+     * Bandes de convergence horaires sur les précipitations du créneau [H,H+1h).
+     * Le fournisseur les horodate à H+1 ; chaque bande est donc indexée à H
+     * pour rester comparable aux conditions WMO, températures et widgets.
      *
      * Utilise le consensus robuste : P(pluie) séparée de la quantité conditionnelle.
      * La ligne centrale et l'enveloppe de quantité sont construites dans le même
@@ -477,8 +479,9 @@ class ConfidenceCalculator @Inject constructor(
         return allTimestamps.mapNotNull timestamp@ { ts ->
             val rows = forecast.seriesByModel.mapNotNull row@ { (model, series) ->
                 val idx = indexed[model]?.get(ts) ?: return@row null
-                val amount = series.hourly.precipitation.getOrNull(idx)
-                val probability = series.hourly.precipitationProbability.getOrNull(idx)
+                val slot = HourlySampling.precipitationForSlot(series.hourly, idx)
+                val amount = slot.amountMm
+                val probability = slot.probabilityPercent
                 if (amount == null && probability == null) null
                 else ForecastConsensus.PrecipitationRow(model, amount, probability)
             }

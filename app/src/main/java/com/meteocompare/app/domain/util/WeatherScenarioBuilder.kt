@@ -90,16 +90,12 @@ object WeatherScenarioBuilder {
                         temperature = ForecastPhysicalLimits.temperature(series.hourly.temperature2m.getOrNull(index)),
                         // The scenario's slot is [H,H+1h): precipitation
                         // stamped H+1 accumulates over exactly that interval.
-                        precipitation = with(HourlySampling) {
-                            series.hourly.timestamps.exactIndex(target.plusSeconds(3_600L))
-                        }?.let { ForecastPhysicalLimits.precipitation(series.hourly.precipitation.getOrNull(it)) },
-                        // A derived wet condition at H belongs to the already elapsed
-                        // [H-1h,H) and must not make upcoming [H,H+1h) wet.
-                        condition = ConditionDecisionEngine.hourly(series.hourly, index).let { decision ->
-                            decision.condition.takeUnless {
-                                decision.timeWindow?.kind == ConditionWindowKind.HOURLY_PRECEDING
-                            }
-                        },
+                        precipitation = ForecastPhysicalLimits.precipitation(
+                            HourlySampling.precipitationForSlot(series.hourly, index).amountMm
+                        ),
+                        // Native WMO/cloud at H; if WMO is absent, infer wet weather
+                        // only from the same future slot [H,H+1h) (rain at H+1).
+                        condition = ConditionDecisionEngine.upcomingHour(series.hourly, index).condition,
                         cloudCover = ForecastPhysicalLimits.percentage(series.hourly.cloudCover.getOrNull(index)),
                         gust = ForecastPhysicalLimits.gust(series.hourly.windGusts10m.getOrNull(index))
                     )
