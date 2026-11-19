@@ -28,8 +28,13 @@ class ConditionTimeWindowContractTest(unittest.TestCase):
         self.assertIn('.inZone(zone)', engine)
         aggregate = (JAVA / 'domain/util/ForecastAggregates.kt').read_text(encoding='utf-8')
         self.assertIn('target.plusSeconds(3_600L)', aggregate)
-        self.assertIn('ConditionWindowKind.HOURLY_MIXED', aggregate)
-        self.assertIn('target.minusSeconds(3_600L)', aggregate)
+        # Upcoming hour [H,H+1h) uses native WMO at H and precipitation
+        # ending at H+1. Its diagnostic must NEVER describe H-1..H.
+        self.assertIn('ConditionWindowKind.HOURLY', aggregate)
+        self.assertIn('HourlySampling.precipitationForSlot(series.hourly, index)', aggregate)
+        self.assertIn('ConditionDecisionEngine.upcomingHour(series.hourly, index)', aggregate)
+        self.assertNotIn('ConditionWindowKind.HOURLY_MIXED', aggregate)
+        self.assertNotIn('target.minusSeconds(3_600L)', aggregate)
         self.assertIn('cityZone', aggregate)
         for file in ('ForecastConditionResolver.kt',):
             self.assertIn('timeWindow =', (JAVA / 'domain/util' / file).read_text(encoding='utf-8'))

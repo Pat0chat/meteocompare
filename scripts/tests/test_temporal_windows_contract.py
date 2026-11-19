@@ -39,11 +39,16 @@ class TemporalWindowsContractTest(unittest.TestCase):
         self.assertNotIn('instant.truncatedTo(ChronoUnit.HOURS)', daily)
 
     def test_future_twelve_hour_rain_is_aligned_with_both_ends(self):
+        sampler = (SOURCE/'domain/util/HourlySampling.kt').read_text(encoding='utf-8')
+        self.assertIn('start.plusSeconds(3_600L)', sampler)
         for filename in ('ForecastAggregates.kt', 'WeatherScenarioBuilder.kt'):
-            text = (SOURCE/'domain/util'/filename).read_text(encoding="utf-8")
-            self.assertIn('target.plusSeconds(3_600L)', text)
-        self.assertIn('ConditionWindowKind.HOURLY_PRECEDING',
-                      (SOURCE/'domain/util/WeatherScenarioBuilder.kt').read_text(encoding="utf-8"))
+            text = (SOURCE/'domain/util'/filename).read_text(encoding='utf-8')
+            self.assertIn('exactIndex(target)', text)
+            self.assertIn('HourlySampling.precipitationForSlot(series.hourly, index)', text)
+            self.assertIn('ConditionDecisionEngine.upcomingHour(series.hourly, index)', text)
+            self.assertNotIn('ConditionDecisionEngine.hourly(series.hourly, index)', text)
+        self.assertIn('ConditionWindowKind.HOURLY',
+                      (SOURCE/'domain/util/ForecastAggregates.kt').read_text(encoding='utf-8'))
 
     def test_bootstrap_uses_unambiguous_instants_and_next_midnight(self):
         api = (SOURCE/'data/remote/PreviousRunsApi.kt').read_text(encoding="utf-8")

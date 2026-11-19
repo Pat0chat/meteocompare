@@ -72,6 +72,45 @@ class HourlySlotAlignmentTest {
         assertEquals(90, HourlySampling.precipitationForSlot(source, 1).probabilityPercent)
     }
 
+    @Test fun `hourly gust is ending interval max whereas wind speed is instant`() {
+        val source = HourlyForecast(
+            timestamps = listOf(h, h.plusSeconds(3600), h.plusSeconds(7200)),
+            temperature2m = List(3) { 15.0 },
+            precipitation = listOf(9.0, 0.0, 0.0),
+            windSpeed10m = listOf(7.0, 8.0, 9.0),
+            windGusts10m = listOf(95.0, 17.0, 23.0)
+        )
+        assertEquals(7.0, source.windSpeed10m[0]!!, 0.0)
+        assertEquals(17.0, HourlySampling.gustForSlot(source, 0)!!, 0.0)
+        assertEquals(23.0, HourlySampling.gustForSlot(source, 1)!!, 0.0)
+        assertNull(HourlySampling.gustForSlot(source, 2))
+    }
+
+    @Test fun `gust never borrows a nonadjacent endpoint across a missing hour`() {
+        val source = HourlyForecast(
+            timestamps = listOf(h, h.plusSeconds(7200)),
+            temperature2m = List(2) { 15.0 },
+            precipitation = List(2) { 0.0 },
+            windSpeed10m = List(2) { 9.0 },
+            windGusts10m = listOf(90.0, 17.0)
+        )
+        assertNull(HourlySampling.gustForSlot(source, 0))
+        assertNull(HourlySampling.gustForSlot(source, 1))
+    }
+
+    @Test fun `spring DST gap moves by physical hour not by nonexistent local hour`() {
+        val start = Instant.parse("2026-03-29T00:00:00Z")
+        val zone = java.time.ZoneId.of("Europe/Paris")
+        val source = hourly(
+            listOf(start, start.plusSeconds(3600)),
+            rain = listOf(7.0, 0.6), probability = listOf(100, 65)
+        ).copy(windGusts10m = listOf(88.0, 22.0))
+        assertEquals(1, start.atZone(zone).hour)
+        assertEquals(3, start.plusSeconds(3600).atZone(zone).hour)
+        assertEquals(65, HourlySampling.precipitationForSlot(source, 0).probabilityPercent)
+        assertEquals(22.0, HourlySampling.gustForSlot(source, 0)!!, 0.0)
+    }
+
     @Test fun `half hour offset source timestamps stay exact`() {
         val start = Instant.parse("2026-11-19T06:30:00Z")
         val source = hourly(

@@ -52,6 +52,15 @@ internal object HourlySampling {
         )
     }
 
+    /** Wind speed is instantaneous at H; Open-Meteo's hourly gust maximum is
+     * generally stamped at the END of the preceding interval. For the displayed
+     * [H,H+1h) slot use H+1, never the already elapsed [H-1h,H) gust.
+     * Some provider models (e.g. ECMWF) aggregate gusts over longer windows;
+     * shifting an endpoint does not imply a true 1-hour measurement for them.
+     */
+    fun gustForSlot(hourly: HourlyForecast, atIndex: Int): Double? =
+        nextHourIndex(hourly, atIndex)?.let { hourly.windGusts10m.getOrNull(it) }
+
     /**
      * Retourne uniquement l'échéance exactement demandée.
      *

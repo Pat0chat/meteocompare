@@ -139,6 +139,23 @@ class LocalityComparisonTest {
         )), 0.001)
     }
 
+    @Test fun `solar day uses physical instants through the repeated autumn hour`() {
+        // Both UTC timestamps map to 02:00 in Paris, with distinct offsets.
+        // The first source value belongs to the hour BEFORE the window.
+        val at = Instant.parse("2026-10-25T00:00:00Z")
+        val timestamps = (0L..2L).map { at.plusSeconds(it * 3600) }
+        val zone = ZoneId.of("Europe/Paris")
+        assertEquals(2, timestamps[0].atZone(zone).hour)
+        assertEquals(2, timestamps[1].atZone(zone).hour)
+        // Synthetic daylight interval isolates the sampling convention from astronomy.
+        // Source 01Z and 02Z report 10 and 30 sunny minutes respectively.
+        val hours = estimateCloudAdjustedDaylight(
+            at, at.plusSeconds(7200), timestamps, List(3) { 95 },
+            sunshineDuration = listOf(3600.0, 600.0, 1800.0)
+        )
+        assertEquals(2.0 / 3.0, requireNotNull(hours), 0.001)
+    }
+
     @Test fun `bad solar values and missing hours never become artificial sunshine`() {
         val times = (0L until 3).map { rise.plusSeconds(it * 3600) }
         assertNull(estimateCloudAdjustedDaylight(

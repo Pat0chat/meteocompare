@@ -1427,7 +1427,7 @@ internal fun DetailedComparisonContent(
                             valueFormatter = { units.speed(it) },
                             heatmapStyler = ::hourlyWindHeatmap,
                             secondaryValueExtractor = { hourly, idx ->
-                                hourly.windGusts10m.getOrNull(idx)
+                                HourlySampling.gustForSlot(hourly, idx)
                             },
                             secondaryValueFormatter = { "$gustAbbreviation ${units.value(it, WeatherUnit.WIND_SPEED)}" },
                             directionExtractor = { hourly, idx ->

@@ -45,7 +45,9 @@ class EngineAuditTemporalTest(unittest.TestCase):
                          'ForecastPhysicalLimits.percentage(',
                          'ForecastPhysicalLimits.gust('):
             self.assertIn(expected, path)
-        self.assertIn('target.plusSeconds(3_600L)', path)
+        self.assertIn('HourlySampling.precipitationForSlot(series.hourly, index)', path)
+        self.assertIn('HourlySampling.gustForSlot(series.hourly, index)', path)
+        self.assertIn('series.hourly.timestamps.exactIndex(target)', path)
 
     def test_daily_moisture_and_pressure_deduplicate_after_metric_validation(self):
         moisture = (APP / 'domain/util/ForecastMoisture.kt').read_text(encoding="utf-8")

@@ -117,6 +117,9 @@ class GraphicForecastViewModelTest {
             // must display its following-hour accumulation under now.
             assertEquals(0.0, firstModel.precipitationMm!!, 0.0)
             assertEquals(10, firstModel.precipitationProbabilityPercent)
+            assertEquals(21.0, firstModel.windGustKmh!!, 0.0)
+            assertEquals(null, state.modelValuesByInstant.getValue(
+                now.plusSeconds(239 * 3_600L)).single().windGustKmh)
             assertEquals(null, state.modelValuesByInstant.getValue(
                 now.plusSeconds(239 * 3_600L)).single().precipitationMm)
             assertEquals(10, firstModel.cloudLowPercent)

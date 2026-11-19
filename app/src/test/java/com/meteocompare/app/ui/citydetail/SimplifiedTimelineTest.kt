@@ -364,6 +364,25 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `hourly timeline uses following gust not previous gust and leaves last missing`() {
+        val hourly = HourlyForecast(
+            timestamps = listOf(now, now.plusSeconds(3600)),
+            temperature2m = listOf(15.0, 15.0),
+            precipitation = listOf(99.0, 0.0),
+            windSpeed10m = listOf(12.0, 14.0),
+            windGusts10m = listOf(98.0, 24.0),
+            weatherCode = listOf(0, 0)
+        )
+        val model = WeatherModel.GFS
+        val forecast = CityForecast(paris, mapOf(model to ForecastSeries(model, hourly,
+            DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))))
+        val points = buildSimplifiedTimeline(forecast, DisplayMode.HOURLY, now)
+        assertEquals(24.0, points.first().windGustKmh!!, 0.001)
+        assertEquals(12.0, points.first().windKmh!!, 0.001)
+        assertEquals(null, points.last().windGustKmh)
+    }
+
+    @Test
     fun `hourly timeline exposes rain amount convergence separately from occurrence convergence`() {
         fun hourly(model: WeatherModel, amount: Double) = ForecastSeries(
             model = model,

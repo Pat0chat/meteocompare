@@ -388,7 +388,7 @@ private fun indexHourlySnapshots(
         val probability = slotPrecipitation.probabilityPercent
         val cloudCover = series.hourly.effectiveCloudCover(index)
         val wind = series.hourly.windSpeed10m.getOrNull(index)
-        val windGust = series.hourly.windGusts10m.getOrNull(index)
+        val windGust = HourlySampling.gustForSlot(series.hourly, index)
         val windDirection = series.hourly.windDirection10m.getOrNull(index)
         val decision = ConditionDecisionEngine.upcomingHour(series.hourly, index)
         val nativeCondition = decision.condition?.takeIf { decision.origin == ConditionOrigin.HOURLY_WMO }

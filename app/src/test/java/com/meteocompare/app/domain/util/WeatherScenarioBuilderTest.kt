@@ -147,6 +147,24 @@ class WeatherScenarioBuilderTest {
     }
 
     @Test
+    fun `scenario wind gust maximum belongs to the twelve upcoming intervals`() {
+        val source = HourlyForecast(
+            timestamps = (0..12).map { now.plusSeconds(it * 3_600L) },
+            temperature2m = List(13) { 15.0 },
+            precipitation = List(13) { 0.0 },
+            windSpeed10m = List(13) { 10.0 },
+            // 99 ending at H belongs to the preceding hour, not the next 12.
+            windGusts10m = listOf(99.0) + List(11) { 20.0 } + listOf(45.0),
+            weatherCode = List(13) { 0 },
+            cloudCover = List(13) { 5 }
+        )
+        val scenario = WeatherScenarioBuilder.next12h(
+            forecastOf(WeatherModel.GFS to source), now
+        ).single()
+        assertEquals(45.0, scenario.gustMaxKmh!!, 0.001)
+    }
+
+    @Test
     fun `12h rain total excludes preceding hour and includes ending hour`() {
         val samples = (0..12).map { offset ->
             now.plusSeconds(offset * 3600L)

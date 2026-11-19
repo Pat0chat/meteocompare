@@ -97,7 +97,7 @@ object WeatherScenarioBuilder {
                         // only from the same future slot [H,H+1h) (rain at H+1).
                         condition = ConditionDecisionEngine.upcomingHour(series.hourly, index).condition,
                         cloudCover = ForecastPhysicalLimits.percentage(series.hourly.cloudCover.getOrNull(index)),
-                        gust = ForecastPhysicalLimits.gust(series.hourly.windGusts10m.getOrNull(index))
+                        gust = ForecastPhysicalLimits.gust(HourlySampling.gustForSlot(series.hourly, index))
                     )
                 )
             }

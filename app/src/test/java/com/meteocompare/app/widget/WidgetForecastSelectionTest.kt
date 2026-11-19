@@ -163,15 +163,17 @@ class WidgetForecastSelectionTest {
     @Test
     fun `hourly fusionne les modeles disponibles avec le consensus v2`() {
         val now = Instant.parse("2026-07-17T10:15:00Z")
-        val timestamps = (1L..5L).map { now.plusSeconds(it * 3600) }
+        // Five display slots (11h–16h) require six endpoint timestamps.
+        // The sixth timestamp supplies the rain probability of 15h–16h.
+        val timestamps = (1L..6L).map { Instant.parse("2026-07-17T10:00:00Z").plusSeconds(it * 3600) }
         val fineWithoutDetails = ForecastSeries(
             model = WeatherModel.AROME_FRANCE_HD,
             hourly = HourlyForecast(
                 timestamps = timestamps,
-                temperature2m = List(5) { 20.0 },
-                precipitation = List(5) { 0.0 },
-                windSpeed10m = List(5) { 8.0 },
-                weatherCode = List(5) { 1 }
+                temperature2m = List(6) { 20.0 },
+                precipitation = List(6) { 0.0 },
+                windSpeed10m = List(6) { 8.0 },
+                weatherCode = List(6) { 1 }
             ),
             daily = emptyDaily()
         )
@@ -179,12 +181,12 @@ class WidgetForecastSelectionTest {
             model = WeatherModel.GFS,
             hourly = HourlyForecast(
                 timestamps = timestamps,
-                temperature2m = listOf(18.0, 19.0, 20.0, 21.0, 22.0),
-                precipitation = List(5) { 0.0 },
-                windSpeed10m = List(5) { 9.0 },
-                weatherCode = List(5) { 2 },
-                precipitationProbability = listOf(10, 20, 30, 40, 50),
-                cloudCover = listOf(25, 35, 45, 55, 65)
+                temperature2m = listOf(18.0, 19.0, 20.0, 21.0, 22.0, 23.0),
+                precipitation = List(6) { 0.0 },
+                windSpeed10m = List(6) { 9.0 },
+                weatherCode = List(6) { 2 },
+                precipitationProbability = listOf(0, 10, 20, 30, 40, 50),
+                cloudCover = listOf(25, 35, 45, 55, 65, 75)
             ),
             daily = emptyDaily()
         )
@@ -204,10 +206,38 @@ class WidgetForecastSelectionTest {
 
         assertEquals(listOf(19.0, 19.5, 20.0, 20.5, 21.0), items.map { it.temp })
         assertEquals(listOf(25, 35, 45, 55, 65), items.map { it.cloudCoverPct })
+        // At H, GFS probability is for the preceding hour. The slot H–H+1
+        // instead takes the GFS value stamped H+1, halved by the dry AROME vote.
         assertEquals(listOf(5, 10, 15, 20, 25), items.map { it.precipProbabilityPct })
         // Estimation solaire de la timeline réelle : ciel dégagé équivalent,
         // disponible seulement quand le soleil et les nuages sont connus.
         assertTrue(items.all { item -> item.estimatedSunHours?.let { it in 0.0..1.0 } == true })
+    }
+
+    @Test
+    fun `widget five hours do not reuse preceding probability without sixth endpoint`() {
+        val firstHour = Instant.parse("2026-07-17T11:00:00Z")
+        val timestamps = (0L..4L).map { firstHour.plusSeconds(it * 3600) }
+        val hourly = HourlyForecast(
+            timestamps = timestamps,
+            temperature2m = List(5) { 20.0 },
+            precipitation = List(5) { 0.0 },
+            precipitationProbability = listOf(100, 10, 20, 30, 40),
+            windSpeed10m = List(5) { 10.0 },
+            weatherCode = List(5) { 0 },
+            cloudCover = List(5) { 0 }
+        )
+        val forecast = CityForecast(city, mapOf(
+            WeatherModel.GFS to ForecastSeries(WeatherModel.GFS, hourly, emptyDaily())
+        ))
+        val items = buildForecasts(
+            forecast, ForecastMode.HOURLY, city.timezone,
+            now = firstHour.minusSeconds(60)
+        )
+        assertEquals(5, items.size)
+        // The first 100% is for the past. Only the following four endpoints
+        // belong to displayed intervals, and the fifth is genuinely missing.
+        assertEquals(listOf(10, 20, 30, 40, null), items.map { it.precipProbabilityPct })
     }
 
     @Test

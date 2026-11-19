@@ -313,7 +313,7 @@ class GraphicForecastViewModel @Inject constructor(
                         val precipitation = slotPrecipitation.amountMm
                         val probability = slotPrecipitation.probabilityPercent
                         val wind = series.hourly.windSpeed10m.getOrNull(index)
-                        val gust = series.hourly.windGusts10m.getOrNull(index)
+                        val gust = HourlySampling.gustForSlot(series.hourly, index)
                         val direction = series.hourly.windDirection10m.getOrNull(index)
                         if (temperature == null && precipitation == null && probability == null &&
                             wind == null && gust == null && direction == null &&
