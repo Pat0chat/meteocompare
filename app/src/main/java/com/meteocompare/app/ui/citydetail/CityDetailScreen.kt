@@ -715,6 +715,8 @@ private fun LoadedView(
     var timelineLayoutName by rememberSaveable(forecast.city.id) {
         mutableStateOf(TimelineLayout.COLUMNS.name)
     }
+    // Shared by the daily column and chronological views; disabled by default.
+    var showDailyRanges by rememberSaveable(forecast.city.id) { mutableStateOf(false) }
     val timelineLayout = remember(timelineLayoutName) {
         TimelineLayout.entries.firstOrNull { it.name == timelineLayoutName } ?: TimelineLayout.COLUMNS
     }
@@ -928,6 +930,8 @@ private fun LoadedView(
                     },
                     availableRanges = timelineAvailableRanges,
                     layout = timelineLayout,
+                    showDailyRanges = showDailyRanges,
+                    onShowDailyRangesChange = { showDailyRanges = it },
                     onLayoutChange = { newLayout ->
                         timelineLayoutName = newLayout.name
                     },

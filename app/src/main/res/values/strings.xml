@@ -535,6 +535,7 @@
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours.</string>
     <string name="timeline_layout_aria">Affichage de la chronologie</string>
     <string name="timeline_layout_columns">Colonnes</string>
+    <string name="timeline_show_ranges">Afficher les plages</string>
     <string name="timeline_layout_chrono">Frise</string>
     <string name="timeline_date_label">Date</string>
     <string name="timeline_disagreement_hint">Le score indique la convergence ; les icônes signalent les variables qui divergent.</string>

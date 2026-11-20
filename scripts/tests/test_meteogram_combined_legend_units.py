@@ -44,7 +44,7 @@ class MeteogramCombinedLegendUnitsTest(unittest.TestCase):
                       if part.lstrip().startswith('PressureColor,')), None)
         self.assertIsNotNone(entry)
         self.assertIn('R.string.meteogram_pressure', entry)
-        self.assertIn('units.imperial', entry)
+        self.assertIn('units.pressureInInHg', entry)
         self.assertIn('"inHg"', entry)
         self.assertIn('"hPa"', entry)
 

@@ -526,6 +526,7 @@ Daten</string>
     <string name="timeline_subtitle_daily">Konsens der verfügbaren Modelle für die nächsten Tage</string>
     <string name="timeline_layout_aria">Darstellung der Zeitleiste</string>
     <string name="timeline_layout_columns">Spalten</string>
+    <string name="timeline_show_ranges">Wertebereiche anzeigen</string>
     <string name="timeline_layout_chrono">Zeitstrahl</string>
     <string name="timeline_date_label">Datum</string>
     <string name="timeline_disagreement_hint">Der Wert zeigt die Konvergenz; Symbole markieren abweichende Variablen.</string>

@@ -533,6 +533,7 @@
     <string name="timeline_subtitle_daily">Önümüzdeki günler için mevcut modellerin uzlaşısı</string>
     <string name="timeline_layout_aria">Zaman çizelgesi görünümü</string>
     <string name="timeline_layout_columns">Sütunlar</string>
+    <string name="timeline_show_ranges">Aralıkları göster</string>
     <string name="timeline_layout_chrono">Zaman çizelgesi</string>
     <string name="timeline_date_label">Tarih</string>
     <string name="timeline_disagreement_hint">Puan uyumu gösterir; simgeler farklılaşan değişkenleri işaretler.</string>

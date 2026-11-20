@@ -101,7 +101,7 @@ class UnitSystemDisplayTest {
         composeRule.setContent {
             displayLocale = LocalLocale.current.platformLocale
             CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selection.value, choices)) {
-                MeteoCompareTheme { ChronoTimelineView(listOf(point), DisplayMode.DAILY, "UTC", now) }
+                MeteoCompareTheme { ChronoTimelineView(listOf(point), DisplayMode.DAILY, "UTC", now, showDailyRanges = true) }
             }
         }
         composeRule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true)
@@ -228,7 +228,7 @@ class UnitSystemDisplayTest {
                 MeteoCompareTheme {
                     SimplifiedTimelineCard(
                         points = listOf(point), mode = DisplayMode.DAILY, timezone = "UTC",
-                        layout = TimelineLayout.COLUMNS, now = now
+                        layout = TimelineLayout.COLUMNS, now = now, showDailyRanges = true
                     )
                 }
             }
@@ -265,7 +265,7 @@ class UnitSystemDisplayTest {
         var displayLocale = Locale.getDefault()
         composeRule.setContent {
             displayLocale = LocalLocale.current.platformLocale
-            MeteoCompareTheme { ChronoTimelineView(listOf(point), DisplayMode.DAILY, "UTC", now) }
+            MeteoCompareTheme { ChronoTimelineView(listOf(point), DisplayMode.DAILY, "UTC", now, showDailyRanges = true) }
         }
         val ranges = mapOf(
             "timeline_daily_rain_probability_range" to "(20–90%)",

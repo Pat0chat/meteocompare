@@ -527,6 +527,7 @@ datos</string>
     <string name="timeline_subtitle_daily">Consenso de los modelos disponibles para los próximos días</string>
     <string name="timeline_layout_aria">Vista de la cronología</string>
     <string name="timeline_layout_columns">Columnas</string>
+    <string name="timeline_show_ranges">Mostrar intervalos</string>
     <string name="timeline_layout_chrono">Friso temporal</string>
     <string name="timeline_date_label">Fecha</string>
     <string name="timeline_disagreement_hint">El valor muestra la convergencia; los iconos señalan las variables que divergen.</string>

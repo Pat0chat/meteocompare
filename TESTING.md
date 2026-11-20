@@ -332,3 +332,29 @@ a réussi dans l'environnement d'édition : **35 tests exécutés avec succès**
 La chaîne Gradle Android n'y était pas installée et son téléchargement était
 bloqué ; **la suite Android (tests Compose et builder Android) reste à
 exécuter** avant publication.
+
+
+## Chronologie quotidienne — affichage facultatif et compact des plages
+
+Le contrôle **Afficher les plages / Show ranges** est disponible uniquement en mode
+*Daily*. Il est désactivé par défaut et son état est partagé entre les modes
+*Columns* et *Timeline/Frise* tant que la ville est ouverte (restauré lors d'un
+changement de configuration Android via `rememberSaveable`). Il ne modifie ni
+le modèle météo ni le système d'unités. Les plages ne s'affichent que si deux
+modèles au moins ont fourni des bornes valides.
+
+Cas de non-régression :
+
+- Basculer *Daily columns → Frise → Columns* avec l'option cochée, puis la
+  désactiver ; aucun libellé de plage ne doit subsister.
+- En *Hourly*, ne jamais voir l'option, ni des plages de type *daily*.
+- Les températures de la frise conservent leurs plages hors des courbes ; les
+  autres grandeurs sont sur la même ligne quand les deux textes entiers tiennent,
+  sinon sur la ligne suivante, y compris à grande échelle de police.
+- Vérifier à la fois les valeurs et les bornes en profils metric, imperial, UK
+  et custom (°F, kn, inHg, inches), notamment après annulation du popup Custom.
+- Comparer visuellement l'alignement des lignes et la lecture des jours sur
+  un téléphone étroit et une tablette, avec et sans plages.
+
+Tests JVM dédiés : `DailyRangePlacementTest`.
+Tests Compose : `DailyRangeLayoutComposeTest`, `UnitSystemDisplayTest`.

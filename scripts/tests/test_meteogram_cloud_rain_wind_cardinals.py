@@ -52,7 +52,7 @@ class MeteorogramSeparationTest(unittest.TestCase):
         for layer in ('low', 'mid', 'high'):
             self.assertIn(f'meteogram_cloud_{layer})}} (%)', legend)
         self.assertIn('units.precipitationUnit', legend)
-        self.assertIn('if (units.imperial) "inHg" else "hPa"', legend)
+        self.assertIn('if (units.pressureInInHg) "inHg" else "hPa"', legend)
         self.assertNotIn('meteogram_wind', legend)
         self.assertNotIn('emphasized', legend)
 

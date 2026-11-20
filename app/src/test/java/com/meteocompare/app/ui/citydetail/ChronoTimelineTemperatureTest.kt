@@ -40,6 +40,16 @@ class ChronoTimelineTemperatureTest {
     }
 
     @Test
+    fun daily_ranges_expand_only_the_display_that_needs_room() {
+        assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY))
+        assertEquals(174.dp, chronoPointWidth(DisplayMode.DAILY, true))
+        assertEquals(96.dp, chronoPointWidth(DisplayMode.HOURLY, true))
+        assertEquals(112.dp, timelineColumnWidth(DisplayMode.DAILY, false))
+        assertEquals(166.dp, timelineColumnWidth(DisplayMode.DAILY, true))
+        assertEquals(112.dp, timelineColumnWidth(DisplayMode.HOURLY, true))
+    }
+
+    @Test
     fun daily_temperature_curves_use_the_same_heatmap_palette_as_hourly() {
         val fallback = Color.Magenta
         val values = listOf(-3.0, 8.0, 24.0, null)
