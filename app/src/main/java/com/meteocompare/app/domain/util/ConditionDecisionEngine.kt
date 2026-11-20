@@ -10,7 +10,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.math.max
 import kotlin.math.min
 
@@ -23,11 +22,31 @@ enum class ConditionStatus { RELIABLE, ESTIMATED, INCOMPLETE, AMBIGUOUS, UNAVAIL
 enum class ConditionOrigin { HOURLY_WMO, SAME_MODEL_VARIABLES, HOURLY_DOMINANT, DAILY_WMO_MAXIMUM, MODEL_CONSENSUS, NONE }
 enum class ConditionReason {
     MISSING_DATA, INVALID_WMO, INVALID_PHYSICAL_VALUE, PARTIAL_CLOUD_LAYERS,
-    PRECEDING_HOUR_PRECIPITATION, PRECIPITATION_PHASE_UNCERTAIN,
+    PRECEDING_HOUR_PRECIPITATION, UPCOMING_HOUR_PRECIPITATION, PRECIPITATION_PHASE_UNCERTAIN,
     PARTIAL_PERIOD, IRREVERSIBLE_MAJORITY, REPRESENTATIVE_SAMPLES,
     NO_DOMINANT_CONDITION, MISSING_SOLAR_WINDOW, MISSING_FOLLOWING_SUNRISE,
     MODEL_DISAGREEMENT, DAILY_WMO_IS_MAXIMUM
 }
+/** Temporal meaning of the evidence, not merely a one-hour display slot.
+ * HOURLY: WMO / cloud conditions at the timestamp H (instantaneous).
+ * HOURLY_PRECEDING: precipitation accumulation/probability over [H-1h, H).
+ * HOURLY_MIXED: a multi-model vote uses both instantaneous and preceding-hour data.
+ * PERIOD: daily or solar aggregation over [start, endExclusive), including DST.
+ */
+enum class ConditionWindowKind { HOURLY, HOURLY_PRECEDING, HOURLY_MIXED, PERIOD }
+data class ConditionTimeWindow(
+    val start: Instant,
+    val endExclusive: Instant,
+    val zone: ZoneId? = null,
+    val kind: ConditionWindowKind = ConditionWindowKind.PERIOD
+) {
+    init { require(start < endExclusive) }
+}
+
+/** Attach the destination city timezone without altering the UTC evidence window. */
+internal fun ConditionDecision.inZone(zone: ZoneId): ConditionDecision =
+    copy(timeWindow = timeWindow?.copy(zone = zone))
+
 data class ConditionDecision(
     val condition: WeatherCondition?,
     val status: ConditionStatus,
@@ -37,7 +56,8 @@ data class ConditionDecision(
     val alternatives: List<WeatherCondition> = emptyList(),
     val reasons: Set<ConditionReason> = emptySet(),
     /** Most severe *represented* hourly phenomenon; never substitutes the dominant icon. */
-    val notablePhenomenon: WeatherCondition? = null
+    val notablePhenomenon: WeatherCondition? = null,
+    val timeWindow: ConditionTimeWindow? = null
 ) {
     init {
         require(coverage.isFinite() && coverage in 0.0..1.0)
@@ -58,6 +78,48 @@ internal object ConditionDecisionEngine {
 
     fun hourly(hourly: HourlyForecast, index: Int): ConditionDecision {
         if (index !in hourly.timestamps.indices) return missing()
+        // Open-Meteo returns local wall-clock hours. In half-hour offset zones
+        // (e.g. Asia/Kolkata), their UTC instants are not on a UTC whole hour.
+        // Preserve the original timestamp rather than truncating away 30 minutes.
+        val start = hourly.timestamps[index]
+        val decision = classifyHour(hourly, index)
+        val precipitationEvidence = ConditionReason.PRECEDING_HOUR_PRECIPITATION in decision.reasons
+        return decision.copy(timeWindow = if (precipitationEvidence) {
+            ConditionTimeWindow(start.minusSeconds(HOUR_SECONDS), start,
+                kind = ConditionWindowKind.HOURLY_PRECEDING)
+        } else {
+            // The end is a metadata sentinel for the hourly slot; the UI displays
+            // only H because the WMO/cloud evidence itself is instantaneous.
+            ConditionTimeWindow(start, start.plusSeconds(HOUR_SECONDS),
+                kind = ConditionWindowKind.HOURLY)
+        })
+    }
+
+    /**
+     * Condition for the slot [H,H+1h), as used by Home, timelines and widgets.
+     * Native WMO / cloud / temperature at H are kept unchanged. In the absence
+     * of native WMO, the rain fallback reads the accumulation ending at H+1.
+     * This intentionally differs from [hourly], whose rainfall evidence is
+     * attributed to the historic interval [H-1h,H).
+     */
+    fun upcomingHour(hourly: HourlyForecast, index: Int): ConditionDecision {
+        if (index !in hourly.timestamps.indices) return missing()
+        val start = hourly.timestamps[index]
+        val nextIndex = HourlySampling.nextHourIndex(hourly, index)
+        return classifyHour(
+            hourly, index, nextIndex,
+            ConditionReason.UPCOMING_HOUR_PRECIPITATION
+        ).copy(timeWindow = ConditionTimeWindow(
+            start, start.plusSeconds(HOUR_SECONDS), kind = ConditionWindowKind.HOURLY
+        ))
+    }
+
+    private fun classifyHour(
+        hourly: HourlyForecast,
+        index: Int,
+        precipitationIndex: Int? = index,
+        precipitationReason: ConditionReason = ConditionReason.PRECEDING_HOUR_PRECIPITATION
+    ): ConditionDecision {
         val code = hourly.weatherCode.getOrNull(index)
         val native = WeatherCondition.fromWmoCode(code)?.takeUnless { it == WeatherCondition.UNKNOWN }
         if (native != null) {
@@ -75,12 +137,12 @@ internal object ConditionDecisionEngine {
         }
         val reasons = mutableSetOf<ConditionReason>()
         if (code != null) reasons += ConditionReason.INVALID_WMO
-        val precipitation = hourly.precipitation.getOrNull(index)
+        val precipitation = precipitationIndex?.let { hourly.precipitation.getOrNull(it) }
         if (precipitation != null && (!precipitation.isFinite() || precipitation < 0.0 || precipitation > 1000.0)) {
             reasons += ConditionReason.INVALID_PHYSICAL_VALUE
         }
         val validPrecipitation = precipitation?.takeIf { it.isFinite() && it in 0.0..1000.0 }
-        val occurrenceProbability = hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
+        val occurrenceProbability = precipitationIndex?.let { hourly.precipitationProbability.getOrNull(it) }?.takeIf { it in 0..100 }
         // An amount exceeding 0.1 mm can represent one possible scenario, not
         // necessarily the dominant outcome when a native P(rain) is below 50%.
         // In that case skip the derived wet icon and use independent sky evidence
@@ -96,7 +158,7 @@ internal object ConditionDecisionEngine {
                 validPrecipitation >= 1.0 -> WeatherCondition.RAIN_SHOWERS
                 else -> WeatherCondition.DRIZZLE
             }
-            reasons += ConditionReason.PRECEDING_HOUR_PRECIPITATION
+            reasons += precipitationReason
             if (temperature == null || temperature <= 2.0) {
                 return ConditionDecision(null, ConditionStatus.AMBIGUOUS,
                     ConditionOrigin.SAME_MODEL_VARIABLES, coverage = 1.0,
@@ -168,6 +230,7 @@ internal object ConditionDecisionEngine {
             ConditionReason.MISSING_FOLLOWING_SUNRISE else ConditionReason.MISSING_SOLAR_WINDOW))
         if (end <= start) return missing(setOf(ConditionReason.MISSING_SOLAR_WINDOW))
         return periodBetween(series, start, end, dailyIndex, period == DailyConditionPeriod.FULL_DAY)
+            .inZone(zone)
     }
 
     /** For deterministic fixture testing, independent of sunrise/sunset lookup. */
@@ -175,36 +238,55 @@ internal object ConditionDecisionEngine {
         series: ForecastSeries, start: Instant, end: Instant,
         dailyIndex: Int = -1, allowDailyMaximum: Boolean = false
     ): ConditionDecision {
+        if (end <= start) return missing()
+        return classifyPeriodBetween(series, start, end, dailyIndex, allowDailyMaximum)
+            .copy(timeWindow = ConditionTimeWindow(start, end))
+    }
+
+    private fun classifyPeriodBetween(
+        series: ForecastSeries, start: Instant, end: Instant,
+        dailyIndex: Int, allowDailyMaximum: Boolean
+    ): ConditionDecision {
         val duration = Duration.between(start, end).seconds
         if (duration <= 0) return missing()
-        // WMO at H describes the weather at H, represented for the bucket [H,H+1h).
-        // Use real UTC instants: DST creates 23/25 distinct buckets, never duplicates.
-        // Deduplicate repeated instants; native WMO supersedes derived evidence.
-        val buckets = linkedMapOf<Instant, ConditionDecision>()
-        series.hourly.timestamps.indices.forEach { i ->
-            val timestamp = series.hourly.timestamps[i].truncatedTo(ChronoUnit.HOURS)
-            if (timestamp >= end || timestamp.plusSeconds(HOUR_SECONDS) <= start) return@forEach
-            val decision = hourly(series.hourly, i)
-            val previous = buckets[timestamp]
-            if (previous == null || (previous.origin != ConditionOrigin.HOURLY_WMO &&
-                decision.origin == ConditionOrigin.HOURLY_WMO) ||
-                (previous.condition == null && decision.condition != null)) {
-                buckets[timestamp] = decision
-            }
+        // WMO describes the instant H (projected into [H,H+1h) to determine
+        // a period's dominant weather); precipitation-derived weather instead
+        // describes the preceding accumulation interval [H-1h,H).
+        // Never truncate UTC instants: half-hour zones have :30 UTC anchors.
+        // On overlapping evidence, native WMO wins and time is counted ONCE.
+        val byInstant = linkedMapOf<Instant, ConditionDecision>()
+        series.hourly.timestamps.indices.forEach { index ->
+            val timestamp = series.hourly.timestamps[index]
+            val decision = hourly(series.hourly, index)
+            val window = decision.timeWindow ?: return@forEach
+            if (!window.endExclusive.isAfter(start) || !window.start.isBefore(end)) return@forEach
+            val previous = byInstant[timestamp]
+            if (previous == null ||
+                (previous.origin != ConditionOrigin.HOURLY_WMO && decision.origin == ConditionOrigin.HOURLY_WMO) ||
+                (previous.condition == null && decision.condition != null)
+            ) byInstant[timestamp] = decision
         }
+        val evidence = byInstant.values.filter { it.condition != null && it.timeWindow != null }
+        val boundaries = (listOf(start, end) + evidence.flatMap { decision ->
+            val window = requireNotNull(decision.timeWindow)
+            listOf(maxOf(start, window.start), minOf(end, window.endExclusive))
+        }).filter { !it.isBefore(start) && !it.isAfter(end) }.distinct().sorted()
         val counts = mutableMapOf<WeatherCondition, Long>()
         val coveredRanges = mutableListOf<Pair<Instant, Instant>>()
         var hasDerived = false
-        buckets.toSortedMap().forEach { (hour, decision) ->
-            val c = decision.condition ?: return@forEach
-            val sliceStart = if (hour > start) hour else start
-            val bucketEnd = hour.plusSeconds(HOUR_SECONDS)
-            val sliceEnd = if (bucketEnd < end) bucketEnd else end
+        boundaries.zipWithNext().forEach { (sliceStart, sliceEnd) ->
             val seconds = Duration.between(sliceStart, sliceEnd).seconds
-            if (seconds <= 0) return@forEach
-            counts[c] = (counts[c] ?: 0L) + seconds
-            coveredRanges.add(sliceStart to sliceEnd)
-            if (decision.origin != ConditionOrigin.HOURLY_WMO) hasDerived = true
+            if (seconds <= 0L) return@forEach
+            val selected = evidence.asSequence().filter { decision ->
+                val window = requireNotNull(decision.timeWindow)
+                !window.start.isAfter(sliceStart) && !window.endExclusive.isBefore(sliceEnd)
+            }.maxWithOrNull(compareBy<ConditionDecision> {
+                if (it.origin == ConditionOrigin.HOURLY_WMO) 2 else 1
+            }.thenBy { if (it.status == ConditionStatus.RELIABLE) 1 else 0 }) ?: return@forEach
+            val condition = requireNotNull(selected.condition)
+            counts[condition] = (counts[condition] ?: 0L) + seconds
+            coveredRanges += sliceStart to sliceEnd
+            if (selected.origin != ConditionOrigin.HOURLY_WMO) hasDerived = true
         }
         val covered = counts.values.sum().coerceAtMost(duration)
         val coverage = covered.toDouble() / duration

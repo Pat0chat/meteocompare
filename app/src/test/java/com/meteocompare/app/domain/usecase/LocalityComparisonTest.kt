@@ -139,6 +139,23 @@ class LocalityComparisonTest {
         )), 0.001)
     }
 
+    @Test fun `solar day uses physical instants through the repeated autumn hour`() {
+        // Both UTC timestamps map to 02:00 in Paris, with distinct offsets.
+        // The first source value belongs to the hour BEFORE the window.
+        val at = Instant.parse("2026-10-25T00:00:00Z")
+        val timestamps = (0L..2L).map { at.plusSeconds(it * 3600) }
+        val zone = ZoneId.of("Europe/Paris")
+        assertEquals(2, timestamps[0].atZone(zone).hour)
+        assertEquals(2, timestamps[1].atZone(zone).hour)
+        // Synthetic daylight interval isolates the sampling convention from astronomy.
+        // Source 01Z and 02Z report 10 and 30 sunny minutes respectively.
+        val hours = estimateCloudAdjustedDaylight(
+            at, at.plusSeconds(7200), timestamps, List(3) { 95 },
+            sunshineDuration = listOf(3600.0, 600.0, 1800.0)
+        )
+        assertEquals(2.0 / 3.0, requireNotNull(hours), 0.001)
+    }
+
     @Test fun `bad solar values and missing hours never become artificial sunshine`() {
         val times = (0L until 3).map { rise.plusSeconds(it * 3600) }
         assertNull(estimateCloudAdjustedDaylight(
@@ -339,10 +356,12 @@ class LocalityComparisonTest {
         )
         fun series(model: WeatherModel, temp: Double, rain: Double, clouds: Int, probability: Int) =
             ForecastSeries(model, HourlyForecast(
-                timestamps = listOf(target), temperature2m = listOf(temp),
-                precipitation = listOf(rain), windSpeed10m = listOf(18.0),
-                windDirection10m = listOf(if (model == WeatherModel.GFS) 350 else 10),
-                precipitationProbability = listOf(probability), cloudCover = listOf(clouds)
+                timestamps = listOf(target, target.plusSeconds(3600)),
+                temperature2m = listOf(temp, temp),
+                // Prior-hour signal differs deliberately from H -> H+1.
+                precipitation = listOf(99.0, rain), windSpeed10m = listOf(18.0, 18.0),
+                windDirection10m = List(2) { if (model == WeatherModel.GFS) 350 else 10 },
+                precipitationProbability = listOf(100, probability), cloudCover = List(2) { clouds }
             ), daily)
         val forecast = CityForecast(
             City("hour", "Hour", null, "France", 48.0, 2.0, "UTC"),
@@ -369,6 +388,28 @@ class LocalityComparisonTest {
         assertEquals(7.8, dayMetrics.uvMax!!, 0.001)
         assertEquals(350, dayMetrics.windDirectionDeg)
         assertNull(buildLocalityHourMetrics(forecast, date, 13, calculator, uv))
+    }
+
+    @Test fun localityHourRainDoesNotBorrowPreviousHourWhenNextSampleIsMissing() {
+        val target = Instant.parse("2026-06-20T14:00:00Z")
+        val hourly = HourlyForecast(
+            timestamps = listOf(target), temperature2m = listOf(18.0),
+            precipitation = listOf(4.0), windSpeed10m = emptyList(),
+            precipitationProbability = listOf(95), cloudCover = listOf(40)
+        )
+        val daily = DailyForecast(
+            dates = listOf(day), tempMax = listOf(25.0), tempMin = listOf(12.0),
+            precipitationSum = listOf(4.0), windSpeedMax = listOf(10.0)
+        )
+        val forecast = CityForecast(
+            City("one", "One", null, "France", 48.0, 2.0, "UTC"),
+            mapOf(WeatherModel.GFS to ForecastSeries(WeatherModel.GFS, hourly, daily))
+        )
+        val result = requireNotNull(buildLocalityHourMetrics(
+            forecast, day, 14, ConfidenceCalculator(EqualWeighting())
+        ))
+        assertNull(result.precipitationMm)
+        assertNull(result.rainProbabilityPercent)
     }
 
     @Test fun hourlyUv_respectsFractionalTimeZoneOffsets() {

@@ -1209,6 +1209,7 @@ Daten</string>
     <string name="condition_reason_invalid">Ungültiger Wettercode oder Messwert</string>
     <string name="condition_reason_clouds">Einige Wolkenschichten fehlen</string>
     <string name="condition_reason_precip">Niederschlag der vorherigen Stunde</string>
+    <string name="condition_reason_precip_upcoming">Niederschlag im angezeigten Stundenintervall</string>
     <string name="condition_reason_phase">Regen- oder Schneefall nicht eindeutig</string>
     <string name="condition_reason_partial">Zeitraum nur teilweise abgedeckt</string>
     <string name="condition_reason_majority">Mehrheit trotz fehlender Stunden nachgewiesen</string>
@@ -1222,8 +1223,24 @@ Daten</string>
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Vorhersagedetails</string>
     <string name="condition_explanation_no_condition">Wetterlage unbestimmt</string>
+    <string name="condition_explanation_window_title">Prognosezeitpunkt oder Berechnungszeitraum</string>
+    <string name="condition_explanation_window_hourly_note">Wettercode und Bewölkung gelten für H. Niederschlag und Wahrscheinlichkeit mit Zeitstempel H+1 gelten für das angezeigte Intervall H–H+1.</string>
+    <string name="condition_explanation_window_hourly_precip_note">Die Bedingung nutzt den Niederschlag der vorherigen Stunde (H−1 bis H) und gegebenenfalls die Temperatur zum Zeitpunkt H.</string>
+    <string name="condition_explanation_window_hourly_mixed_note">Dieser Konsens kombiniert Angaben zum Zeitpunkt H mit Niederschlag der vorherigen Stunde. Beide Zeitangaben werden angezeigt.</string>
+    <string name="condition_explanation_window_precipitation_label">Niederschlagszeitraum</string>
+    <string name="condition_explanation_window_period_note">Die Wetterlage fasst die verfügbaren Stunden dieses Zeitraums zusammen. Die Abdeckung steht unten.</string>
+    <string name="condition_explanation_window_unavailable_note">Dies ist der Vorhersagezeitraum, kein nachweislich durch Daten abgedecktes Intervall: Die vorhandenen Daten reichen für keine Wetterlage aus.</string>
+    <string name="condition_explanation_window_daily_wmo_note">Der tägliche Wettercode bezeichnet das stärkste Wetterereignis des Tages, nicht unbedingt die über die Stunden vorherrschende Wetterlage.</string>
     <string name="condition_explanation_data_title">Daten und Herkunft</string>
     <string name="condition_explanation_source_title">Berechnungsmethode</string>
     <string name="condition_explanation_alternatives_title">Mögliche Szenarien</string>
     <string name="condition_explanation_reasons_title">Warum dieser Status?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Orte neu anordnen</string>
+    <string name="home_reorder_hint">Zum Verschieben den Griff gedrückt halten oder die Pfeile verwenden.</string>
+    <string name="home_reorder_up">%1$s nach oben</string>
+    <string name="home_reorder_down">%1$s nach unten</string>
+    <string name="home_reorder_drag">%1$s gedrückt halten und ziehen</string>
+    <string name="home_reorder_apply">Reihenfolge speichern</string>
+    <string name="home_reorder_save_error">Die neue Reihenfolge konnte nicht gespeichert werden.</string>
 </resources>

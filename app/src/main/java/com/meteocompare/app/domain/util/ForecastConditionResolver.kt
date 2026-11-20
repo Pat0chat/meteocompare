@@ -59,7 +59,11 @@ internal object ForecastConditionResolver {
             reasons = result.reasons + if (noneUsable) byModel.flatMap { it.second.reasons }
                 else winners.flatMap { it.reasons },
             notablePhenomenon = winners.mapNotNull { it.notablePhenomenon }
-                .maxByOrNull { it.severityRank }
+                .maxByOrNull { it.severityRank },
+            // Only claim a common interval when every resolved model used the
+            // same civil/solar bounds; differing solar windows are not merged.
+            timeWindow = byModel.mapNotNull { it.second.timeWindow }
+                .distinctBy { it.start to it.endExclusive }.singleOrNull()?.copy(zone = zone)
         )
     }
 }

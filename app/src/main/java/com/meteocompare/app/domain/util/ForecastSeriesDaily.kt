@@ -8,7 +8,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -28,7 +27,7 @@ private inline fun <T : Any> ForecastSeries.validHourlyByHour(
     hourly.timestamps.forEachIndexed { index, instant ->
         if (!instant.isBefore(start) && instant.isBefore(end)) {
             val value = valueAt(index) ?: return@forEachIndexed
-            result.putIfAbsent(instant.truncatedTo(ChronoUnit.HOURS), value)
+            result.putIfAbsent(instant, value)
         }
     }
     return result
@@ -133,8 +132,7 @@ internal fun hasRepresentativeHourlyCoverage(
     val required = ceil(expected * 0.75).toInt().coerceAtLeast(1)
     val valid = samples.asSequence()
         .filter { !it.isBefore(start) && it.isBefore(end) }
-        .map { it.truncatedTo(ChronoUnit.HOURS) }
-        .distinct()
+                .distinct()
         .sorted()
         .toList()
     if (valid.size < required) return false
@@ -163,8 +161,15 @@ internal fun ForecastSeries.dailyPeriodMetrics(
     val end = if (period == DailyConditionPeriod.DAY) window.sunset!!
         else nextWindow?.takeIf { it.isValid }?.sunrise ?: return null
     if (!end.isAfter(start)) return null
-    val probabilities = validHourlyByHour(start, end) { index ->
-        hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
+    // P(rain) at H covers [H-1h,H), not [H,H+1h).
+    // Include H=end and H=first hour after sunrise when intervals overlap;
+    // keep deduplication by exact Instant (important at DST and :30 UTC offsets).
+    val probabilities = linkedMapOf<Instant, Int>()
+    hourly.timestamps.forEachIndexed { index, timestamp ->
+        if (timestamp.isAfter(start) && timestamp.minusSeconds(3600L).isBefore(end)) {
+            hourly.precipitationProbability.getOrNull(index)?.takeIf { it in 0..100 }
+                ?.let { probabilities.putIfAbsent(timestamp, it) }
+        }
     }
     val cloudCover = validHourlyByHour(start, end) { index ->
         hourly.effectiveCloudCover(index)

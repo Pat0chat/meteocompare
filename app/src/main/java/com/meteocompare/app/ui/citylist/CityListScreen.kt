@@ -60,6 +60,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
@@ -81,6 +82,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -255,6 +257,7 @@ fun CityListScreen(
     val homeExpansion by viewModel.homeExpansion.collectAsStateWithLifecycle()
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var showDonationDialog by rememberSaveable { mutableStateOf(false) }
+    var showReorderSheet by rememberSaveable { mutableStateOf(false) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         locationVm.refreshOnResume(viewModel::refreshIfStale)
@@ -300,6 +303,7 @@ fun CityListScreen(
             onDonateClick = { showDonationDialog = true },
             onHelpClick = onHelpClick,
             onCompareClick = onCompareClick,
+            onReorderClick = { showReorderSheet = true },
             onSettingsClick = onSettingsClick,
             onRemoveCity = viewModel::onRemoveCity,
             onRetry = viewModel::onRetry,
@@ -313,6 +317,17 @@ fun CityListScreen(
             homeExpandedCityId = homeExpansion.expandedCityId,
             onHomeCityExpanded = viewModel::onHomeCityExpanded
         )
+
+        if (showReorderSheet && uiState.items.size >= 2) {
+            CityReorderSheet(
+                cities = uiState.items.map(CityCardState::city),
+                onDismiss = { showReorderSheet = false },
+                onSave = { ids ->
+                    viewModel.onReorderHomeCities(ids)
+                    showReorderSheet = false
+                }
+            )
+        }
 
         if (showDonationDialog) {
             DonationDialog(onDismiss = { showDonationDialog = false })
@@ -389,6 +404,7 @@ internal fun CityListContent(
     onDonateClick: () -> Unit,
     onHelpClick: () -> Unit = {},
     onCompareClick: () -> Unit = {},
+    onReorderClick: () -> Unit = {},
     onSettingsClick: () -> Unit,
     onRemoveCity: (cityId: String) -> Unit,
     onRetry: (City) -> Unit,
@@ -468,13 +484,25 @@ internal fun CityListContent(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddClick,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag(TAG_ADD_FAB)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_city))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (uiState.items.size >= 2) {
+                    SmallFloatingActionButton(
+                        onClick = onReorderClick,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.testTag("home_reorder_action")
+                    ) {
+                        Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.home_reorder_title))
+                    }
+                }
+                FloatingActionButton(
+                    onClick = onAddClick,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.testTag(TAG_ADD_FAB)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_city))
+                }
             }
         }
     ) { padding ->

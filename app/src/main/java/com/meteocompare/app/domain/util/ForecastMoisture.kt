@@ -15,16 +15,20 @@ fun ForecastSeries.dailyMoisture(date: LocalDate, zone: ZoneId): DailyMoisture {
     val begin = date.atStartOfDay(zone).toInstant()
     val end = date.plusDays(1).atStartOfDay(zone).toInstant()
     val required = ChronoUnit.HOURS.between(begin, end).toDouble() / 2.0
-    val humidity = mutableListOf<Int>()
-    val dewPoint = mutableListOf<Double>()
-    val seen = hashSetOf<java.time.Instant>()
+    // Dedupe each metric only after checking its value: a legacy cache may
+    // repeat one instant with humidity in one row and dew point in another.
+    // A missing/invalid duplicate must not mask a valid sample.
+    val humidity = linkedMapOf<java.time.Instant, Int>()
+    val dewPoint = linkedMapOf<java.time.Instant, Double>()
     hourly.timestamps.forEachIndexed { i, time ->
-        if (time < begin || time >= end || !seen.add(time)) return@forEachIndexed
-        hourly.relativeHumidity2m.getOrNull(i)?.let(ForecastPhysicalLimits::percentage)?.let(humidity::add)
-        hourly.dewPoint2m.getOrNull(i)?.let(ForecastPhysicalLimits::dewPoint)?.let(dewPoint::add)
+        if (time < begin || time >= end) return@forEachIndexed
+        hourly.relativeHumidity2m.getOrNull(i)?.let(ForecastPhysicalLimits::percentage)
+            ?.let { humidity.putIfAbsent(time, it) }
+        hourly.dewPoint2m.getOrNull(i)?.let(ForecastPhysicalLimits::dewPoint)
+            ?.let { dewPoint.putIfAbsent(time, it) }
     }
     return DailyMoisture(
-        humidityPercent = humidity.takeIf { it.size.toDouble() >= required }?.average(),
-        dewPointC = dewPoint.takeIf { it.size.toDouble() >= required }?.average()
+        humidityPercent = humidity.values.takeIf { it.size.toDouble() >= required }?.average(),
+        dewPointC = dewPoint.values.takeIf { it.size.toDouble() >= required }?.average()
     )
 }

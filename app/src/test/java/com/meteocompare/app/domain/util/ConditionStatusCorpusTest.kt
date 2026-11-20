@@ -27,19 +27,22 @@ class ConditionStatusCorpusTest {
                 val n = ((end.epochSecond - start.epochSecond) / 3600).toInt()
                 assertEquals("$id actual DST hours", row.getValue("total_hours").toInt(), n)
                 val k = row.getValue("known_hours").toInt()
-                val times = List(n) { start.plusSeconds(it * 3600L) }
+                // Instantaneous WMO/sky evidence is recorded at each hour's start;
+                // precipitation at H instead represents the hour that ended at H.
+                // Include the following midnight so the final hour is representable.
+                val times = List(n + 1) { start.plusSeconds(it * 3600L) }
                 val native = row.getValue("source") == "native"
                 val wmo = row.getValue("wmo").toInt()
                 val series = ForecastSeries(WeatherModel.GFS,
                     HourlyForecast(
                         timestamps = times,
-                        temperature2m = if (native) emptyList() else List(n) { 10.0 },
-                        precipitation = if (native) emptyList() else List(n) {
-                            if (it < k && wmo == 61) 5.5 else 0.0
+                        temperature2m = if (native) emptyList() else List(n + 1) { 10.0 },
+                        precipitation = if (native) emptyList() else List(n + 1) {
+                            if (it in 1..k && wmo == 61) 5.5 else null
                         },
                         windSpeed10m = emptyList(),
-                        weatherCode = if (native) List(n) { if (it < k) wmo else null } else emptyList(),
-                        cloudCover = if (native) emptyList() else List(n) {
+                        weatherCode = if (native) List(n + 1) { if (it < k) wmo else null } else emptyList(),
+                        cloudCover = if (native) emptyList() else List(n + 1) {
                             if (it < k && wmo == 0) 0 else null
                         }
                     ),

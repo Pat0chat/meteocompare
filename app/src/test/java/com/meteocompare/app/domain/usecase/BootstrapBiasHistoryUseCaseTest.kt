@@ -53,7 +53,7 @@ class BootstrapBiasHistoryUseCaseTest {
     fun `bootstrap agrège quatorze jours horaires en variables quotidiennes J plus 1`() = runTest {
         val records = slot<List<ForecastBiasRecord>>()
         coEvery { repository.recordForecasts(capture(records)) } returns Unit
-        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             response(
                 model = WeatherModel.GFS,
                 days = 14,
@@ -112,12 +112,12 @@ class BootstrapBiasHistoryUseCaseTest {
         val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
         hourly["time"] = JsonArray(dayTimes(target))
         listOf(1, 3).forEach { lead ->
-            hourly["temperature_2m_previous_day${lead}_${model.apiKey}"] = values(24) { 10.0 * lead + it }
-            hourly["precipitation_previous_day${lead}_${model.apiKey}"] = values(24) { lead.toDouble() }
-            hourly["wind_speed_10m_previous_day${lead}_${model.apiKey}"] = values(24) { 20.0 * lead + it }
+            hourly["temperature_2m_previous_day${lead}_${model.apiKey}"] = values(25) { 10.0 * lead + it }
+            hourly["precipitation_previous_day${lead}_${model.apiKey}"] = values(25) { lead.toDouble() }
+            hourly["wind_speed_10m_previous_day${lead}_${model.apiKey}"] = values(25) { 20.0 * lead + it }
         }
         coEvery {
-            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
 
         val result = useCase(city, listOf(model), today, requestedDays = 1)
@@ -148,7 +148,7 @@ class BootstrapBiasHistoryUseCaseTest {
             wind = { day, hour -> if (day < 7) null else 20.0 + hour }
         )
         coEvery {
-            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
         } returns response
 
         val result = useCase(city, listOf(WeatherModel.GFS), today)
@@ -160,7 +160,7 @@ class BootstrapBiasHistoryUseCaseTest {
         coVerify(exactly = 1) {
             api.getPreviousDayOne(
                 any(), any(), any(), any(), city.timezone!!,
-                "2026-07-14", "2026-08-03", any(), any(), any()
+                "2026-07-14", "2026-08-04", any(), any(), any(), "unixtime"
             )
         }
     }
@@ -171,12 +171,12 @@ class BootstrapBiasHistoryUseCaseTest {
         val modelsParam = slot<String>()
         val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
         hourly["time"] = JsonArray(dayTimes(today.minusDays(1)))
-        hourly["temperature_2m_${model.apiKey}_previous_day1"] = values(24) { 18.0 + it }
-        hourly["precipitation_${model.apiKey}_previous_day1"] = values(24) { 0.0 }
-        hourly["wind_speed_10m_${model.apiKey}_previous_day1"] = values(24) { 10.0 + it }
+        hourly["temperature_2m_${model.apiKey}_previous_day1"] = values(25) { 18.0 + it }
+        hourly["precipitation_${model.apiKey}_previous_day1"] = values(25) { 0.0 }
+        hourly["wind_speed_10m_${model.apiKey}_previous_day1"] = values(25) { 10.0 + it }
         coEvery {
             api.getPreviousDayOne(
-                any(), any(), capture(modelsParam), any(), any(), any(), any(), any(), any(), any()
+                any(), any(), capture(modelsParam), any(), any(), any(), any(), any(), any(), any(), any()
             )
         } returns PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
 
@@ -192,7 +192,7 @@ class BootstrapBiasHistoryUseCaseTest {
     fun `valeurs negatives de pluie et vent sont ignorees au lieu detre corrigees`() = runTest {
         val records = slot<List<ForecastBiasRecord>>()
         coEvery { repository.recordForecasts(capture(records)) } returns Unit
-        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             response(
                 model = WeatherModel.GFS,
                 days = 1,
@@ -220,7 +220,7 @@ class BootstrapBiasHistoryUseCaseTest {
         hourly["temperature_2m_previous_day1_${model.apiKey}"] = values(18) { 15.0 }
         hourly["precipitation_previous_day1_${model.apiKey}"] = values(18) { 1.0 }
         hourly["wind_speed_10m_previous_day1_${model.apiKey}"] = values(18) { 20.0 }
-        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
 
         val result = useCase(city, listOf(model), today, requestedDays = 1)
@@ -231,7 +231,7 @@ class BootstrapBiasHistoryUseCaseTest {
     }
 
     @Test
-    fun `journee civile DST de 23 heures reste acceptee si toutes les heures sont presentes`() = runTest {
+    fun `journee ordinaire tronquee a 23 points ne fabrique aucune valeur journaliere`() = runTest {
         val model = WeatherModel.GFS
         val date = today.minusDays(1)
         val hourly = linkedMapOf<String, kotlinx.serialization.json.JsonElement>()
@@ -241,18 +241,19 @@ class BootstrapBiasHistoryUseCaseTest {
         hourly["temperature_2m_previous_day1_${model.apiKey}"] = values(23) { it.toDouble() }
         hourly["precipitation_previous_day1_${model.apiKey}"] = values(23) { 1.0 }
         hourly["wind_speed_10m_previous_day1_${model.apiKey}"] = values(23) { 20.0 + it }
-        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, JsonObject(hourly))
 
         val result = useCase(city, listOf(model), today, requestedDays = 1)
 
-        assertEquals(1, result.coveredDays)
-        assertEquals(3, result.forecastRecords)
+        assertEquals(0, result.coveredDays)
+        assertEquals(0, result.forecastRecords)
+        assertEquals(0, result.sampleCount(model, BiasVariable.PRECIPITATION))
     }
 
     @Test
     fun `jour 18 heures sur 24 est ignore sans fabriquer un cumul partiel`() = runTest {
-        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        coEvery { api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
             response(
                 model = WeatherModel.GFS,
                 days = 1,
@@ -266,6 +267,67 @@ class BootstrapBiasHistoryUseCaseTest {
         assertEquals(0, result.coveredDays)
         assertEquals(0, result.forecastRecords)
         coVerify(exactly = 1) { repository.recordForecasts(emptyList()) }
+    }
+
+    @Test
+    fun `complete local days include following midnight for rainfall even across DST and Kolkata`() = runTest {
+        val model = WeatherModel.GFS
+        for ((name, dateString) in listOf(
+            "Europe/Paris" to "2026-03-29", // 23 real hours
+            "Europe/Paris" to "2026-10-25", // 25 real hours
+            "Asia/Kolkata" to "2026-11-13"  // :30 UTC timestamps
+        )) {
+            val zone = ZoneId.of(name)
+            val date = LocalDate.parse(dateString)
+            val location = city.copy(id = name, timezone = name)
+            val start = date.atStartOfDay(zone).toInstant()
+            val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+            val hours = java.time.Duration.between(start, end).toHours().toInt()
+            val stamps = (0..hours).map { offset ->
+                JsonPrimitive(start.plusSeconds(offset * 3600L).epochSecond)
+            }
+            val forecasts = JsonObject(mapOf(
+                "time" to JsonArray(stamps),
+                "temperature_2m_previous_day1_${model.apiKey}" to values(hours + 1) { it.toDouble() },
+                "precipitation_previous_day1_${model.apiKey}" to values(hours + 1) { hour ->
+                    when (hour) { 0 -> 900.0; hours -> 7.0; else -> 1.0 }
+                },
+                "wind_speed_10m_previous_day1_${model.apiKey}" to values(hours + 1) { 10.0 }
+            ))
+            val records = slot<List<ForecastBiasRecord>>()
+            coEvery { repository.recordForecasts(capture(records)) } returns Unit
+            coEvery {
+                api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+            } returns PreviousRunsResponseDto(location.latitude, location.longitude, name, forecasts)
+
+            val result = useCase(location, listOf(model), today = date.plusDays(1), requestedDays = 1)
+            assertEquals(3, result.forecastRecords)
+            val rain = records.captured.single { it.variable == BiasVariable.PRECIPITATION }
+            assertEquals((hours - 1 + 7).toDouble(), rain.value, 1e-9)
+            assertEquals(date, rain.targetDate)
+        }
+    }
+
+    @Test
+    fun `missing following midnight makes rain total unavailable but keeps temperature`() = runTest {
+        val model = WeatherModel.GFS
+        val date = today.minusDays(1)
+        val daily = JsonObject(mapOf(
+            "time" to JsonArray(dayTimes(date).dropLast(1)),
+            "temperature_2m_previous_day1_${model.apiKey}" to values(24) { 20.0 },
+            "precipitation_previous_day1_${model.apiKey}" to values(24) { 1.0 },
+            "wind_speed_10m_previous_day1_${model.apiKey}" to values(24) { 5.0 }
+        ))
+        val records = slot<List<ForecastBiasRecord>>()
+        coEvery { repository.recordForecasts(capture(records)) } returns Unit
+        coEvery {
+            api.getPreviousDayOne(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns PreviousRunsResponseDto(city.latitude, city.longitude, city.timezone!!, daily)
+        val result = useCase(city, listOf(model), today, requestedDays = 1)
+        assertEquals(2, result.forecastRecords)
+        assertEquals(0, result.sampleCount(model, BiasVariable.PRECIPITATION))
+        assertEquals(setOf(BiasVariable.TEMPERATURE, BiasVariable.WIND_SPEED),
+            records.captured.map { it.variable }.toSet())
     }
 
     private fun response(
@@ -289,6 +351,11 @@ class BootstrapBiasHistoryUseCaseTest {
                 winds += wind(day, hour).jsonValue()
             }
         }
+        // 00:00 next day represents the previous civil day's last hour.
+        times += JsonPrimitive("${firstDate.plusDays(days.toLong())}T00:00")
+        temperatures += kotlinx.serialization.json.JsonNull
+        precipitationValues += precipitation(days - 1, 23).jsonValue()
+        winds += kotlinx.serialization.json.JsonNull
         return PreviousRunsResponseDto(
             latitude = city.latitude,
             longitude = city.longitude,
@@ -307,7 +374,7 @@ class BootstrapBiasHistoryUseCaseTest {
     private fun dayTimes(date: LocalDate): List<JsonPrimitive> =
         (0 until 24).map { hour ->
             JsonPrimitive("${date}T${hour.toString().padStart(2, '0')}:00")
-        }
+        } + JsonPrimitive("${date.plusDays(1)}T00:00")
 
     private fun values(size: Int, value: (Int) -> Double): JsonArray =
         JsonArray((0 until size).map { JsonPrimitive(value(it)) })

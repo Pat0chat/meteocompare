@@ -503,11 +503,12 @@ class WeatherConditionTest {
             hourly = HourlyForecast(
                 timestamps = hours,
                 temperature2m = List(30) { 20.0 },
-                precipitation = List(30) { if (it >= 18) 1.0 else 0.0 },
+                // Precipitation stamped 19:00 describes the first night hour [18:00, 19:00).
+                precipitation = List(30) { if (it >= 19) 1.0 else 0.0 },
                 windSpeed10m = List(30) { 10.0 },
                 weatherCode = List(30) { if (it >= 18) 61 else 0 },
                 cloudCover = List(30) { if (it >= 18) 95 else 5 },
-                precipitationProbability = List(30) { if (it >= 18) 80 else 5 }
+                precipitationProbability = List(30) { if (it >= 19) 80 else 5 }
             ),
             daily = DailyForecast(
                 dates = listOf(today, today.plusDays(1)),

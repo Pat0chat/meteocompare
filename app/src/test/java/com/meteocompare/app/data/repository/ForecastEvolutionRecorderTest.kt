@@ -86,6 +86,27 @@ class ForecastEvolutionRecorderTest {
     }
 
     @Test
+    fun `daily physical outliers and inconsistent temperature pairs are not recorded`() = runTest {
+        val dao = mockk<ForecastEvolutionDao>()
+        val inserted = slot<List<ForecastEvolutionEntity>>()
+        coEvery { dao.insertSnapshotBucketIfAbsent(any(), any(), capture(inserted)) } returns true
+        coEvery { dao.purgeCapturedBefore(any()) } returns Unit
+        val base = forecast()
+        val corrupt = base.copy(seriesByModel = base.seriesByModel.mapValues { (model, series) ->
+            series.copy(daily = series.daily.copy(
+                tempMax = listOf(if (model == WeatherModel.GFS) 99.0 else 10.0),
+                tempMin = listOf(if (model == WeatherModel.GFS) 12.0 else 20.0),
+                precipitationSum = listOf(if (model == WeatherModel.GFS) 9_000.0 else 3.0),
+                windSpeedMax = listOf(if (model == WeatherModel.GFS) 600.0 else 30.0)
+            ))
+        })
+        ForecastEvolutionRecorder(dao, Dispatchers.Unconfined).record(corrupt)
+        assertEquals(2, inserted.captured.size) // ECMWF valid rain and wind only.
+        assertEquals(setOf("PRECIPITATION", "WIND"), inserted.captured.map { it.variable }.toSet())
+        assertTrue(inserted.captured.all { it.value.isFinite() })
+    }
+
+    @Test
     fun `partial last horizon day is not recorded as a comparable daily value`() = runTest {
         val dao = mockk<ForecastEvolutionDao>()
         val inserted = slot<List<ForecastEvolutionEntity>>()
@@ -109,6 +130,35 @@ class ForecastEvolutionRecorderTest {
 
         assertEquals(4, inserted.captured.size) // T + vent pour 2 modèles ; pluie exclue
         assertTrue(inserted.captured.none { it.variable == "PRECIPITATION" })
+    }
+
+    @Test
+    fun `rain at next midnight is required while rain at beginning midnight belongs to prior day`() = runTest {
+        val dao = mockk<ForecastEvolutionDao>()
+        val inserted = slot<List<ForecastEvolutionEntity>>()
+        coEvery { dao.insertSnapshotBucketIfAbsent(any(), any(), capture(inserted)) } returns true
+        coEvery { dao.purgeCapturedBefore(any()) } returns Unit
+        val base = forecast()
+        val noLastRain = base.copy(seriesByModel = base.seriesByModel.mapValues { (_, series) ->
+            series.copy(hourly = series.hourly.copy(
+                precipitation = series.hourly.precipitation.mapIndexed { index, mm ->
+                    if (index == 24) null else mm
+                }
+            ))
+        })
+        ForecastEvolutionRecorder(dao, Dispatchers.Unconfined).record(noLastRain)
+        assertEquals(4, inserted.captured.size)
+        assertTrue(inserted.captured.none { it.variable == "PRECIPITATION" })
+
+        val noFirstRain = base.copy(seriesByModel = base.seriesByModel.mapValues { (_, series) ->
+            series.copy(hourly = series.hourly.copy(
+                precipitation = series.hourly.precipitation.mapIndexed { index, mm ->
+                    if (index == 0) null else mm
+                }
+            ))
+        })
+        ForecastEvolutionRecorder(dao, Dispatchers.Unconfined).record(noFirstRain)
+        assertEquals(6, inserted.captured.size)
     }
 
     @Test
@@ -139,11 +189,11 @@ class ForecastEvolutionRecorderTest {
             ForecastSeries(
                 model = model,
                 hourly = HourlyForecast(
-                    timestamps = (0 until 24).map { hour ->
+                    timestamps = (0..24).map { hour ->
                         date.atStartOfDay(ZoneOffset.UTC).plusHours(hour.toLong()).toInstant()
                     },
                     temperature2m = List(24) { if (model == WeatherModel.GFS) 20.0 else 21.0 },
-                    precipitation = List(24) { if (model == WeatherModel.GFS) 0.125 else 1.0 / 6.0 },
+                    precipitation = List(25) { if (model == WeatherModel.GFS) 0.125 else 1.0 / 6.0 },
                     windSpeed10m = List(24) { if (model == WeatherModel.GFS) 30.0 else 35.0 }
                 ),
                 daily = DailyForecast(

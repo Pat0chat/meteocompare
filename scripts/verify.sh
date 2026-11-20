@@ -11,6 +11,10 @@ if [[ "${1:-}" != "" && "${1:-}" != "--connected" ]] || [[ "$#" -gt 1 ]]; then
 fi
 
 python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+python3 scripts/generate_weather_regression_corpus.py --check
+python3 scripts/generate_condition_status_corpus.py --check
+python3 scripts/generate_temporal_windows_corpus.py --check
+python3 scripts/generate_civil_day_coverage_corpus.py --check
 python3 scripts/validate-compose-previews.py
 python3 scripts/check_android_strings.py
 python3 scripts/test-summary-dialog-copy.py

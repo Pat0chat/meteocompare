@@ -27,7 +27,9 @@ import com.meteocompare.app.R
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.util.ConditionDecision
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.ConditionDecisionEngine
+import com.meteocompare.app.domain.util.inZone
 import com.meteocompare.app.domain.model.effectiveCloudCover
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.sortedByFamily
@@ -69,10 +71,10 @@ fun HourlyWeatherByModelTable(
                     val idx = series.hourly.timestamps.indexOf(ts)
                     if (idx < 0) return@mapNotNull null
 
-                    val diagnosis = ConditionDecisionEngine.hourly(series.hourly, idx)
+                    val diagnosis = ConditionDecisionEngine.upcomingHour(series.hourly, idx).inZone(zone)
                     model to HourCellData(
                         condition = diagnosis.condition,
-                        precipProbability = series.hourly.precipitationProbability.getOrNull(idx),
+                        precipProbability = HourlySampling.precipitationForSlot(series.hourly, idx).probabilityPercent,
                         cloudCover = series.hourly.effectiveCloudCover(idx),
                         diagnosis = diagnosis
                     )

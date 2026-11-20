@@ -14,6 +14,10 @@ import com.meteocompare.app.domain.util.ConditionDecision
 import com.meteocompare.app.domain.util.ConditionOrigin
 import com.meteocompare.app.domain.util.ConditionReason
 import com.meteocompare.app.domain.util.ConditionStatus
+import com.meteocompare.app.domain.util.ConditionTimeWindow
+import com.meteocompare.app.domain.util.ConditionWindowKind
+import java.time.Instant
+import java.time.ZoneId
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
 import org.junit.Rule
 import org.junit.Test
@@ -169,6 +173,101 @@ class ConditionStatusIconTest {
         composeRule.onNodeWithText(context.getString(R.string.condition_status_unavailable_desc))
             .assertIsDisplayed()
         composeRule.onNodeWithTag("condition_coverage").assertDoesNotExist()
+    }
+
+    @Test
+    fun hourly_condition_dialog_shows_city_local_time_window() {
+        val paris = ZoneId.of("Europe/Paris")
+        val start = Instant.parse("2026-11-13T14:00:00Z")
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(
+                    WeatherCondition.CLEAR,
+                    ConditionDecision(WeatherCondition.CLEAR, ConditionStatus.RELIABLE,
+                        ConditionOrigin.HOURLY_WMO, coverage = 1.0,
+                        timeWindow = ConditionTimeWindow(
+                            start, start.plusSeconds(3600), paris, ConditionWindowKind.HOURLY
+                        ))
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_reliable), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_time_window").assertExists()
+        composeRule.onNodeWithTag("condition_time_window_value", useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun preceding_hour_precipitation_is_explained_in_the_dialog() {
+        val h = Instant.parse("2026-11-13T14:00:00Z")
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(
+                    WeatherCondition.RAIN,
+                    ConditionDecision(WeatherCondition.RAIN, ConditionStatus.ESTIMATED,
+                        ConditionOrigin.SAME_MODEL_VARIABLES, coverage = 1.0,
+                        reasons = setOf(ConditionReason.PRECEDING_HOUR_PRECIPITATION),
+                        timeWindow = ConditionTimeWindow(
+                            h.minusSeconds(3600), h, ZoneId.of("Europe/Paris"),
+                            ConditionWindowKind.HOURLY_PRECEDING
+                        ))
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_estimated), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_time_window_value", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.condition_explanation_window_hourly_precip_note),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+        composeRule.onNodeWithTag("condition_time_window_precipitation").assertDoesNotExist()
+    }
+
+    @Test
+    fun mixed_hourly_consensus_shows_precipitation_window_separately() {
+        val h = Instant.parse("2026-11-13T14:00:00Z")
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(
+                    WeatherCondition.RAIN,
+                    ConditionDecision(WeatherCondition.RAIN, ConditionStatus.ESTIMATED,
+                        ConditionOrigin.MODEL_CONSENSUS, coverage = 1.0,
+                        timeWindow = ConditionTimeWindow(
+                            h, h.plusSeconds(3600), ZoneId.of("Europe/Paris"),
+                            ConditionWindowKind.HOURLY_MIXED
+                        ))
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_estimated), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_time_window_value", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("condition_time_window_precipitation", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.condition_explanation_window_hourly_mixed_note),
+            useUnmergedTree = true
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun unknown_time_window_is_not_fabricated() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ConditionStatusIcon(null, ConditionDecision(null, ConditionStatus.UNAVAILABLE, ConditionOrigin.NONE))
+            }
+        }
+        composeRule.onNodeWithContentDescription(
+            context.getString(R.string.condition_status_unavailable), substring = true
+        ).performClick()
+        composeRule.onNodeWithTag("condition_time_window").assertDoesNotExist()
     }
 
 }

@@ -42,6 +42,8 @@ class ConditionDecisionEngineTest {
         assertEquals(WeatherCondition.CLEAR, result.condition)
         assertEquals(ConditionStatus.RELIABLE, result.status)
         assertEquals(ConditionOrigin.HOURLY_WMO, result.origin)
+        assertEquals(Instant.EPOCH, result.timeWindow?.start)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
     }
 
     @Test fun `warm rain with missing WMO is explicitly estimated`() {
@@ -50,6 +52,9 @@ class ConditionDecisionEngineTest {
         assertEquals(WeatherCondition.RAIN_SHOWERS, result.condition)
         assertEquals(ConditionStatus.ESTIMATED, result.status)
         assertEquals(true, ConditionReason.PRECEDING_HOUR_PRECIPITATION in result.reasons)
+        assertEquals(Instant.EPOCH.minusSeconds(3600), result.timeWindow?.start)
+        assertEquals(Instant.EPOCH, result.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.HOURLY_PRECEDING, result.timeWindow?.kind)
     }
 
     @Test fun `weak probability does not turn an inferred rain scenario into the main icon`() {
@@ -73,6 +78,7 @@ class ConditionDecisionEngineTest {
         assertEquals(null, result.condition)
         assertEquals(ConditionStatus.AMBIGUOUS, result.status)
         assertEquals(true, WeatherCondition.SNOW in result.alternatives)
+        assertEquals(ConditionWindowKind.HOURLY_PRECEDING, result.timeWindow?.kind)
     }
 
     @Test fun `invalid negative precipitation cannot create a wet event`() {
@@ -80,6 +86,7 @@ class ConditionDecisionEngineTest {
         val result = ConditionDecisionEngine.hourly(x.hourly, 0)
         assertEquals(WeatherCondition.MAINLY_CLEAR, result.condition)
         assertEquals(true, ConditionReason.INVALID_PHYSICAL_VALUE in result.reasons)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
     }
 
     @Test fun `unrecognised native WMO is marked and cloud fallback is used`() {
@@ -211,4 +218,121 @@ class ConditionDecisionEngineTest {
         assertEquals(WeatherCondition.CLEAR, result.condition)
         assertEquals(true, result.coverage > 0.5)
     }
+    @Test fun `hourly evidence preserves fractional UTC offset timestamps`() {
+        val instant = Instant.parse("2026-11-13T09:30:00Z") // 15:00 in Asia/Kolkata
+        val code = ConditionDecisionEngine.hourly(source(listOf(instant), wmo = listOf(0)).hourly, 0)
+        val rain = ConditionDecisionEngine.hourly(source(
+            listOf(instant), precip = listOf(2.0), temp = listOf(12.0)
+        ).hourly, 0)
+        assertEquals(instant, code.timeWindow?.start)
+        assertEquals(Instant.parse("2026-11-13T08:30:00Z"), rain.timeWindow?.start)
+        assertEquals(instant, rain.timeWindow?.endExclusive)
+    }
+
+    @Test fun `hourly rain evidence crosses midnight without truncating UTC`() {
+        val instant = Instant.parse("2026-11-13T00:00:00Z")
+        val decision = ConditionDecisionEngine.hourly(source(
+            listOf(instant), precip = listOf(2.0), temp = listOf(8.0)
+        ).hourly, 0)
+        assertEquals(Instant.parse("2026-11-12T23:00:00Z"), decision.timeWindow?.start)
+        assertEquals(instant, decision.timeWindow?.endExclusive)
+    }
+
+    @Test fun `hourly condition exposes represented hour even when unavailable`() {
+        val instant = Instant.parse("2026-11-13T08:00:00Z")
+        val valid = ConditionDecisionEngine.hourly(source(listOf(instant), wmo = listOf(0)).hourly, 0)
+        assertEquals(instant, valid.timeWindow?.start)
+        assertEquals(instant.plusSeconds(3600), valid.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.HOURLY, valid.timeWindow?.kind)
+        val absent = ConditionDecisionEngine.hourly(source(listOf(instant)).hourly, 0)
+        assertEquals(ConditionStatus.UNAVAILABLE, absent.status)
+        assertEquals(valid.timeWindow, absent.timeWindow)
+        assertEquals(null, ConditionDecisionEngine.hourly(source(emptyList()).hourly, 0).timeWindow)
+    }
+
+    @Test fun `full day window uses real 23 or 25 hour UTC duration`() {
+        val zone = ZoneId.of("Europe/Paris")
+        for ((date, expectedHours) in listOf("2026-03-29" to 23L, "2026-10-25" to 25L)) {
+            val localDate = LocalDate.parse(date)
+            val expectedStart = localDate.atStartOfDay(zone).toInstant()
+            val expectedEnd = localDate.plusDays(1).atStartOfDay(zone).toInstant()
+            val result = ConditionDecisionEngine.period(source(emptyList()), localDate, zone)
+            assertEquals(expectedStart, result.timeWindow?.start)
+            assertEquals(expectedEnd, result.timeWindow?.endExclusive)
+            assertEquals(zone, result.timeWindow?.zone)
+            assertEquals(expectedHours, java.time.Duration.between(expectedStart, expectedEnd).toHours())
+        }
+    }
+
+    @Test fun `night window displays sunset until following sunrise even with missing hours`() {
+        val zone = ZoneId.of("Europe/Paris")
+        val start = Instant.parse("2026-11-13T16:42:00Z")
+        val end = Instant.parse("2026-11-14T06:57:00Z")
+        val current = ForecastSolarWindow(Instant.parse("2026-11-13T06:48:00Z"), start)
+        val following = ForecastSolarWindow(end, Instant.parse("2026-11-14T16:40:00Z"))
+        val result = ConditionDecisionEngine.period(source(emptyList()), day, zone,
+            DailyConditionPeriod.NIGHT, current, following)
+        assertEquals(start, result.timeWindow?.start)
+        assertEquals(end, result.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.PERIOD, result.timeWindow?.kind)
+        assertEquals(zone, result.timeWindow?.zone)
+        assertEquals(ConditionStatus.UNAVAILABLE, result.status)
+    }
+
+    @Test fun `rain ending at midnight belongs to the previous civil day`() {
+        val midnight = Instant.parse("2026-11-14T00:00:00Z")
+        val x = source(listOf(midnight), precip = listOf(2.0), temp = listOf(12.0))
+        val previous = ConditionDecisionEngine.periodBetween(x, midnight.minusSeconds(3600), midnight)
+        val following = ConditionDecisionEngine.periodBetween(x, midnight, midnight.plusSeconds(3600))
+        assertEquals(WeatherCondition.RAIN_SHOWERS, previous.condition)
+        assertEquals(1.0, previous.coverage, 1e-9)
+        assertEquals(null, following.condition)
+        assertEquals(0.0, following.coverage, 1e-9)
+    }
+
+    @Test fun `WMO at H is not shifted into the preceding hour`() {
+        val instant = Instant.parse("2026-11-13T15:00:00Z")
+        val x = source(listOf(instant), wmo = listOf(61), precip = listOf(2.0), temp = listOf(12.0))
+        val previous = ConditionDecisionEngine.periodBetween(x, instant.minusSeconds(3600), instant)
+        val following = ConditionDecisionEngine.periodBetween(x, instant, instant.plusSeconds(3600))
+        assertEquals(null, previous.condition)
+        assertEquals(WeatherCondition.RAIN, following.condition)
+    }
+
+    @Test fun `rain at H overlaps solar sunrise only for its preceding minutes`() {
+        val h = Instant.parse("2026-11-13T07:00:00Z")
+        val x = source(listOf(h), precip = listOf(2.0), temp = listOf(12.0))
+        val afterSunrise = ConditionDecisionEngine.periodBetween(x,
+            h.minusSeconds(1800), h.plusSeconds(1800))
+        assertEquals(0.5, afterSunrise.coverage, 1e-9)
+        val onlyAfterRain = ConditionDecisionEngine.periodBetween(x,h,h.plusSeconds(1800))
+        assertEquals(null, onlyAfterRain.condition)
+        assertEquals(0.0, onlyAfterRain.coverage, 1e-9)
+    }
+
+    @Test fun `half hour offset precipitation period is not UTC truncated`() {
+        val h = Instant.parse("2026-11-13T09:30:00Z") // 15:00 Asia/Kolkata
+        val x = source(listOf(h), precip = listOf(2.0), temp = listOf(12.0))
+        val halfBefore = ConditionDecisionEngine.periodBetween(x,
+            h.minusSeconds(1800), h)
+        val halfAfter = ConditionDecisionEngine.periodBetween(x,h,h.plusSeconds(1800))
+        assertEquals(WeatherCondition.RAIN_SHOWERS, halfBefore.condition)
+        assertEquals(1.0, halfBefore.coverage, 1e-9)
+        assertEquals(0.0, halfAfter.coverage, 1e-9)
+    }
+
+    @Test fun `autumn repeated UTC hours are distinct for precipitation classification`() {
+        val date = LocalDate.parse("2026-10-25")
+        val zone = ZoneId.of("Europe/Paris")
+        val start = date.atStartOfDay(zone).toInstant()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val times = generateSequence(start.plusSeconds(3600)) { it.plusSeconds(3600) }
+            .takeWhile { !it.isAfter(end) }.toList()
+        assertEquals(25, times.size)
+        val x = source(times, precip = List(times.size) { 2.0 }, temp = List(times.size) { 12.0 })
+        val result = ConditionDecisionEngine.periodBetween(x,start,end)
+        assertEquals(WeatherCondition.RAIN_SHOWERS,result.condition)
+        assertEquals(1.0,result.coverage,1e-9)
+    }
+
 }

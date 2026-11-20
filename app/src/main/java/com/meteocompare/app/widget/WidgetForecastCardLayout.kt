@@ -51,12 +51,14 @@ private fun forecastCardFixedContentHeightDp(profile: ForecastCardHeightProfile)
 internal fun forecastMetricLayout(
     availableCardHeightDp: Float,
     profile: ForecastCardHeightProfile,
-    metrics: List<WidgetForecastMetric>
+    metrics: List<WidgetForecastMetric>,
+    textScale: Float = 1f
 ): ForecastMetricLayout {
     // Réserve prudente : en-tête, grand pictogramme météo et température.
-    val fixedContentDp = forecastCardFixedContentHeightDp(profile)
+    val safeScale = textScale.coerceIn(0.85f, 1.4f)
+    val fixedContentDp = forecastCardFixedContentHeightDp(profile) * safeScale
     val availableForMetrics = (availableCardHeightDp - fixedContentDp).coerceAtLeast(0f)
-    val rowCapacity = (availableForMetrics / 7f).toInt().coerceIn(0, 4)
+    val rowCapacity = (availableForMetrics / (7f * safeScale)).toInt().coerceIn(0, 4)
     // Lorsque tout ne rentre pas, éviter les lignes tronquées. La pluie garde
     // une priorité élevée, sans changer l'ordre canonique des lignes retenues.
     val priority = listOf(
@@ -69,12 +71,14 @@ internal fun forecastMetricLayout(
         val kept = priority.filter { it in metrics }.take(rowCapacity).toSet()
         metrics.filter { it in kept }
     }
+    val maximumSp = if (availableCardHeightDp >= 165f &&
+        profile == ForecastCardHeightProfile.EXPANDED) 11.5f else 10f
     val valueSp = if (selected.isEmpty()) 5.5f else
-        (availableForMetrics / selected.size / 1.28f).coerceIn(5.5f, 10f)
+        (availableForMetrics / selected.size / 1.28f).coerceIn(5.5f, maximumSp)
     return ForecastMetricLayout(
         visible = selected,
         textSp = valueSp,
-        iconSp = (valueSp + 1.1f).coerceAtMost(11.1f)
+        iconSp = (valueSp + 1.1f).coerceAtMost(maximumSp + 1.1f)
     )
 }
 
@@ -86,12 +90,14 @@ internal fun forecastMetricLayout(
 internal fun forecastFittingCardProfile(
     heightDp: Float,
     requested: ForecastCardHeightProfile,
-    metricCount: Int
+    metricCount: Int,
+    textScale: Float = 1f
 ): ForecastCardHeightProfile {
     val candidates = ForecastCardHeightProfile.entries.take(requested.ordinal + 1).asReversed()
-    val requiredRows = metricCount.coerceIn(0, 4) * 7f
+    val safeScale = textScale.coerceIn(0.85f, 1.4f)
+    val requiredRows = metricCount.coerceIn(0, 4) * 7f * safeScale
     return candidates.firstOrNull { candidate ->
-        heightDp >= forecastCardFixedContentHeightDp(candidate) + requiredRows
+        heightDp >= forecastCardFixedContentHeightDp(candidate) * safeScale + requiredRows
     } ?: ForecastCardHeightProfile.DENSE
 }
 
@@ -107,6 +113,46 @@ internal fun forecastEffectiveHeightForTransitions(
     normalVerticalInsetDp: Float
 ): Float = (widgetHeightDp - 2f * (appliedVerticalInsetDp - normalVerticalInsetDp)
     .coerceAtLeast(0f)).coerceAtLeast(0f)
+
+/**
+ * Nova and other launchers expose different cell widths. The inline cards
+ * share a row with the city, current temperature and convergence badge; don't
+ * assume that the whole widget width belongs to the forecasts.
+ */
+internal fun inlineForecastCardWidthDp(widgetWidthDp: Float, itemCount: Int): Float =
+    ((widgetWidthDp - 280f).coerceAtLeast(48f) / itemCount.coerceAtLeast(1))
+        .coerceIn(42f, 82f)
+
+/**
+ * Weather glyph for an actual forecast slot. Large Nova widgets previously
+ * kept 32dp icons no matter how tall their forecast cells were. Grow only
+ * when BOTH height and column width permit it, rather than scaling the whole
+ * RemoteViews hierarchy (which can clip or blur on third-party launchers).
+ */
+internal fun forecastTimelineGlyphSizeDp(
+    profile: ForecastCardHeightProfile,
+    availableCardWidthDp: Float,
+    availableCardHeightDp: Float,
+    isDaily: Boolean = false,
+    emphasized: Boolean = false
+): Int {
+    val base = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 16
+        ForecastCardHeightProfile.COMPACT -> 22
+        ForecastCardHeightProfile.COMFORTABLE -> 28
+        ForecastCardHeightProfile.EXPANDED -> 32
+    }
+    val heightBonus = when (profile) {
+        ForecastCardHeightProfile.DENSE -> 0
+        ForecastCardHeightProfile.COMPACT -> ((availableCardHeightDp - 72f) / 14f).toInt().coerceIn(0, 2)
+        ForecastCardHeightProfile.COMFORTABLE -> ((availableCardHeightDp - 102f) / 9f).toInt().coerceIn(0, 4)
+        ForecastCardHeightProfile.EXPANDED -> ((availableCardHeightDp - 142f) / 6f).toInt().coerceIn(0, 12)
+    }
+    val dailyBonus = if (isDaily && profile != ForecastCardHeightProfile.DENSE) 2 else 0
+    val emphasisBonus = if (emphasized && profile != ForecastCardHeightProfile.DENSE) 1 else 0
+    val widthLimit = (availableCardWidthDp.coerceAtLeast(0f) * 0.55f).toInt().coerceAtLeast(16)
+    return (base + heightBonus + dailyBonus + emphasisBonus).coerceAtMost(minOf(widthLimit, 46))
+}
 
 /** Un petit widget peut rester sur deux niveaux si le bandeau supérieur est simplifié. */
 internal fun compactForecastHeader(widgetHeightDp: Float): Boolean = widgetHeightDp < 152f
@@ -124,7 +170,7 @@ internal data class CompactTallHeaderLayout(
 
 /**
  * Transition des widgets 2×2 : n'agrandir le bandeau actuel ou l'en-tête
- * « heures / jours » que si les quatre métriques restent lisibles en bas.
+ * de convergence que si les quatre métriques restent lisibles en bas.
  * Sans ce garde-fou, la largeur Nova suffisait mais deux transitions à
  * 152/165 dp RETIRAIENT une ligne alors que la taille totale augmentait.
  */
@@ -315,9 +361,8 @@ internal fun miniForecastHeaderHeightBudgetDp(
 }
 
 /**
- * Budget vertical du petit en-tête "Heures / Jours" placé au-dessus des
- * cartes modernes. Le mode très dense le masque entièrement pour préserver
- * la lisibilité des valeurs météo.
+ * Budget vertical réservé uniquement à l'en-tête « convergence » des panneaux
+ * de confiance. Les prévisions horaires/journalières n'ont plus de titre.
  */
 internal fun forecastPanelHeaderHeightDp(showHeader: Boolean, compact: Boolean): Float = when {
     !showHeader -> 0f
@@ -326,9 +371,19 @@ internal fun forecastPanelHeaderHeightDp(showHeader: Boolean, compact: Boolean):
 }
 
 /**
- * L'en-tête du panneau n'est affiché que lorsque la zone basse conserve assez
- * de hauteur après le bandeau météo. Il apporte du contexte en 3×2+ sans
- * pénaliser les 2×2 et les launchers aux cellules très basses.
+ * The title row belongs to the *convergence* panel only. Hourly/daily
+ * forecast cards have their own day/hour labels, so they never reserve
+ * a generic title row (issue #39 on compact Nova launcher grids).
+ */
+internal fun forecastContentHeaderHeightDp(
+    hasConfidencePanel: Boolean,
+    showHeader: Boolean,
+    compact: Boolean
+): Float = forecastPanelHeaderHeightDp(showHeader && hasConfidencePanel, compact)
+
+/**
+ * L'en-tête de convergence n'est affiché que si la zone basse le permet.
+ * Les cartes météo ordinaires utilisent directement la place disponible.
  */
 internal fun shouldShowForecastPanelHeader(
     widgetHeightDp: Float,

@@ -117,6 +117,17 @@ class CityListViewModel @Inject constructor(
         homeSelectionWrites.trySend(cityId)
     }
 
+    /** Persist only when a user finishes rearranging the cards. */
+    fun onReorderHomeCities(cityIds: List<String>) {
+        viewModelScope.launch {
+            runSuspendCatching { cityRepository.reorderFavorites(cityIds) }
+                .onFailure { error ->
+                    android.util.Log.w("MeteoCompare/Home", "Unable to save city order", error)
+                    _actionFeedback.send(AppToastEvent.error(R.string.home_reorder_save_error))
+                }
+        }
+    }
+
     private val forecastsById = MutableStateFlow<Map<String, ForecastState>>(emptyMap())
     /** Dernières données brutes : changer de moteur recalcule sans refetch réseau. */
     private val rawForecastsById = MutableStateFlow<Map<String, CityForecast>>(emptyMap())

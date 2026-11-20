@@ -20,7 +20,7 @@ class ForecastAggregatesTest {
     private val now = Instant.parse("2026-07-15T12:00:00Z")
 
     @Test
-    fun `température et pluie sont agrégées sur les mêmes index horaires`() {
+    fun `precipitation est attribuee au creneau prochain tandis que temperature reste instantanee`() {
         val forecast = forecastOf(
             WeatherModel.GFS to hourly(
                 temperatures = listOf(10.0, 20.0),
@@ -42,16 +42,15 @@ class ForecastAggregatesTest {
         assertEquals(12, result.conditions.size)
         assertEquals(15.0, result.temperatures[0] ?: error("temperature manquante"), 0.001)
         assertEquals(25.0, result.temperatures[1] ?: error("temperature manquante"), 0.001)
-        assertEquals(30, result.precipitationProbabilities[0])
-        assertEquals(50, result.precipitationProbabilities[1])
-        // Consensus v2 n'affiche pas une moyenne diluée : sous 50 % de risque,
-        // la quantité centrale déterministe est 0 mm.
-        assertEquals(0.0, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
-        assertEquals(1.5, result.precipitationAmountsMm[1] ?: error("pluie manquante"), 0.001)
+        assertEquals(50, result.precipitationProbabilities[0])
+        assertNull(result.precipitationProbabilities[1])
+        // At 13h the rain for 12h–13h is stored at 13h (not 12h).
+        assertEquals(1.5, result.precipitationAmountsMm[0] ?: error("pluie manquante"), 0.001)
+        assertNull(result.precipitationAmountsMm[1])
         // Sans WMO ni nébulosité, une P(pluie) centrale < 50 % ne fabrique plus
         // une condition par vote de fallbacks individuels.
-        assertNull(result.conditions[0])
-        assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[1])
+        assertEquals(WeatherCondition.RAIN_SHOWERS, result.conditions[0])
+        assertNull(result.conditions[1])
         assertNull(result.temperatures[2])
         assertNull(result.precipitationProbabilities[2])
         assertNull(result.precipitationAmountsMm[2])
@@ -103,8 +102,8 @@ class ForecastAggregatesTest {
         val result = ForecastAggregates.next12h(forecast, now)
 
         assertEquals(20.0, result.temperatures.first() ?: error("temperature manquante"), 0.001)
-        assertEquals(20, result.precipitationProbabilities.first())
-        assertEquals(0.0, result.precipitationAmountsMm.first() ?: error("pluie manquante"), 0.001)
+        assertNull(result.precipitationProbabilities.first())
+        assertNull(result.precipitationAmountsMm.first())
     }
 
     @Test
@@ -127,14 +126,14 @@ class ForecastAggregatesTest {
     fun `ponderations locales sont appliquees a la temperature et a la pluie`() {
         val forecast = forecastOf(
             WeatherModel.GFS to hourly(
-                temperatures = listOf(0.0),
-                precipitationProbabilities = listOf(0),
-                precipitationAmounts = listOf(0.0)
+                temperatures = listOf(0.0, 0.0),
+                precipitationProbabilities = listOf(0, 0),
+                precipitationAmounts = listOf(0.0, 0.0)
             ),
             WeatherModel.ECMWF to hourly(
-                temperatures = listOf(10.0),
-                precipitationProbabilities = listOf(100),
-                precipitationAmounts = listOf(2.0)
+                temperatures = listOf(10.0, 10.0),
+                precipitationProbabilities = listOf(100, 100),
+                precipitationAmounts = listOf(2.0, 2.0)
             )
         )
         val baseline = ForecastAggregates.next12h(forecast, now)
@@ -402,6 +401,62 @@ class ForecastAggregatesTest {
         assertEquals(strip.conditionDiagnostics.first(), current)
         assertEquals(strip.conditions.first(), current.condition)
         assertEquals(ConditionStatus.AMBIGUOUS, current.status)
+        assertEquals(now, current.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), current.timeWindow?.endExclusive)
+        assertEquals(ConditionWindowKind.HOURLY, current.timeWindow?.kind)
+    }
+
+    @Test
+    fun `precipitation only home condition uses next hour and never past rain`() {
+        val forecast = forecastOf(WeatherModel.GFS to hourly(
+            temperatures = listOf(12.0, 12.0),
+            precipitationProbabilities = listOf(0, 90),
+            precipitationAmounts = listOf(0.0, 2.0)
+        ))
+        val result = ForecastAggregates.currentConditionDecision(forecast, now)
+        assertEquals(WeatherCondition.RAIN_SHOWERS, result.condition)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
+        assertEquals(now, result.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), result.timeWindow?.endExclusive)
+        assertTrue(ConditionReason.UPCOMING_HOUR_PRECIPITATION in result.reasons ||
+            result.origin == ConditionOrigin.MODEL_CONSENSUS)
+        assertEquals(90, ForecastAggregates.next12h(forecast, now).precipitationProbabilities.first())
+    }
+
+    @Test
+    fun `mixed native WMO and derived rain share the future slot`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(listOf(12.0, 12.0), listOf(0, 40), listOf(0.0, 0.0), listOf(3, null)),
+            WeatherModel.ICON_GLOBAL to hourly(listOf(12.0, 12.0), listOf(0, 90), listOf(0.0, 3.0))
+        )
+        val result = ForecastAggregates.currentConditionDecision(forecast, now)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
+        assertEquals(now, result.timeWindow?.start)
+    }
+
+    @Test
+    fun `home does not reuse previous rain if H plus one is missing`() {
+        val forecast = forecastOf(WeatherModel.GFS to hourly(
+            temperatures = listOf(12.0),
+            precipitationProbabilities = listOf(90),
+            precipitationAmounts = listOf(2.0)
+        ))
+        val result = ForecastAggregates.next12h(forecast, now, true)
+        assertNull(result.conditions.first())
+        assertNull(result.precipitationProbabilities.first())
+        assertNull(result.precipitationAmountsMm.first())
+    }
+
+    @Test
+    fun `reliable native WMO vote ignores extraneous precipitation fallbacks`() {
+        val forecast = forecastOf(
+            WeatherModel.GFS to hourly(listOf(12.0), listOf(40), listOf(0.0), listOf(3)),
+            WeatherModel.ECMWF to hourly(listOf(12.0), listOf(40), listOf(0.0), listOf(3)),
+            WeatherModel.ICON_GLOBAL to hourly(listOf(12.0), listOf(90), listOf(2.0))
+        )
+        val result = ForecastAggregates.currentConditionDecision(forecast, now)
+        assertEquals(ConditionStatus.RELIABLE, result.status)
+        assertEquals(ConditionWindowKind.HOURLY, result.timeWindow?.kind)
     }
 
     @Test
@@ -414,6 +469,8 @@ class ForecastAggregatesTest {
         val current = ForecastAggregates.currentConditionDecision(forecast, now)
         assertNull(current.condition)
         assertEquals(ConditionStatus.UNAVAILABLE, current.status)
+        assertEquals(now, current.timeWindow?.start)
+        assertEquals(now.plusSeconds(3600), current.timeWindow?.endExclusive)
         assertEquals(current, ForecastAggregates.next12h(forecast, now, true).conditionDiagnostics.first())
     }
 

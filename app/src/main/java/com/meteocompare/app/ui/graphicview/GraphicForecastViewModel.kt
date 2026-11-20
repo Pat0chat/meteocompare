@@ -20,6 +20,7 @@ import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import com.meteocompare.app.domain.repository.VigilanceRepository
 import com.meteocompare.app.domain.repository.UvIndexRepository
 import com.meteocompare.app.domain.usecase.ForecastEngineContextProvider
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.forecastSolarWindow
 import com.meteocompare.app.ui.citydetail.DisplayMode
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
@@ -308,10 +309,11 @@ class GraphicForecastViewModel @Inject constructor(
                         val cloudMid = series.hourly.cloudCoverMid.getOrNull(index)
                         val cloudHigh = series.hourly.cloudCoverHigh.getOrNull(index)
                         val pressure = series.hourly.pressureMsl.getOrNull(index)
-                        val precipitation = series.hourly.precipitation.getOrNull(index)
-                        val probability = series.hourly.precipitationProbability.getOrNull(index)
+                        val slotPrecipitation = HourlySampling.precipitationForSlot(series.hourly, index)
+                        val precipitation = slotPrecipitation.amountMm
+                        val probability = slotPrecipitation.probabilityPercent
                         val wind = series.hourly.windSpeed10m.getOrNull(index)
-                        val gust = series.hourly.windGusts10m.getOrNull(index)
+                        val gust = HourlySampling.gustForSlot(series.hourly, index)
                         val direction = series.hourly.windDirection10m.getOrNull(index)
                         if (temperature == null && precipitation == null && probability == null &&
                             wind == null && gust == null && direction == null &&

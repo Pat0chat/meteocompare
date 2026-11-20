@@ -68,6 +68,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -158,7 +159,7 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                     widgetId = widgetId,
                     insightMode = isInsightWidgetProvider(providerClassName),
                     onSave = { cityId, opacityPct, forecastMode, bgColorArgb, textColorArgb,
-                               cornerStyle, cornerRadiusDp, contentSpacing, showCurrentConditions ->
+                               cornerStyle, cornerRadiusDp, contentSpacing, showCurrentConditions, textSizePct, autoTextSize ->
                         persistAndFinish(
                             widgetId = widgetId,
                             expectedProviderClassName = providerClassName,
@@ -170,7 +171,9 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                             cornerStyle = cornerStyle,
                             cornerRadiusDp = cornerRadiusDp,
                             contentSpacing = contentSpacing,
-                            showCurrentConditions = showCurrentConditions
+                            showCurrentConditions = showCurrentConditions,
+                            textSizePct = textSizePct,
+                            autoTextSize = autoTextSize
                         )
                     },
                     onCancel = { finish() }
@@ -225,7 +228,9 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
         cornerStyle: WidgetCornerStyle,
         cornerRadiusDp: Int,
         contentSpacing: WidgetContentSpacing,
-        showCurrentConditions: Boolean
+        showCurrentConditions: Boolean,
+        textSizePct: Int,
+        autoTextSize: Boolean
     ) {
         val appCtx = applicationContext
         if (saveInProgress) return
@@ -263,7 +268,9 @@ class MeteoWidgetConfigActivity : ComponentActivity() {
                             cornerStyle = cornerStyle,
                             cornerRadiusDp = cornerRadiusDp,
                             contentSpacing = contentSpacing,
-                            showCurrentConditions = showCurrentConditions
+                            showCurrentConditions = showCurrentConditions,
+                            textSizePct = textSizePct,
+                            autoTextSize = autoTextSize
                         ).writeTo(this)
                         // Le rendu direct compte comme dispatch : un onUpdate
                         // launcher arrivé juste après ne doit pas retrigger.
@@ -321,7 +328,8 @@ private fun WidgetConfigScreen(
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?, cornerStyle: WidgetCornerStyle,
              cornerRadiusDp: Int, contentSpacing: WidgetContentSpacing,
-             showCurrentConditions: Boolean) -> Unit,
+             showCurrentConditions: Boolean, textSizePct: Int,
+             autoTextSize: Boolean) -> Unit,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
@@ -381,7 +389,8 @@ private fun WidgetConfigForm(
     onSave: (cityId: String, opacityPct: Int, forecastMode: ForecastMode,
              bgColorArgb: Int?, textColorArgb: Int?, cornerStyle: WidgetCornerStyle,
              cornerRadiusDp: Int, contentSpacing: WidgetContentSpacing,
-             showCurrentConditions: Boolean) -> Unit,
+             showCurrentConditions: Boolean, textSizePct: Int,
+             autoTextSize: Boolean) -> Unit,
     onCancel: () -> Unit
 ) {
     var selectedCityId by rememberSaveable(widgetId) {
@@ -401,6 +410,8 @@ private fun WidgetConfigForm(
         mutableFloatStateOf(initial.cornerRadiusDp.toFloat())
     }
     var contentSpacing by rememberSaveable(widgetId) { mutableStateOf(initial.contentSpacing) }
+    var textSizePct by rememberSaveable(widgetId) { mutableFloatStateOf(initial.textSizePct.toFloat()) }
+    var autoTextSize by rememberSaveable(widgetId) { mutableStateOf(initial.autoTextSize) }
     var editingColor by rememberSaveable(widgetId) { mutableStateOf<String?>(null) }
 
     if (editingColor != null) {
@@ -757,6 +768,45 @@ private fun WidgetConfigForm(
                 )
             }
         }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = stringResource(R.string.widget_config_text_size),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = stringResource(R.string.widget_config_text_size_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().toggleable(
+                value = autoTextSize,
+                role = Role.Switch,
+                onValueChange = { autoTextSize = it }
+            ).testTag(TAG_WIDGET_TEXT_SIZE_AUTO)
+        ) {
+            Text(stringResource(R.string.widget_config_text_size_auto), modifier = Modifier.weight(1f))
+            Switch(checked = autoTextSize, onCheckedChange = null)
+        }
+        if (!autoTextSize) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.widget_config_text_size_value, textSizePct.toInt()),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.width(10.dp))
+                Slider(
+                    value = textSizePct,
+                    onValueChange = { textSizePct = (it / 5f).roundToInt() * 5f },
+                    valueRange = WidgetPreferences.MIN_TEXT_SIZE_PCT.toFloat()..
+                        WidgetPreferences.MAX_TEXT_SIZE_PCT.toFloat(),
+                    steps = 10,
+                    modifier = Modifier.weight(1f).testTag(TAG_WIDGET_TEXT_SIZE)
+                )
+            }
+        }
         Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.widget_corner_launcher_note),
@@ -893,7 +943,9 @@ private fun WidgetConfigForm(
             textColorArgb = textColorArgb,
             cornerStyle = cornerStyle,
             cornerRadiusDp = cornerRadiusDp.toInt(),
-            contentSpacing = contentSpacing
+            contentSpacing = contentSpacing,
+            textSizePct = textSizePct.toInt(),
+            autoTextSize = autoTextSize
         )
 
         Spacer(Modifier.height(24.dp))
@@ -915,7 +967,8 @@ private fun WidgetConfigForm(
                 onClick = {
                     selectedCityId?.let { id ->
                         onSave(id, opacityPct.toInt(), forecastMode, bgColorArgb, textColorArgb,
-                            cornerStyle, cornerRadiusDp.toInt(), contentSpacing, showCurrentConditions)
+                            cornerStyle, cornerRadiusDp.toInt(), contentSpacing,
+                            showCurrentConditions, textSizePct.toInt(), autoTextSize)
                     }
                 },
                 enabled = selectedCityId != null && opacityIsValid,
@@ -1091,7 +1144,9 @@ private fun OpacityPreview(
     textColorArgb: Int?,
     cornerStyle: WidgetCornerStyle,
     cornerRadiusDp: Int,
-    contentSpacing: WidgetContentSpacing
+    contentSpacing: WidgetContentSpacing,
+    textSizePct: Int,
+    autoTextSize: Boolean
 ) {
     val alpha = opacityPct / 100f
     // Résolution du fond : custom ou primaryContainer du thème.
@@ -1115,6 +1170,7 @@ private fun OpacityPreview(
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         val radius = widgetCornerRadiusDp(cornerStyle, cornerRadiusDp, maxWidth.value, maxHeight.value)
+        val fontScale = widgetTextScale(maxWidth.value, maxHeight.value, autoTextSize, textSizePct)
         Box(
             modifier = Modifier.fillMaxSize()
                 .clip(RoundedCornerShape(radius.dp))
@@ -1125,7 +1181,9 @@ private fun OpacityPreview(
                 Text(
                     text = stringResource(R.string.widget_config_opacity_preview),
                     color = fg,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = (MaterialTheme.typography.titleSmall.fontSize.value * fontScale).sp
+                    ),
                     fontWeight = FontWeight.Medium
                 )
                 val spacingLabel = when (contentSpacing) {
@@ -1137,7 +1195,9 @@ private fun OpacityPreview(
                 Text(
                     text = stringResource(spacingLabel),
                     color = fg.copy(alpha = 0.75f),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = (MaterialTheme.typography.bodySmall.fontSize.value * fontScale).sp
+                    )
                 )
             }
         }
@@ -1248,3 +1308,6 @@ internal const val TAG_WIDGET_MODE = "widget_mode_"
 internal const val TAG_WIDGET_INSIGHT_HORIZON = "widget_insight_horizon"
 internal const val TAG_WIDGET_SAVE = "widget_save"
 internal const val TAG_WIDGET_CANCEL = "widget_cancel"
+
+internal const val TAG_WIDGET_TEXT_SIZE = "widget_text_size"
+internal const val TAG_WIDGET_TEXT_SIZE_AUTO = "widget_text_size_auto"

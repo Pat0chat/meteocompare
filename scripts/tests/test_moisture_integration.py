@@ -35,7 +35,9 @@ class MoistureIntegrationTests(unittest.TestCase):
         self.assertIn('date.atStartOfDay(zone).toInstant()', daily)
         self.assertIn('date.plusDays(1).atStartOfDay(zone).toInstant()', daily)
         self.assertIn('ChronoUnit.HOURS.between(begin, end)', daily)
-        self.assertIn('seen.add(time)', daily)
+        # Deduplicate AFTER validation, independently for humidity and dew point.
+        self.assertIn('humidity.putIfAbsent(time, it)', daily)
+        self.assertIn('dewPoint.putIfAbsent(time, it)', daily)
         self.assertIn('it.size.toDouble() >= required', daily)
 
     def test_today_chart_model_breakdown_and_chronologies(self):

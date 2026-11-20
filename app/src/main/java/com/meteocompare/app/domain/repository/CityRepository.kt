@@ -15,6 +15,9 @@ interface CityRepository {
     /** Ajoute une ville aux favoris. Idempotent. */
     suspend fun addFavorite(city: City)
 
+    /** Persiste le classement des cartes Home (y compris la position actuelle). */
+    suspend fun reorderFavorites(cityIds: List<String>)
+
     /** Retire une ville des favoris. */
     suspend fun removeFavorite(cityId: String)
 

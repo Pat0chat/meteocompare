@@ -10,6 +10,7 @@ import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.usecase.ForecastEngineV3
 import com.meteocompare.app.domain.usecase.WeatherConditionConsensus
 import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /** Résultat agrégé utilisé par la liste des villes et le mini-forecast widget. */
@@ -71,6 +72,7 @@ internal object ForecastAggregates {
         val clouds = if (includeConditions) ArrayList<Int?>(hourCount) else null
         val diagnostics = if (includeConditions) ArrayList<ConditionDecision>(hourCount) else null
         val startInstant = HourlySampling.anchor(forecast, now)
+        val cityZone = forecast.city.timezone?.let { runCatching { ZoneId.of(it) }.getOrNull() }
 
         repeat(hourCount) { hourOffset ->
             val target = startInstant.plusSeconds(hourOffset * 3_600L)
@@ -87,15 +89,19 @@ internal object ForecastAggregates {
                 series.hourly.temperature2m.getOrNull(index)?.let {
                     tempRows += ForecastConsensus.Entry(model, it)
                 }
-                val amount = series.hourly.precipitation.getOrNull(index)
-                val probability = series.hourly.precipitationProbability.getOrNull(index)
+                // The cell labelled H covers upcoming [H,H+1h). Open-Meteo
+                // precipitation/probability at H+1 describe precisely that hour.
+                // Never mix them with instantaneous WMO / temperature at H.
+                val slotPrecipitation = HourlySampling.precipitationForSlot(series.hourly, index)
+                val amount = slotPrecipitation.amountMm
+                val probability = slotPrecipitation.probabilityPercent
                 if (amount != null || probability != null) {
                     precipRows += ForecastConsensus.PrecipitationRow(model, amount, probability)
                 }
                 if (conditions != null) {
                     // Classify once per model. A valid WMO code always stays native;
                     // same-model variables only supply a fallback when WMO is absent.
-                    val decision = ConditionDecisionEngine.hourly(series.hourly, index)
+                    val decision = ConditionDecisionEngine.upcomingHour(series.hourly, index)
                     decision.condition?.let { resolved ->
                         val row = ForecastConsensus.Entry(model, resolved)
                         if (decision.origin == ConditionOrigin.HOURLY_WMO) conditionRows += row
@@ -159,7 +165,12 @@ internal object ForecastAggregates {
                     supportModels = supportModels,
                     localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD)
                 )
-                diagnostics?.add(result)
+                // All contributors now describe the SAME displayed slot:
+                // native WMO/cloud at H and rain fallback from accumulation H+1.
+                val window = ConditionTimeWindow(
+                    target, target.plusSeconds(3_600L), cityZone, ConditionWindowKind.HOURLY
+                )
+                diagnostics?.add(result.copy(timeWindow = window))
                 conditions += result.condition
             }
         }

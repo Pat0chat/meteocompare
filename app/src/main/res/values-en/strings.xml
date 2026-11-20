@@ -1226,6 +1226,7 @@
     <string name="condition_reason_invalid">Invalid weather code or physical value</string>
     <string name="condition_reason_clouds">Some cloud layers are missing</string>
     <string name="condition_reason_precip">Precipitation accumulated during the preceding hour</string>
+    <string name="condition_reason_precip_upcoming">Precipitation accumulated over the displayed hour</string>
     <string name="condition_reason_phase">Rain/snow phase is uncertain</string>
     <string name="condition_reason_partial">Partial period coverage</string>
     <string name="condition_reason_majority">Majority proven despite missing hours</string>
@@ -1239,8 +1240,24 @@
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Forecast details</string>
     <string name="condition_explanation_no_condition">Undetermined condition</string>
+    <string name="condition_explanation_window_title">Forecast time or calculation period</string>
+    <string name="condition_explanation_window_hourly_note">Weather code and cloud cover describe H. The precipitation amount and probability stamped H+1 describe the displayed interval H–H+1.</string>
+    <string name="condition_explanation_window_hourly_precip_note">The condition uses precipitation accumulated in the preceding hour (H−1 to H), with temperature at H when available.</string>
+    <string name="condition_explanation_window_hourly_mixed_note">This consensus combines evidence valid at H with precipitation from the preceding hour. Both times are shown.</string>
+    <string name="condition_explanation_window_precipitation_label">Precipitation period</string>
+    <string name="condition_explanation_window_period_note">The condition summarizes the available hours in this period. See coverage below.</string>
+    <string name="condition_explanation_window_unavailable_note">This is the forecast interval, not a range with usable weather evidence: the received data cannot determine a condition.</string>
+    <string name="condition_explanation_window_daily_wmo_note">The daily weather code identifies the most severe phenomenon of the day, not necessarily the weather that dominated each hour.</string>
     <string name="condition_explanation_data_title">Data and provenance</string>
     <string name="condition_explanation_source_title">Calculation method</string>
     <string name="condition_explanation_alternatives_title">Possible scenarios</string>
     <string name="condition_explanation_reasons_title">Why this status?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Reorder locations</string>
+    <string name="home_reorder_hint">Hold the handle to drag a location, or use the arrows.</string>
+    <string name="home_reorder_up">Move %1$s up</string>
+    <string name="home_reorder_down">Move %1$s down</string>
+    <string name="home_reorder_drag">Hold and drag %1$s</string>
+    <string name="home_reorder_apply">Save order</string>
+    <string name="home_reorder_save_error">Could not save the new order.</string>
 </resources>

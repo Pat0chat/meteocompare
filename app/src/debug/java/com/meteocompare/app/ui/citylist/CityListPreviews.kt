@@ -238,3 +238,15 @@ private fun EmptyStateStandalonePreview() {
         EmptyState(onAddClick = {})
     }
 }
+
+@MeteoComponentPreview
+@Composable
+private fun CityReorderSheetPreview() {
+    MeteoPreviewSurface {
+        CityReorderSheet(
+            cities = homeItems().map { it.city },
+            onDismiss = {},
+            onSave = {}
+        )
+    }
+}

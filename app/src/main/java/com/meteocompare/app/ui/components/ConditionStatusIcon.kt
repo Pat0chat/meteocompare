@@ -179,6 +179,7 @@ internal fun reasonLabelRes(reason: ConditionReason): Int = when (reason) {
     ConditionReason.INVALID_PHYSICAL_VALUE -> R.string.condition_reason_invalid
     ConditionReason.PARTIAL_CLOUD_LAYERS -> R.string.condition_reason_clouds
     ConditionReason.PRECEDING_HOUR_PRECIPITATION -> R.string.condition_reason_precip
+    ConditionReason.UPCOMING_HOUR_PRECIPITATION -> R.string.condition_reason_precip_upcoming
     ConditionReason.PRECIPITATION_PHASE_UNCERTAIN -> R.string.condition_reason_phase
     ConditionReason.PARTIAL_PERIOD -> R.string.condition_reason_partial
     ConditionReason.IRREVERSIBLE_MAJORITY -> R.string.condition_reason_majority

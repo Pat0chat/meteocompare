@@ -3,6 +3,7 @@ package com.meteocompare.app.domain.util
 import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.PrecipitationThresholds
+import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherScenario
@@ -86,11 +87,17 @@ object WeatherScenarioBuilder {
                 add(
                     Sample(
                         offset = offset,
-                        temperature = series.hourly.temperature2m.getOrNull(index),
-                        precipitation = series.hourly.precipitation.getOrNull(index),
-                        condition = series.resolveHourlyCondition(index),
-                        cloudCover = series.hourly.cloudCover.getOrNull(index),
-                        gust = series.hourly.windGusts10m.getOrNull(index)
+                        temperature = ForecastPhysicalLimits.temperature(series.hourly.temperature2m.getOrNull(index)),
+                        // The scenario's slot is [H,H+1h): precipitation
+                        // stamped H+1 accumulates over exactly that interval.
+                        precipitation = ForecastPhysicalLimits.precipitation(
+                            HourlySampling.precipitationForSlot(series.hourly, index).amountMm
+                        ),
+                        // Native WMO/cloud at H; if WMO is absent, infer wet weather
+                        // only from the same future slot [H,H+1h) (rain at H+1).
+                        condition = ConditionDecisionEngine.upcomingHour(series.hourly, index).condition,
+                        cloudCover = ForecastPhysicalLimits.percentage(series.hourly.cloudCover.getOrNull(index)),
+                        gust = ForecastPhysicalLimits.gust(HourlySampling.gustForSlot(series.hourly, index))
                     )
                 )
             }

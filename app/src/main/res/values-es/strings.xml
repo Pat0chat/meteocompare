@@ -1215,6 +1215,7 @@ datos</string>
     <string name="condition_reason_invalid">Código o valor meteorológico no válido</string>
     <string name="condition_reason_clouds">Faltan algunas capas de nubes</string>
     <string name="condition_reason_precip">Precipitación acumulada durante la hora anterior</string>
+    <string name="condition_reason_precip_upcoming">Precipitación acumulada durante la hora mostrada</string>
     <string name="condition_reason_phase">Fase de lluvia o nieve incierta</string>
     <string name="condition_reason_partial">Cobertura parcial del periodo</string>
     <string name="condition_reason_majority">Mayoría demostrada pese a las horas ausentes</string>
@@ -1228,8 +1229,24 @@ datos</string>
     <!-- Themed condition explanation and contextual legend (V5). -->
     <string name="condition_detail_title">Detalles de la previsión</string>
     <string name="condition_explanation_no_condition">Condición indeterminada</string>
+    <string name="condition_explanation_window_title">Hora prevista o período de cálculo</string>
+    <string name="condition_explanation_window_hourly_note">El código meteorológico y las nubes corresponden a H. La precipitación y su probabilidad fechadas H+1 describen el intervalo mostrado H–H+1.</string>
+    <string name="condition_explanation_window_hourly_precip_note">La condición utiliza la precipitación acumulada en la hora anterior (H−1 a H) y la temperatura a la hora H si está disponible.</string>
+    <string name="condition_explanation_window_hourly_mixed_note">El consenso combina datos a la hora H con precipitación de la hora anterior. Se muestran ambos horarios.</string>
+    <string name="condition_explanation_window_precipitation_label">Período de precipitación</string>
+    <string name="condition_explanation_window_period_note">La condición resume las horas disponibles del intervalo. La cobertura se indica a continuación.</string>
+    <string name="condition_explanation_window_unavailable_note">Este es el intervalo del pronóstico, no un periodo con datos suficientes: no se puede determinar una condición meteorológica.</string>
+    <string name="condition_explanation_window_daily_wmo_note">El código meteorológico diario indica el fenómeno más intenso del día, no necesariamente el tiempo predominante durante sus horas.</string>
     <string name="condition_explanation_data_title">Datos y procedencia</string>
     <string name="condition_explanation_source_title">Método de cálculo</string>
     <string name="condition_explanation_alternatives_title">Escenarios posibles</string>
     <string name="condition_explanation_reasons_title">¿Por qué este estado?</string>
+    <!-- Home card ordering -->
+    <string name="home_reorder_title">Reordenar localidades</string>
+    <string name="home_reorder_hint">Mantén pulsado el control para arrastrar una localidad o usa las flechas.</string>
+    <string name="home_reorder_up">Subir %1$s</string>
+    <string name="home_reorder_down">Bajar %1$s</string>
+    <string name="home_reorder_drag">Mantener pulsado y arrastrar %1$s</string>
+    <string name="home_reorder_apply">Guardar orden</string>
+    <string name="home_reorder_save_error">No se pudo guardar el nuevo orden.</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import com.meteocompare.app.core.util.windCardinal
+import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.forecastDailyWindDirection
 import com.meteocompare.app.domain.util.dailyAtmosphericMetrics
 
@@ -1378,7 +1379,7 @@ internal fun DetailedComparisonContent(
                             forecast = forecast,
                             now = presentationNow,
                             valueExtractor = { hourly: HourlyForecast, idx ->
-                                hourly.precipitation.getOrNull(idx)
+                                HourlySampling.precipitationForSlot(hourly, idx).amountMm
                             },
                             valueFormatter = { mm ->
                                 units.rain(mm)
@@ -1426,7 +1427,7 @@ internal fun DetailedComparisonContent(
                             valueFormatter = { units.speed(it) },
                             heatmapStyler = ::hourlyWindHeatmap,
                             secondaryValueExtractor = { hourly, idx ->
-                                hourly.windGusts10m.getOrNull(idx)
+                                HourlySampling.gustForSlot(hourly, idx)
                             },
                             secondaryValueFormatter = { "$gustAbbreviation ${units.value(it, WeatherUnit.WIND_SPEED)}" },
                             directionExtractor = { hourly, idx ->

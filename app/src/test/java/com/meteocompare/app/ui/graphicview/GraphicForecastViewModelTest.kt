@@ -113,6 +113,15 @@ class GraphicForecastViewModelTest {
             // Same end-to-end data contract as the meteogram screen: no new
             // network request and all three cloud layers survive the adapter.
             val firstModel = state.modelValuesByInstant.getValue(now).single()
+            // The source's rain at now is for the PAST interval. The graph
+            // must display its following-hour accumulation under now.
+            assertEquals(0.0, firstModel.precipitationMm!!, 0.0)
+            assertEquals(10, firstModel.precipitationProbabilityPercent)
+            assertEquals(21.0, firstModel.windGustKmh!!, 0.0)
+            assertEquals(null, state.modelValuesByInstant.getValue(
+                now.plusSeconds(239 * 3_600L)).single().windGustKmh)
+            assertEquals(null, state.modelValuesByInstant.getValue(
+                now.plusSeconds(239 * 3_600L)).single().precipitationMm)
             assertEquals(10, firstModel.cloudLowPercent)
             assertEquals(40, firstModel.cloudMidPercent)
             assertEquals(70, firstModel.cloudHighPercent)

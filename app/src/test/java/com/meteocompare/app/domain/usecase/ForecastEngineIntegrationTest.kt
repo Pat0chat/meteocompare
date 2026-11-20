@@ -399,11 +399,11 @@ class ForecastEngineIntegrationTest {
                 ForecastSeries(
                     model = model,
                     hourly = HourlyForecast(
-                        timestamps = listOf(now),
-                        temperature2m = listOf(value),
-                        precipitation = listOf(0.2),
-                        windSpeed10m = listOf(10.0),
-                        precipitationProbability = listOf(55)
+                        timestamps = listOf(now, now.plusSeconds(3600L)),
+                        temperature2m = listOf(value, null),
+                        precipitation = listOf(null, 0.2),
+                        windSpeed10m = listOf(10.0, null),
+                        precipitationProbability = listOf(null, 55)
                     ),
                     daily = DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
                 )

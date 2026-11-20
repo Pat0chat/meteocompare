@@ -41,6 +41,25 @@ class WidgetConfigurationTest {
         assertEquals(true, WidgetConfiguration.fromPreferences(second).showCurrentConditions)
     }
 
+    @Test fun text_size_is_per_widget_and_refresh_state_is_preserved() {
+        val prefs = preferencesOf(
+            WidgetPreferences.RefreshTickKey to 37L,
+            WidgetPreferences.LastDispatchAtKey to 83L
+        ).toMutablePreferences()
+        val custom = WidgetConfiguration(textSizePct = 135, autoTextSize = false)
+        custom.writeTo(prefs)
+        assertEquals(custom, WidgetConfiguration.fromPreferences(prefs))
+        assertEquals(37L, prefs[WidgetPreferences.RefreshTickKey])
+        assertEquals(83L, prefs[WidgetPreferences.LastDispatchAtKey])
+        assertEquals(140, WidgetConfiguration.fromPreferences(preferencesOf(
+            WidgetPreferences.TextSizePctKey to 999
+        )).textSizePct)
+        assertEquals(85, WidgetConfiguration.fromPreferences(preferencesOf(
+            WidgetPreferences.TextSizePctKey to -1
+        )).textSizePct)
+        assertEquals(true, WidgetConfiguration.fromPreferences(emptyPreferences()).autoTextSize)
+    }
+
     @Test fun new_widget_uses_defaults_and_first_favorite() {
         val config = WidgetConfiguration.fromPreferences(emptyPreferences())
         assertEquals(WidgetConfiguration(), config)

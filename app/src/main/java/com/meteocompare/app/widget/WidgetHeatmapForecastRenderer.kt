@@ -36,7 +36,8 @@ internal object WidgetHeatmapForecastRenderer {
         textColorArgb: Int,
         timelineLabels: List<String> = emptyList(),
         profile: MiniForecastSizeProfile = MiniForecastSizeProfile.EXPANDED_4X2,
-        units: WeatherUnits = WeatherUnits()
+        units: WeatherUnits = WeatherUnits(),
+        textScale: Float = 1f
     ): Bitmap {
         require(widthPx > 0) { "widthPx doit être > 0, reçu $widthPx" }
         require(heightPx > 0) { "heightPx doit être > 0, reçu $heightPx" }
@@ -73,7 +74,8 @@ internal object WidgetHeatmapForecastRenderer {
                 MiniForecastSizeProfile.COMPACT_2X2 -> 12f
                 MiniForecastSizeProfile.MEDIUM_3X2 -> 13f
                 MiniForecastSizeProfile.EXPANDED_4X2 -> 16f
-            }.coerceAtMost(columnWidth * 0.55f)
+            }.times(textScale.coerceIn(0.85f, 1.4f))
+                .coerceAtMost(columnWidth * 0.55f)
             color = withAlpha(textColorArgb, 0xD8)
             isSubpixelText = true
         }
@@ -84,7 +86,8 @@ internal object WidgetHeatmapForecastRenderer {
                 MiniForecastSizeProfile.COMPACT_2X2 -> 12f
                 MiniForecastSizeProfile.MEDIUM_3X2 -> 13f
                 MiniForecastSizeProfile.EXPANDED_4X2 -> 16f
-            }.coerceAtMost(columnWidth * 0.65f)
+            }.times(textScale.coerceIn(0.85f, 1.4f))
+                .coerceAtMost(columnWidth * 0.65f)
             isSubpixelText = true
         }
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

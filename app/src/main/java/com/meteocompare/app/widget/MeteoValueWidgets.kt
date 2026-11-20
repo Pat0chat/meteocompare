@@ -76,6 +76,10 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
             val customCornerRadiusDp = (prefs[WidgetPreferences.CornerRadiusDpKey]
                 ?: WidgetPreferences.DEFAULT_CORNER_RADIUS_DP).coerceIn(0, WidgetPreferences.MAX_CORNER_RADIUS_DP)
             val contentSpacing = WidgetContentSpacing.fromStored(prefs[WidgetPreferences.ContentSpacingKey])
+            val textSizePct = prefs[WidgetPreferences.TextSizePctKey]
+                ?: WidgetPreferences.DEFAULT_TEXT_SIZE_PCT
+            val autoTextSize = prefs[WidgetPreferences.AutoTextSizeKey]
+                ?: WidgetPreferences.DEFAULT_AUTO_TEXT_SIZE
             var data by remember {
                 mutableStateOf(
                     if (cityId == null) WidgetData.NotConfigured else WidgetData.Loading
@@ -93,7 +97,11 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
             }
 
             CompositionLocalProvider(LocalContext provides appContext,
-                LocalWeatherUnits provides WeatherUnits(data.unitSystem)) {
+                LocalWeatherUnits provides WeatherUnits(data.unitSystem),
+                LocalWidgetTextScale provides widgetTextScale(
+                    LocalSize.current.width.value, LocalSize.current.height.value,
+                    autoTextSize, textSizePct
+                )) {
                 GlanceTheme {
                     InsightWidgetContent(
                         data = data,
@@ -207,7 +215,7 @@ private fun InsightPillSummary(
                 text = units.temp(data.currentTemp),
                 style = TextStyle(
                     color = colors.foreground,
-                    fontSize = if (veryNarrow) 16.sp else 20.sp,
+                    fontSize = (if (veryNarrow) 16.sp else 20.sp).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -217,7 +225,7 @@ private fun InsightPillSummary(
             Spacer(GlanceModifier.height(3.dp))
             Text(
                 text = it,
-                style = TextStyle(color = colors.muted, fontSize = 9.sp),
+                style = TextStyle(color = colors.muted, fontSize = (9.sp).widgetScaled()),
                 maxLines = 1
             )
         }
@@ -306,7 +314,7 @@ private fun InsightWidgetLayout(
                 text = formatTemp(data.currentTemp, units = units),
                 style = TextStyle(
                     color = colors.foreground,
-                    fontSize = if (compact) 27.sp else 34.sp,
+                    fontSize = (if (compact) 27.sp else 34.sp).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -317,7 +325,7 @@ private fun InsightWidgetLayout(
                     text = context.getString(weatherConditionLabelRes(data.currentCondition)),
                     style = TextStyle(
                         color = colors.muted,
-                        fontSize = if (compact) 10.sp else 12.sp,
+                        fontSize = (if (compact) 10.sp else 12.sp).widgetScaled(),
                         fontWeight = FontWeight.Medium
                     ),
                     maxLines = 1
@@ -401,7 +409,7 @@ private fun InsightSurface(
                 text = insight?.title ?: context.getString(R.string.widget_value_no_comparison),
                 style = TextStyle(
                     color = colors.foreground,
-                    fontSize = if (compact) 11.sp else 13.sp,
+                    fontSize = (if (compact) 11.sp else 13.sp).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -409,7 +417,7 @@ private fun InsightSurface(
             insight?.detail?.takeIf(String::isNotBlank)?.let { detail ->
                 Text(
                     text = detail,
-                    style = TextStyle(color = colors.muted, fontSize = if (compact) 9.sp else 10.sp),
+                    style = TextStyle(color = colors.muted, fontSize = (if (compact) 9.sp else 10.sp).widgetScaled()),
                     maxLines = 1
                 )
             }
@@ -420,7 +428,7 @@ private fun InsightSurface(
                 text = time,
                 style = TextStyle(
                     color = tone,
-                    fontSize = 9.sp,
+                    fontSize = (9.sp).widgetScaled(),
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
@@ -443,7 +451,7 @@ private fun ValueWidgetHeader(
             text = title,
             style = TextStyle(
                 color = colors.foreground,
-                fontSize = 15.sp,
+                fontSize = (15.sp).widgetScaled(),
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1,
@@ -454,7 +462,7 @@ private fun ValueWidgetHeader(
                 text = it,
                 style = TextStyle(
                     color = colors.muted,
-                    fontSize = 9.sp,
+                    fontSize = (9.sp).widgetScaled(),
                     fontWeight = FontWeight.Medium
                 ),
                 maxLines = 1
@@ -490,7 +498,7 @@ private fun MetricConsensusPill(
             } ?: "—",
             style = TextStyle(
                 color = if (metric.divergent) colors.warning else colors.foreground,
-                fontSize = 8.sp,
+                fontSize = (8.sp).widgetScaled(),
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1
@@ -541,12 +549,12 @@ private fun ValueWidgetError(
         Spacer(GlanceModifier.height(7.dp))
         Text(
             text = title,
-            style = TextStyle(color = colors.foreground, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(color = colors.foreground, fontSize = (12.sp).widgetScaled(), fontWeight = FontWeight.Bold),
             maxLines = 1
         )
         Text(
             text = detail,
-            style = TextStyle(color = colors.muted, fontSize = 9.sp),
+            style = TextStyle(color = colors.muted, fontSize = (9.sp).widgetScaled()),
             maxLines = 2
         )
     }

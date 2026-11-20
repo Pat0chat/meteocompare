@@ -14,8 +14,11 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.BiasSampleRepository
 import com.meteocompare.app.domain.repository.ForecastBiasRecord
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,6 +30,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 
 /** Résultat synthétique d'un bootstrap historique J+1…J+7. */
 data class BiasHistoryBootstrapResult(
@@ -91,17 +95,25 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
             models = models.joinToString(",", transform = WeatherModel::apiKey),
             timezone = apiTimezoneOrAuto(city.timezone),
             startDate = startDate.format(ISO_DATE),
-            endDate = endDate.format(ISO_DATE)
+            // Precipitation at next day's 00:00 covers the final hour of endDate.
+            // Temperature/wind observations from that extra day are ignored.
+            endDate = endDate.plusDays(1).format(ISO_DATE)
         )
 
         val hourly = response.hourly
             ?: return@withContext BiasHistoryBootstrapResult(requestedDays, 0, 0, 0)
-        val timeline = parseTimeline(hourly, startDate, endDate)
+        val zone = validZoneOrNull(city.timezone) ?: resolveZoneOrUtc(response.timezone)
+        val timeline = parseTimeline(hourly, startDate, endDate, zone)
         if (timeline.isEmpty()) {
             return@withContext BiasHistoryBootstrapResult(requestedDays, 0, 0, 0)
         }
 
-        val expectedHoursByDate = timeline.groupingBy(TimelineEntry::date).eachCount()
+        val expectedHoursByDate = timeline.mapNotNull { entry ->
+            entry.date.takeIf { it >= startDate && it <= endDate }
+        }.groupingBy { it }.eachCount()
+        val expectedPrecipitationHoursByDate = timeline.mapNotNull { entry ->
+            entry.precipitationDate.takeIf { it >= startDate && it <= endDate }
+        }.groupingBy { it }.eachCount()
         val records = ArrayList<ForecastBiasRecord>(
             models.size * requestedDays * BiasVariable.entries.size * PreviousRunsApi.MAX_LEAD_DAY
         )
@@ -109,7 +121,6 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
         val coveredModels = linkedSetOf<WeatherModel>()
         val coverageByLead = linkedMapOf<Int, MutableMap<WeatherModel, MutableMap<BiasVariable, Int>>>()
         val singleModelMode = models.size == 1
-        val zone = validZoneOrNull(city.timezone) ?: resolveZoneOrUtc(response.timezone)
 
         for (leadDay in PreviousRunsApi.MIN_LEAD_DAY..PreviousRunsApi.MAX_LEAD_DAY) {
             for (model in models) {
@@ -135,18 +146,32 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
 
                 val accumulators = linkedMapOf<LocalDate, DailyAccumulator>()
                 for (entry in timeline) {
-                    val accumulator = accumulators.getOrPut(entry.date, ::DailyAccumulator)
-                    ForecastPhysicalLimits.temperature(temperature.getOrNull(entry.sourceIndex))
-                        ?.let(accumulator::addTemperature)
-                    ForecastPhysicalLimits.precipitation(precipitation.getOrNull(entry.sourceIndex))
-                        ?.let(accumulator::addPrecipitation)
-                    ForecastPhysicalLimits.wind(wind.getOrNull(entry.sourceIndex))
-                        ?.let(accumulator::addWind)
+                    if (entry.date >= startDate && entry.date <= endDate) {
+                        val accumulator = accumulators.getOrPut(entry.date, ::DailyAccumulator)
+                        ForecastPhysicalLimits.temperature(temperature.getOrNull(entry.sourceIndex))
+                            ?.let(accumulator::addTemperature)
+                        ForecastPhysicalLimits.wind(wind.getOrNull(entry.sourceIndex))
+                            ?.let(accumulator::addWind)
+                    }
+                    // The precipitation ending at H belongs to [H-1h,H):
+                    // midnight H is part of the previous local civil day.
+                    if (entry.precipitationDate >= startDate && entry.precipitationDate <= endDate) {
+                        val accumulator = accumulators.getOrPut(entry.precipitationDate, ::DailyAccumulator)
+                        ForecastPhysicalLimits.precipitation(precipitation.getOrNull(entry.sourceIndex))
+                            ?.let(accumulator::addPrecipitation)
+                    }
                 }
 
                 for ((date, values) in accumulators) {
-                    val expectedHours = expectedHoursByDate[date] ?: continue
-                    if (expectedHours !in COMPLETE_CIVIL_DAY_HOURS) continue
+                    val expectedHours = expectedHoursByDate[date] ?: 0
+                    val expectedPrecipHours = expectedPrecipitationHoursByDate[date] ?: 0
+                    // A normal day has 24 hours, DST days have 23 or 25.
+                    // A 23-hour partial ordinary day must NOT be called complete.
+                    val civilDayHours = Duration.between(
+                        date.atStartOfDay(zone).toInstant(),
+                        date.plusDays(1).atStartOfDay(zone).toInstant()
+                    ).toHours().toInt()
+                    if (expectedHours != civilDayHours) continue
                     val issuedAt = date.minusDays(leadDay.toLong()).atStartOfDay(zone).toInstant()
                     var addedForModelDay = false
 
@@ -157,7 +182,9 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
                         coverageByLead.increment(leadDay, model, BiasVariable.TEMPERATURE)
                         addedForModelDay = true
                     }
-                    values.precipitationSum(expectedHours)?.let { value ->
+                    values.precipitationSum(expectedPrecipHours)
+                        ?.takeIf { expectedPrecipHours == civilDayHours }
+                        ?.let { value ->
                         records += ForecastBiasRecord(
                             city.id, model, BiasVariable.PRECIPITATION, date, issuedAt, value, leadDay
                         )
@@ -197,22 +224,33 @@ class BootstrapBiasHistoryUseCase @Inject constructor(
     private fun parseTimeline(
         hourly: JsonObject,
         startDate: LocalDate,
-        endDate: LocalDate
-    ): List<TimelineEntry> = hourly[KEY_TIME]
-        .asStringList()
-        .mapIndexedNotNull { index, raw ->
-            val date = parseDate(raw) ?: return@mapIndexedNotNull null
-            if (date < startDate || date > endDate) return@mapIndexedNotNull null
-            TimelineEntry(index, date)
-        }
+        endDate: LocalDate,
+        zone: ZoneId
+    ): List<TimelineEntry> = (hourly[KEY_TIME] as? JsonArray).orEmpty()
+        .mapIndexedNotNull { index, element ->
+            val instant = parseTime(element, zone) ?: return@mapIndexedNotNull null
+            val date = instant.atZone(zone).toLocalDate()
+            val precipitationDate = instant.minusSeconds(3_600L).atZone(zone).toLocalDate()
+            if ((date < startDate || date > endDate) &&
+                (precipitationDate < startDate || precipitationDate > endDate)) return@mapIndexedNotNull null
+            TimelineEntry(index, instant, date, precipitationDate)
+        }.distinctBy(TimelineEntry::instant)
 
-    private fun parseDate(raw: String): LocalDate? = runCatching {
-        LocalDateTime.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE_TIME).toLocalDate()
-    }.recoverCatching {
-        LocalDate.parse(raw.take(10), ISO_DATE)
-    }.getOrNull()
+    /** Production requests timeformat=unixtime; ISO local timestamps are accepted
+     * for legacy fixtures but cannot disambiguate an autumn repeated hour. */
+    private fun parseTime(element: JsonElement, zone: ZoneId): Instant? {
+        val value = element as? JsonPrimitive ?: return null
+        if (!value.isString) return value.longOrNull?.let { Instant.ofEpochSecond(it) }
+        return runCatching { Instant.parse(value.content) }.getOrNull()
+            ?: runCatching { LocalDateTime.parse(value.content).atZone(zone).toInstant() }.getOrNull()
+    }
 
-    private data class TimelineEntry(val sourceIndex: Int, val date: LocalDate)
+    private data class TimelineEntry(
+        val sourceIndex: Int,
+        val instant: Instant,
+        val date: LocalDate,
+        val precipitationDate: LocalDate
+    )
 
     private class DailyAccumulator {
         private var temperatureCount = 0
@@ -285,14 +323,6 @@ private fun JsonObject.lookupSeries(
     return candidates.firstNotNullOfOrNull { key -> this[key]?.asNullableDoubles() }
         .orEmpty()
 }
-
-private fun JsonElement?.asStringList(): List<String> =
-    (this as? JsonArray)?.map { element ->
-        (element as? JsonPrimitive)
-            ?.takeIf(JsonPrimitive::isString)
-            ?.content
-            .orEmpty()
-    }.orEmpty()
 
 private fun JsonElement.asNullableDoubles(): List<Double?> =
     (this as? JsonArray)?.map { element ->

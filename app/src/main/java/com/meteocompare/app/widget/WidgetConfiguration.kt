@@ -15,7 +15,9 @@ internal data class WidgetConfiguration(
     val cornerStyle: WidgetCornerStyle = WidgetCornerStyle.ROUNDED,
     val cornerRadiusDp: Int = WidgetPreferences.DEFAULT_CORNER_RADIUS_DP,
     val contentSpacing: WidgetContentSpacing = WidgetContentSpacing.NORMAL,
-    val showCurrentConditions: Boolean = WidgetPreferences.DEFAULT_SHOW_CURRENT_CONDITIONS
+    val showCurrentConditions: Boolean = WidgetPreferences.DEFAULT_SHOW_CURRENT_CONDITIONS,
+    val textSizePct: Int = WidgetPreferences.DEFAULT_TEXT_SIZE_PCT,
+    val autoTextSize: Boolean = WidgetPreferences.DEFAULT_AUTO_TEXT_SIZE
 ) {
     /** N'écrit QUE les options de présentation : les ticks et états de refresh
      * restent exactement tels que WorkManager les a enregistrés. */
@@ -28,6 +30,10 @@ internal data class WidgetConfiguration(
         prefs[WidgetPreferences.CornerStyleKey] = cornerStyle.name
         prefs[WidgetPreferences.CornerRadiusDpKey] = cornerRadiusDp.coerceIn(0, WidgetPreferences.MAX_CORNER_RADIUS_DP)
         prefs[WidgetPreferences.ContentSpacingKey] = contentSpacing.name
+        prefs[WidgetPreferences.TextSizePctKey] = textSizePct.coerceIn(
+            WidgetPreferences.MIN_TEXT_SIZE_PCT, WidgetPreferences.MAX_TEXT_SIZE_PCT
+        )
+        prefs[WidgetPreferences.AutoTextSizeKey] = autoTextSize
         if (backgroundColorArgb != null) prefs[WidgetPreferences.BackgroundColorKey] = backgroundColorArgb
         else prefs.remove(WidgetPreferences.BackgroundColorKey)
         if (textColorArgb != null) prefs[WidgetPreferences.TextColorKey] = textColorArgb
@@ -56,7 +62,13 @@ internal data class WidgetConfiguration(
                 ?: WidgetPreferences.DEFAULT_CORNER_RADIUS_DP).coerceIn(0, WidgetPreferences.MAX_CORNER_RADIUS_DP),
             contentSpacing = WidgetContentSpacing.fromStored(prefs[WidgetPreferences.ContentSpacingKey]),
             showCurrentConditions = prefs[WidgetPreferences.ShowCurrentConditionsKey]
-                ?: WidgetPreferences.DEFAULT_SHOW_CURRENT_CONDITIONS
+                ?: WidgetPreferences.DEFAULT_SHOW_CURRENT_CONDITIONS,
+            textSizePct = (prefs[WidgetPreferences.TextSizePctKey]
+                ?: WidgetPreferences.DEFAULT_TEXT_SIZE_PCT).coerceIn(
+                WidgetPreferences.MIN_TEXT_SIZE_PCT, WidgetPreferences.MAX_TEXT_SIZE_PCT
+            ),
+            autoTextSize = prefs[WidgetPreferences.AutoTextSizeKey]
+                ?: WidgetPreferences.DEFAULT_AUTO_TEXT_SIZE
         )
     }
 }

@@ -27,7 +27,7 @@ internal fun WidgetCurrentLocationAction(color: ColorProvider, compact: Boolean)
             if (compact) R.string.widget_current_location_refresh_short
             else R.string.widget_current_location_refresh
         ),
-        style = TextStyle(color = color, fontSize = if (compact) 9.sp else 11.sp),
+        style = TextStyle(color = color, fontSize = (if (compact) 9.sp else 11.sp).widgetScaled()),
         modifier = GlanceModifier.clickable(actionStartActivity(intent))
             .padding(start = 5.dp, end = if (compact) 7.dp else 8.dp,
                 top = 2.dp, bottom = 2.dp),

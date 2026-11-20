@@ -25,7 +25,9 @@ interface PreviousRunsApi {
         @Query("end_date") endDate: String,
         @Query("wind_speed_unit") windSpeedUnit: String = "kmh",
         @Query("temperature_unit") temperatureUnit: String = "celsius",
-        @Query("precipitation_unit") precipitationUnit: String = "mm"
+        @Query("precipitation_unit") precipitationUnit: String = "mm",
+        // UTC epoch seconds are unambiguous across repeated local DST hours.
+        @Query("timeformat") timeFormat: String = "unixtime"
     ): PreviousRunsResponseDto
 
     companion object {

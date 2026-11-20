@@ -107,6 +107,19 @@ class MeteoWidgetConfigActivityTest {
     }
 
     @Test
+    fun text_size_can_be_changed_per_widget_and_saved() {
+        composeRule.onNodeWithTag(TAG_WIDGET_TEXT_SIZE_AUTO).performScrollTo().assertIsOn()
+            .performClick().assertIsOff()
+        composeRule.onNodeWithTag(TAG_WIDGET_TEXT_SIZE).performScrollTo().assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(135f) }
+        composeRule.onNodeWithTag(TAG_WIDGET_SAVE).performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000) { scenario.state == Lifecycle.State.DESTROYED }
+        val saved = WidgetConfiguration.fromPreferences(readPreferences(widgetId))
+        assertEquals(false, saved.autoTextSize)
+        assertEquals(135, saved.textSizePct)
+    }
+
+    @Test
     fun current_conditions_toggle_is_enabled_by_default() {
         composeRule.onNodeWithTag(TAG_WIDGET_SHOW_CURRENT_CONDITIONS)
             .performScrollTo().assertIsOn()
