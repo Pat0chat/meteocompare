@@ -291,14 +291,18 @@ class LocalityCompareContentTest {
         val zone = ZoneId.of("Europe/Paris")
         val instant = LocalDateTime.of(2026, 6, 20, 14, 0).atZone(zone).toInstant()
         val city = cities.first()
+        // The selected 14 h slot covers [14 h, 15 h): precipitation is
+        // timestamped at its END (15 h), unlike UV/clouds at 14 h.
         val hourly = HourlyForecast(
-            timestamps = listOf(instant), temperature2m = listOf(21.0),
-            precipitation = listOf(0.0), windSpeed10m = listOf(14.0),
-            cloudCover = listOf(25)
+            timestamps = listOf(instant, instant.plusSeconds(3600)),
+            temperature2m = listOf(21.0, 21.0),
+            precipitation = listOf(0.0, 0.6),
+            windSpeed10m = listOf(14.0, 14.0),
+            cloudCover = listOf(25, 25)
         )
         val daily = DailyForecast(
             dates = listOf(date), tempMax = listOf(23.0), tempMin = listOf(16.0),
-            precipitationSum = listOf(0.0), windSpeedMax = listOf(20.0)
+            precipitationSum = listOf(0.6), windSpeedMax = listOf(20.0)
         )
         val forecast = CityForecast(city, mapOf(WeatherModel.GFS to
             ForecastSeries(WeatherModel.GFS, hourly, daily)))
@@ -335,7 +339,10 @@ class LocalityCompareContentTest {
         compose.onNodeWithTag("compare_selected_hour").assertTextEquals("2 PM")
         revealChartMetric(CompareChartMetric.RAIN)
         compose.onNodeWithTag("compare_chart_metric_rain").performClick()
-        compose.onNodeWithTag("compare_chart_value_paris").assertTextContains("mm", substring = true)
+        compose.onNodeWithTag("compare_chart_value_paris")
+            .assertTextContains("0", substring = true)
+            .assertTextContains("6", substring = true)
+            .assertTextContains("mm", substring = true)
         openComparisonDetails()
         waitForHourlyDetail("compare_detail_uv_paris")
         compose.onNodeWithTag("compare_detail_uv_paris", useUnmergedTree = true)
@@ -362,13 +369,18 @@ class LocalityCompareContentTest {
         val forecast = CityForecast(city, mapOf(WeatherModel.GFS to ForecastSeries(
             WeatherModel.GFS,
             HourlyForecast(
-                timestamps = listOf(instant), temperature2m = listOf(19.0),
-                precipitation = listOf(2.0), windSpeed10m = listOf(12.0),
-                cloudCover = listOf(45)
+                // The 14 h chart slot needs precipitation stamped 15 h.
+                // The 14 h amount belongs to 13–14 h and must NOT leak into
+                // the selected 14–15 h detail.
+                timestamps = listOf(instant, instant.plusSeconds(3600)),
+                temperature2m = listOf(19.0, 19.0),
+                precipitation = listOf(1.0, 2.0),
+                windSpeed10m = listOf(12.0, 12.0),
+                cloudCover = listOf(45, 45)
             ),
             DailyForecast(
                 dates = listOf(date), tempMax = listOf(20.0), tempMin = listOf(12.0),
-                precipitationSum = listOf(2.0), windSpeedMax = listOf(14.0)
+                precipitationSum = listOf(3.0), windSpeedMax = listOf(14.0)
             )
         )))
         val comparisonState = LocalityCompareState(
@@ -401,6 +413,12 @@ class LocalityCompareContentTest {
         compose.onNodeWithTag("compare_detail_rain_paris", useUnmergedTree = true)
             .assertTextContains("2", substring = true)
         compose.onNodeWithTag("compare_detail_rain_lyon", useUnmergedTree = true)
+            .assertTextEquals("—")
+        // 15–16 h has no 16 h source record. Never borrow the previous
+        // 14–15 h amount, even when the chart has an observation at 15 h.
+        compose.onNodeWithTag("compare_hour_chart")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(15f) }
+        compose.onNodeWithTag("compare_detail_rain_paris", useUnmergedTree = true)
             .assertTextEquals("—")
     }
 
