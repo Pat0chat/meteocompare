@@ -288,20 +288,47 @@ unités impériales et actions contextuelles après dépliage.
 
 ## Régression : plages quotidiennes et unités personnalisées
 
-- JVM : `:app:testDebugUnitTest` couvre les six choix d'unités indépendants,
-  les conversions (y compris nœuds, écarts Fahrenheit et précipitations faibles),
-  la persistance tolérante aux anciennes préférences et les plages min/max
-  quotidiennes, avec valeurs manquantes et plusieurs modèles.
-- Instrumentation : `:app:connectedDebugAndroidTest` couvre l'ouverture du
-  dialogue *Custom*, l'annulation sans écriture, la validation et réouverture,
-  ainsi que le rendu des plages de températures et pluie en mode *daily* après
-  changement d'unités.
-- Les prévisions et les valeurs persistées restent métriques ; le rendu de
-  l'application, des widgets, des comparaisons et des notifications utilise
-  les mêmes préférences d'affichage.
+### Plages en mode DAILY
 
-Sur une machine équipée d'Android SDK et de Gradle, exécuter :
+Les présentations **daily timeline (courbes)** et **daily columns (colonnes)**
+appellent maintenant `dailyMetricRange()` : elles utilisent exactement les
+mêmes bornes et conversions. Les plages sont disponibles pour les valeurs
+**Tmax, Tmin, cumul et probabilité de pluie, nuages, pression, humidité, point
+de rosée, vitesse du vent et rafales**, uniquement lorsque **deux modèles
+au moins** fournissent des échantillons valides pour la variable concernée.
+L’ensoleillement et les indices UV n’ont pas de dispersion multi-modèle
+suffisante dans ce pipeline : aucune plage artificielle n’est calculée.
+
+Le plot des Tmax quotidiens réserve un espace **au-dessus de la courbe** pour
+la plage puis la valeur centrale ; le plot des Tmin réserve l’espace sous
+la courbe. La colonne des légendes, le quadrillage et les pistes ont les
+mêmes hauteurs en mode daily. Le mode hourly conserve ses tailles.
+
+### Tests ajoutés / étendus
+
+- `DailyTimelineRangesTest` : 10 variables, profils métrique, impérial, UK et
+  personnalisé, nœuds, Fahrenheit, inHg, pouces, locale, modèles insuffisants,
+  valeurs non finies et source météo inchangée.
+- `SimplifiedTimelineTest` : plages calculées depuis les données fournies par
+  plusieurs modèles, notamment pression, humidité, point de rosée et nuages
+  avec une couverture horaire suffisante.
+- `ChronoTimelineTemperatureTest` : positionnement des Tmax au-dessus de
+  leur courbe et des Tmin en dessous, avec l'espace pour deux lignes.
+- `UnitSystemDisplayTest` (Compose Android) : valeurs et plages dans les deux
+  rendus daily lors de changements d'unités, formats de pression, pluie et
+  vent, annulation du dialogue Custom sans modifier les écrans ni les
+  préférences, réouverture après annulation.
+- Tests historiques conservés : conversions d'unités, saisie et lecture
+  DataStore, notifications et widgets.
+
+Sur poste Android disposant de Gradle 9.7.1 et d’un SDK compatible :
 
 ```bash
-bash ./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest
+./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest :app:lintDebug
 ```
+
+Une validation sans Android des composants Kotlin purs (JUnit + Kotlin/JVM)
+a réussi dans l'environnement d'édition : **35 tests exécutés avec succès**.
+La chaîne Gradle Android n'y était pas installée et son téléchargement était
+bloqué ; **la suite Android (tests Compose et builder Android) reste à
+exécuter** avant publication.

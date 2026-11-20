@@ -15,3 +15,59 @@ internal fun dailyTimelineRange(
     if (low == "—" || high == "—") return null
     return "($low–$high)"
 }
+
+/** Only compare distinct model forecasts; never present a single-model reading as a spread.
+ * All endpoints remain canonical metric numbers until WeatherUnits formats them.
+ */
+internal enum class DailyRangeMetric {
+    HIGH_TEMPERATURE, LOW_TEMPERATURE, RAIN_AMOUNT, RAIN_PROBABILITY,
+    CLOUD_COVER, PRESSURE, HUMIDITY, DEW_POINT, WIND, WIND_GUST
+}
+
+internal fun dailyMetricRange(
+    point: SimplifiedTimelinePoint,
+    metric: DailyRangeMetric,
+    units: WeatherUnits,
+    locale: Locale = Locale.getDefault()
+): String? {
+    if (point.date == null) return null // hourly timeline must never show daily spreads
+    val (low, high, modelCount) = when (metric) {
+        DailyRangeMetric.HIGH_TEMPERATURE -> Triple(
+            point.temperatureMinAcrossModels, point.temperatureMaxAcrossModels, point.temperatureModelCount)
+        DailyRangeMetric.LOW_TEMPERATURE -> Triple(
+            point.tempMinMinAcrossModels, point.tempMinMaxAcrossModels, point.tempMinModelCount)
+        DailyRangeMetric.RAIN_AMOUNT -> Triple(
+            point.precipitationMinAcrossModelsMm, point.precipitationMaxAcrossModelsMm, point.precipitationAmountModelCount)
+        DailyRangeMetric.RAIN_PROBABILITY -> Triple(
+            point.precipitationProbabilityMin?.toDouble(), point.precipitationProbabilityMax?.toDouble(), point.precipitationProbabilityModelCount)
+        DailyRangeMetric.CLOUD_COVER -> Triple(
+            point.cloudCoverMinAcrossModels?.toDouble(), point.cloudCoverMaxAcrossModels?.toDouble(), point.cloudCoverModelCount)
+        DailyRangeMetric.PRESSURE -> Triple(
+            point.pressureMinAcrossModels, point.pressureMaxAcrossModels, point.pressureModelCount)
+        DailyRangeMetric.HUMIDITY -> Triple(
+            point.humidityMinAcrossModels?.toDouble(), point.humidityMaxAcrossModels?.toDouble(), point.humidityModelCount)
+        DailyRangeMetric.DEW_POINT -> Triple(
+            point.dewPointMinAcrossModels, point.dewPointMaxAcrossModels, point.dewPointModelCount)
+        DailyRangeMetric.WIND -> Triple(
+            point.windMinAcrossModels, point.windMaxAcrossModels, point.windModelCount)
+        DailyRangeMetric.WIND_GUST -> Triple(
+            point.windGustMinAcrossModels, point.windGustMaxAcrossModels, point.windGustModelCount)
+    }
+    if (modelCount < 2) return null
+    val unit = when (metric) {
+        DailyRangeMetric.HIGH_TEMPERATURE, DailyRangeMetric.LOW_TEMPERATURE,
+        DailyRangeMetric.DEW_POINT -> WeatherUnit.TEMPERATURE_COMPACT
+        DailyRangeMetric.RAIN_AMOUNT -> WeatherUnit.PRECIPITATION
+        DailyRangeMetric.RAIN_PROBABILITY, DailyRangeMetric.CLOUD_COVER,
+        DailyRangeMetric.HUMIDITY -> WeatherUnit.PERCENT
+        DailyRangeMetric.PRESSURE -> WeatherUnit.PRESSURE
+        DailyRangeMetric.WIND, DailyRangeMetric.WIND_GUST -> WeatherUnit.WIND_SPEED
+    }
+    val digits = when (metric) {
+        DailyRangeMetric.RAIN_AMOUNT -> 1
+        DailyRangeMetric.PRESSURE -> if (units.pressureInInHg) 2 else 0
+        else -> 0
+    }
+    val formatted = dailyTimelineRange(low, high, units, unit, digits, locale) ?: return null
+    return if (unit == WeatherUnit.PERCENT) formatted.dropLast(1) + "%)" else formatted
+}

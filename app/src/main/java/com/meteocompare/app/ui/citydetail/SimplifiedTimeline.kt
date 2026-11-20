@@ -620,6 +620,7 @@ private fun TimelinePointColumn(
     isFocused: Boolean,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     val separatorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
     val focusColor = MaterialTheme.colorScheme.primary
     val focusShape = RoundedCornerShape(14.dp)
@@ -741,14 +742,24 @@ private fun TimelinePointColumn(
             value = point.precipitationPercent?.let { "$it%" } ?: "—",
             tint = precipitationAccent
         )
-        TimelineSupportingText(
-            text = timelinePrecipitationAmountLabel(point)
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.RAIN_PROBABILITY, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_rain_probability_range")
+        )
+        TimelineSupportingText(text = timelinePrecipitationAmountLabel(point))
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_rain_amount_range")
         )
 
         TimelineMetric(
             icon = Icons.Outlined.Cloud,
             value = point.cloudCoverPercent?.let { "$it%" } ?: "—",
             tint = MaterialTheme.colorScheme.secondary
+        )
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.CLOUD_COVER, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_cloud_range")
         )
         TimelineMetric(
             icon = Icons.Filled.WbSunny,
@@ -765,11 +776,19 @@ private fun TimelinePointColumn(
             tint = MaterialTheme.colorScheme.secondary,
             semanticLabel = stringResource(R.string.metric_humidity)
         )
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.HUMIDITY, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_humidity_range")
+        )
         TimelineMetric(
             icon = DewPointMetricIcon,
             value = point.dewPointC?.let { units.temp(it) } ?: "—",
             tint = MaterialTheme.colorScheme.tertiary,
             semanticLabel = stringResource(R.string.metric_dew_point)
+        )
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.DEW_POINT, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_dew_point_range")
         )
 
         TimelineMetric(
@@ -778,6 +797,10 @@ private fun TimelinePointColumn(
                 units.format(it, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0)
             } ?: "—",
             tint = MaterialTheme.colorScheme.tertiary
+        )
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.PRESSURE, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_pressure_range")
         )
 
         TimelineMetric(
@@ -788,10 +811,18 @@ private fun TimelinePointColumn(
             } ?: "—",
             tint = windAccent
         )
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.WIND, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_wind_range")
+        )
         TimelineSupportingText(
             text = point.windGustKmh?.let {
                 stringResource(R.string.timeline_wind_gust, it)
             } ?: "—"
+        )
+        if (mode == DisplayMode.DAILY) TimelineSupportingText(
+            text = dailyMetricRange(point, DailyRangeMetric.WIND_GUST, units, displayLocale) ?: "",
+            modifier = Modifier.testTag("columns_daily_gust_range")
         )
 
         Spacer(Modifier.height(6.dp))
@@ -808,6 +839,7 @@ private fun TemperatureHeatmapBand(
     isLast: Boolean,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val noData = MaterialTheme.colorScheme.surfaceVariant
     val heatStrength = 0.54f
@@ -863,7 +895,7 @@ private fun TemperatureHeatmapBand(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .height(if (mode == DisplayMode.DAILY) 88.dp else 46.dp)
             .clip(shape)
             .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
             .testTag(TAG_TIMELINE_HEATMAP_BAND),
@@ -904,11 +936,25 @@ private fun TemperatureHeatmapBand(
                         maxLines = 1
                     )
                     Text(
+                        text = dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, units, displayLocale) ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.90f),
+                        maxLines = 1,
+                        modifier = Modifier.testTag("columns_daily_temp_max_range")
+                    )
+                    Text(
                         text = low,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
                         color = contentColor.copy(alpha = 0.84f),
                         maxLines = 1
+                    )
+                    Text(
+                        text = dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE, units, displayLocale) ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.90f),
+                        maxLines = 1,
+                        modifier = Modifier.testTag("columns_daily_temp_min_range")
                     )
                 }
             }

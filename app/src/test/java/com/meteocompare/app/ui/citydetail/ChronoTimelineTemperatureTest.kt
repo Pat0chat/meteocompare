@@ -30,8 +30,13 @@ class ChronoTimelineTemperatureTest {
         val highOffset = chronoDailyHighTemperatureLabelOffset(20.0, domainMin, domainMax)
         val lowOffset = chronoDailyLowTemperatureLabelOffset(8.0, domainMin, domainMax)
 
-        assertEquals(7.dp, highOffset)
-        assertEquals(99.dp, lowOffset)
+        assertEquals(17.dp, highOffset)
+        assertEquals(103.dp, lowOffset)
+        val withRange = chronoDailyHighTemperatureLabelOffset(20.0, domainMin, domainMax, withRange = true)
+        assertEquals(2.dp, withRange)
+        // With 2 labels above the maximum, their bottom stays above the curve (40 dp).
+        assertTrue(withRange + 32.dp < 40.dp)
+        assertTrue(lowOffset + 32.dp < chronoTemperatureRowHeight(DisplayMode.DAILY))
     }
 
     @Test

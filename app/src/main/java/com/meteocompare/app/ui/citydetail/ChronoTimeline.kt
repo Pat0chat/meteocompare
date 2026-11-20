@@ -150,6 +150,7 @@ internal fun ChronoTimelineView(
             ) {
                 Box(modifier = Modifier.width(contentWidth)) {
                     ChronoGridBackdrop(
+                        mode = mode,
                         pointCount = points.size,
                         highlightedIndex = highlightedIndex,
                         modifier = Modifier.matchParentSize()
@@ -172,12 +173,12 @@ internal fun ChronoTimelineView(
                         )
                         ChronoConditionsLane(points = points, mode = mode)
                         ChronoRainLane(points = points, mode = mode)
-                        ChronoCloudLane(points = points)
+                        ChronoCloudLane(points = points, mode = mode)
                         ChronoSunshineLane(points = points)
-                        ChronoPressureLane(points = points)
-                        ChronoMoistureLane(points = points, humidity = true)
-                        ChronoMoistureLane(points = points, humidity = false)
-                        ChronoWindLane(points = points)
+                        ChronoPressureLane(points = points, mode = mode)
+                        ChronoMoistureLane(points = points, humidity = true, mode = mode)
+                        ChronoMoistureLane(points = points, humidity = false, mode = mode)
+                        ChronoWindLane(points = points, mode = mode)
                         ChronoAgreementLane(points = points)
                     }
                 }
@@ -188,6 +189,7 @@ internal fun ChronoTimelineView(
 
 @Composable
 private fun ChronoGridBackdrop(
+    mode: DisplayMode,
     pointCount: Int,
     highlightedIndex: Int?,
     modifier: Modifier = Modifier
@@ -195,7 +197,7 @@ private fun ChronoGridBackdrop(
     val scheme = MaterialTheme.colorScheme
     val rowDivider = scheme.outlineVariant.copy(alpha = 0.12f)
     val highlight = scheme.primaryContainer.copy(alpha = 0.16f)
-    val rowHeights = chronoRowHeights()
+    val rowHeights = chronoRowHeights(mode)
 
     Canvas(modifier = modifier) {
         if (pointCount <= 0) return@Canvas
@@ -259,7 +261,7 @@ private fun ChronoLabelsColumn(
                 support = if (mode == DisplayMode.HOURLY) {
                     units.temperatureUnit + " · " + stringResource(R.string.apparent_temperature_widget_prefix)
                 } else units.temperatureUnit,
-                height = CHRONO_TEMP_HEIGHT,
+                height = chronoTemperatureRowHeight(mode),
                 tint = temperatureMetricAccent()
             )
             ChronoRowLabel(
@@ -277,14 +279,14 @@ private fun ChronoLabelsColumn(
                 icon = Icons.Outlined.WaterDrop,
                 title = stringResource(R.string.metric_precipitation),
                 support = "% · ${units.precipitationUnit}",
-                height = CHRONO_RAIN_HEIGHT,
+                height = chronoRainRowHeight(mode),
                 tint = precipitationMetricAccent()
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Cloud,
                 title = stringResource(R.string.engine_metric_cloud),
                 support = units.label(WeatherUnit.PERCENT),
-                height = CHRONO_CLOUD_HEIGHT,
+                height = chronoCloudRowHeight(mode),
                 tint = scheme.secondary
             )
             ChronoRowLabel(
@@ -298,28 +300,28 @@ private fun ChronoLabelsColumn(
                 icon = Icons.Outlined.Speed,
                 title = stringResource(R.string.metric_pressure_short),
                 support = units.label(WeatherUnit.PRESSURE),
-                height = CHRONO_PRESSURE_HEIGHT,
+                height = chronoPressureRowHeight(mode),
                 tint = scheme.tertiary
             )
             ChronoRowLabel(
                 icon = HumidityMetricIcon,
                 title = stringResource(R.string.metric_humidity),
                 support = "%",
-                height = CHRONO_MOISTURE_HEIGHT,
+                height = chronoMoistureRowHeight(mode),
                 tint = scheme.secondary
             )
             ChronoRowLabel(
                 icon = DewPointMetricIcon,
                 title = stringResource(R.string.metric_dew_point),
                 support = units.temperatureUnit,
-                height = CHRONO_MOISTURE_HEIGHT,
+                height = chronoMoistureRowHeight(mode),
                 tint = scheme.tertiary
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Air,
                 title = stringResource(R.string.metric_wind),
                 support = units.windUnit,
-                height = CHRONO_WIND_HEIGHT,
+                height = chronoWindRowHeight(mode),
                 tint = windMetricAccent()
             )
             ChronoRowLabel(
@@ -331,15 +333,15 @@ private fun ChronoLabelsColumn(
             )
         }
 
-        ChronoLabelGrid(modifier = Modifier.matchParentSize())
+        ChronoLabelGrid(mode = mode, modifier = Modifier.matchParentSize())
     }
 }
 
 @Composable
-private fun ChronoLabelGrid(modifier: Modifier = Modifier) {
+private fun ChronoLabelGrid(mode: DisplayMode, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val divider = scheme.outlineVariant.copy(alpha = 0.10f)
-    val rowHeights = chronoRowHeights()
+    val rowHeights = chronoRowHeights(mode)
 
     Canvas(modifier = modifier) {
         var y = 0f
@@ -483,6 +485,7 @@ private fun ChronoTemperaturePlot(
     mode: DisplayMode,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     val centralValues = remember(points, mode) { points.map { metricPlotValue(chronoTemperature(it, mode)) } }
     val apparentValues = remember(points, mode) { chronoApparentTemperatureSeries(points, mode) }
     val minValues = remember(points, mode) {
@@ -515,14 +518,14 @@ private fun ChronoTemperaturePlot(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(CHRONO_TEMP_HEIGHT)
+            .height(chronoTemperatureRowHeight(mode))
             .testTag(TAG_TIMELINE_CHRONO_TEMPERATURE_PLOT)
     ) {
         Canvas(modifier = Modifier.matchParentSize()) {
             if (points.isEmpty()) return@Canvas
             val stepPx = size.width / points.size
-            val top = CHRONO_TEMP_PLOT_TOP.toPx()
-            val bottom = CHRONO_TEMP_PLOT_BOTTOM.toPx()
+            val top = chronoTemperaturePlotTop(mode).toPx()
+            val bottom = chronoTemperaturePlotBottom(mode).toPx()
             val plotHeight = (bottom - top).coerceAtLeast(1f)
 
             fun y(value: Double): Float =
@@ -640,27 +643,28 @@ private fun ChronoTemperaturePlot(
                         val high = maxValues.getOrNull(index)
                         val low = minValues.getOrNull(index)
                         high?.takeIf(Double::isFinite)?.let { value ->
+                            val range = dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, units, displayLocale)
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.offset(y = chronoDailyHighTemperatureLabelOffset(value, min, max))
+                                modifier = Modifier.offset(y = chronoDailyHighTemperatureLabelOffset(
+                                    value, min, max, withRange = range != null))
                             ) {
-                            Text(
-                                text = units.temp(value),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = temperatureHeatmapColor(value),
-                                maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 3.dp)
-                            )
-                            dailyTimelineRange(
-                                point.temperatureMinAcrossModels.takeIf { point.temperatureModelCount >= 2 },
-                                point.temperatureMaxAcrossModels.takeIf { point.temperatureModelCount >= 2 },
-                                units, WeatherUnit.TEMPERATURE_COMPACT
-                            )?.let { range ->
-                                Text(range, style = MaterialTheme.typography.labelSmall,
-                                    color = scheme.onSurfaceVariant, maxLines = 1,
-                                    modifier = Modifier.testTag("timeline_daily_temp_max_range"))
-                            }
+                                // The range is ABOVE the central high. Neither text row crosses the high curve.
+                                if (range != null) Text(
+                                    text = range,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = scheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    modifier = Modifier.testTag("timeline_daily_temp_max_range")
+                                )
+                                Text(
+                                    text = units.temp(value),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = temperatureHeatmapColor(value),
+                                    maxLines = 1,
+                                    modifier = Modifier.padding(horizontal = 3.dp)
+                                )
                             }
                         }
                         low?.takeIf(Double::isFinite)?.let { value ->
@@ -668,21 +672,23 @@ private fun ChronoTemperaturePlot(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.offset(y = chronoDailyLowTemperatureLabelOffset(value, min, max))
                             ) {
-                            Text(
-                                text = units.temp(value),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = temperatureHeatmapColor(value),
-                                maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 3.dp)
-                            )
-                            dailyTimelineRange(point.tempMinMinAcrossModels,
-                                point.tempMinMaxAcrossModels, units, WeatherUnit.TEMPERATURE_COMPACT
-                            )?.let { range ->
-                                Text(range, style = MaterialTheme.typography.labelSmall,
-                                    color = scheme.onSurfaceVariant, maxLines = 1,
-                                    modifier = Modifier.testTag("timeline_daily_temp_min_range"))
-                            }
+                                Text(
+                                    text = units.temp(value),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = temperatureHeatmapColor(value),
+                                    maxLines = 1,
+                                    modifier = Modifier.padding(horizontal = 3.dp)
+                                )
+                                dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE, units, displayLocale)?.let { range ->
+                                    Text(
+                                        text = range,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = scheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        modifier = Modifier.testTag("timeline_daily_temp_min_range")
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -826,13 +832,36 @@ private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>, mode: Di
     }
 }
 
+/** A reserved line keeps the daily cells aligned, even when a model has no data. */
 @Composable
-private fun ChronoRainLane(points: List<SimplifiedTimelinePoint>, mode: DisplayMode) {
+private fun ChronoDailyMetricRange(
+    point: SimplifiedTimelinePoint,
+    metric: DailyRangeMetric,
+    units: WeatherUnits,
+    tag: String
+) {
+    val locale = LocalConfiguration.current.locales[0]
+    Box(modifier = Modifier.height(16.dp), contentAlignment = Alignment.Center) {
+        dailyMetricRange(point, metric, units, locale)?.let { formatted ->
+            Text(
+                text = formatted,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.testTag(tag)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChronoRainLane(points: List<SimplifiedTimelinePoint>, mode: DisplayMode,
+                             units: WeatherUnits = LocalWeatherUnits.current) {
     val accent = precipitationMetricAccent()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(CHRONO_RAIN_HEIGHT)
+            .height(chronoRainRowHeight(mode))
             .background(accent.copy(alpha = 0.018f))
     ) {
         points.forEach { point ->
@@ -858,11 +887,11 @@ private fun ChronoRainLane(points: List<SimplifiedTimelinePoint>, mode: DisplayM
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                    if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                        point, DailyRangeMetric.RAIN_PROBABILITY, units, "timeline_daily_rain_probability_range")
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = if (mode == DisplayMode.DAILY) {
-                            chronoDailyRainAmount(point)
-                        } else chronoRainAmountCompact(point),
+                        text = chronoRainAmountCompact(point),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -870,6 +899,8 @@ private fun ChronoRainLane(points: List<SimplifiedTimelinePoint>, mode: DisplayM
                         modifier = Modifier.testTag(if (mode == DisplayMode.DAILY)
                             "timeline_daily_rain_amount" else "timeline_hourly_rain_amount")
                     )
+                    if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                        point, DailyRangeMetric.RAIN_AMOUNT, units, "timeline_daily_rain_range")
                 }
             }
         }
@@ -877,48 +908,46 @@ private fun ChronoRainLane(points: List<SimplifiedTimelinePoint>, mode: DisplayM
 }
 
 @Composable
-private fun ChronoCloudLane(points: List<SimplifiedTimelinePoint>) {
+private fun ChronoCloudLane(
+    points: List<SimplifiedTimelinePoint>, mode: DisplayMode,
+    units: WeatherUnits = LocalWeatherUnits.current
+) {
     val accent = MaterialTheme.colorScheme.secondary
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(CHRONO_CLOUD_HEIGHT)
+        modifier = Modifier.fillMaxWidth().height(chronoCloudRowHeight(mode))
             .background(accent.copy(alpha = 0.012f))
     ) {
         points.forEach { point ->
             val cloud = point.cloudCoverPercent?.coerceIn(0, 100)
             ChronoCell {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f))
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
-                        if (cloud != null) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(cloud / 100f)
+                        Box(
+                            modifier = Modifier.weight(1f).height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f))
+                        ) {
+                            if (cloud != null) Box(
+                                modifier = Modifier.fillMaxHeight().fillMaxWidth(cloud / 100f)
                                     .clip(RoundedCornerShape(50))
                                     .background(accent.copy(alpha = 0.72f))
                             )
                         }
+                        Text(
+                            text = cloud?.let { "$it%" } ?: "—",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
+                        )
                     }
-                    Text(
-                        text = cloud?.let { "$it%" } ?: "—",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
-                    )
+                    if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                        point, DailyRangeMetric.CLOUD_COVER, units, "timeline_daily_cloud_range")
                 }
             }
         }
@@ -950,15 +979,18 @@ private fun ChronoSunshineLane(
 @Composable
 private fun ChronoPressureLane(
     points: List<SimplifiedTimelinePoint>,
+    mode: DisplayMode,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val accent = MaterialTheme.colorScheme.tertiary
     Row(
-        modifier = Modifier.fillMaxWidth().height(CHRONO_PRESSURE_HEIGHT)
+        modifier = Modifier.fillMaxWidth().height(chronoPressureRowHeight(mode))
             .background(accent.copy(alpha = 0.025f)).testTag("timeline_chrono_pressure_lane")
     ) {
         points.forEach { point ->
             ChronoCell {
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
                 Text(
                     text = point.pressureHpa?.let {
                         units.format(it, WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0)
@@ -969,6 +1001,9 @@ private fun ChronoPressureLane(
                     maxLines = 1,
                     modifier = Modifier.padding(horizontal = 3.dp)
                 )
+                if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                    point, DailyRangeMetric.PRESSURE, units, "timeline_daily_pressure_range")
+                }
             }
         }
     }
@@ -978,16 +1013,19 @@ private fun ChronoPressureLane(
 private fun ChronoMoistureLane(
     points: List<SimplifiedTimelinePoint>,
     humidity: Boolean,
+    mode: DisplayMode,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val tint = if (humidity) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
     Row(
-        modifier = Modifier.fillMaxWidth().height(CHRONO_MOISTURE_HEIGHT)
+        modifier = Modifier.fillMaxWidth().height(chronoMoistureRowHeight(mode))
             .background(tint.copy(alpha = 0.025f))
             .testTag(if (humidity) "timeline_chrono_humidity_lane" else "timeline_chrono_dew_point_lane")
     ) {
         points.forEach { point ->
             ChronoCell {
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
                 Text(
                     text = if (humidity) point.humidityPercent?.let { "$it %" } ?: "—"
                         else units.temp(point.dewPointC),
@@ -997,19 +1035,26 @@ private fun ChronoMoistureLane(
                     maxLines = 1,
                     modifier = Modifier.padding(horizontal = 3.dp)
                 )
+                if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                    point,
+                    if (humidity) DailyRangeMetric.HUMIDITY else DailyRangeMetric.DEW_POINT,
+                    units,
+                    if (humidity) "timeline_daily_humidity_range" else "timeline_daily_dew_point_range")
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
+private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>, mode: DisplayMode,
+                            units: WeatherUnits = LocalWeatherUnits.current) {
     val accent = windMetricAccent()
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(CHRONO_WIND_HEIGHT)
+            .height(chronoWindRowHeight(mode))
             .background(accent.copy(alpha = 0.014f))
     ) {
         points.forEach { point ->
@@ -1044,6 +1089,8 @@ private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1
                             )
+                            if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                                point, DailyRangeMetric.WIND, units, "timeline_daily_wind_range")
                             Text(
                                 text = point.windGustKmh?.let {
                                     stringResource(R.string.timeline_wind_gust, it)
@@ -1052,6 +1099,8 @@ private fun ChronoWindLane(points: List<SimplifiedTimelinePoint>) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1
                             )
+                            if (mode == DisplayMode.DAILY) ChronoDailyMetricRange(
+                                point, DailyRangeMetric.WIND_GUST, units, "timeline_daily_gust_range")
                         }
                     }
                     Spacer(Modifier.height(5.dp))
@@ -1274,9 +1323,13 @@ private fun chronoTemperatureLabel(point: SimplifiedTimelinePoint, mode: Display
     }
 }
 
-private fun chronoTemperatureValueY(value: Double, min: Double, max: Double): Dp {
+private fun chronoTemperatureValueY(
+    value: Double, min: Double, max: Double,
+    mode: DisplayMode = DisplayMode.HOURLY
+): Dp {
     val fraction = ((max - value) / (max - min)).coerceIn(0.0, 1.0).toFloat()
-    return CHRONO_TEMP_PLOT_TOP + (CHRONO_TEMP_PLOT_BOTTOM - CHRONO_TEMP_PLOT_TOP) * fraction
+    val top = chronoTemperaturePlotTop(mode)
+    return top + (chronoTemperaturePlotBottom(mode) - top) * fraction
 }
 
 private fun chronoTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
@@ -1285,19 +1338,23 @@ private fun chronoTemperatureLabelOffset(value: Double, min: Double, max: Double
 }
 
 /** Place le maximum au-dessus de sa courbe en mode journalier. */
-internal fun chronoDailyHighTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
-    val y = chronoTemperatureValueY(value, min, max)
-    return maxOf(3.dp, minOf(y - 23.dp, CHRONO_TEMP_HEIGHT - 28.dp))
+internal fun chronoDailyHighTemperatureLabelOffset(
+    value: Double, min: Double, max: Double, withRange: Boolean = false
+): Dp {
+    val y = chronoTemperatureValueY(value, min, max, DisplayMode.DAILY)
+    // Two text lines above the curve require more clearance than a single label.
+    val offset = if (withRange) 40.dp else 23.dp
+    return maxOf(2.dp, minOf(y - offset, chronoTemperatureRowHeight(DisplayMode.DAILY) - 48.dp))
 }
 
 /**
  * Place le minimum sous sa courbe en mode journalier.
- * Le plot se termine a 94 dp dans un conteneur de 118 dp : il reste donc
- * suffisamment de place pour le libelle sans qu il traverse le trait/point min.
+ * Le plot daily se termine à 98 dp dans un conteneur de 148 dp :
+ * les deux lignes (valeur et plage) tiennent sous la courbe sans chevauchement.
  */
 internal fun chronoDailyLowTemperatureLabelOffset(value: Double, min: Double, max: Double): Dp {
-    val y = chronoTemperatureValueY(value, min, max)
-    return maxOf(3.dp, minOf(y + 5.dp, CHRONO_TEMP_HEIGHT - 17.dp))
+    val y = chronoTemperatureValueY(value, min, max, DisplayMode.DAILY)
+    return maxOf(3.dp, minOf(y + 5.dp, chronoTemperatureRowHeight(DisplayMode.DAILY) - 36.dp))
 }
 
 @Composable
@@ -1306,18 +1363,6 @@ private fun chronoRainAmountCompact(point: SimplifiedTimelinePoint): String {
         ?.takeIf { it.isFinite() && it >= 0.05 }
         ?: point.precipitationMm?.takeIf { it.isFinite() && it >= 0.0 }
     return amount?.let { stringResource(R.string.timeline_precip_amount, it) } ?: "—"
-}
-
-@Composable
-private fun chronoDailyRainAmount(point: SimplifiedTimelinePoint): String {
-    val units = LocalWeatherUnits.current
-    val center = chronoRainAmountCompact(point)
-    val range = dailyTimelineRange(
-        point.precipitationMinAcrossModelsMm.takeIf { point.precipitationModelCount >= 2 },
-        point.precipitationMaxAcrossModelsMm.takeIf { point.precipitationModelCount >= 2 },
-        units, WeatherUnit.PRECIPITATION, digits = 1
-    )
-    return if (center == "—" || range == null) center else "$center $range"
 }
 
 private fun chronoOrderedDivergenceReasons(reasons: Set<DivergenceReason>): List<DivergenceReason> = listOf(
@@ -1334,17 +1379,34 @@ private fun chronoDivergenceIcon(reason: DivergenceReason): ImageVector = when (
     DivergenceReason.CONDITION -> Icons.Outlined.Cloud
 }
 
-private fun chronoRowHeights(): List<Dp> = listOf(
+internal fun chronoTemperatureRowHeight(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 148.dp else CHRONO_TEMP_HEIGHT
+private fun chronoTemperaturePlotTop(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 40.dp else CHRONO_TEMP_PLOT_TOP
+private fun chronoTemperaturePlotBottom(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 98.dp else CHRONO_TEMP_PLOT_BOTTOM
+private fun chronoRainRowHeight(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 94.dp else CHRONO_RAIN_HEIGHT
+private fun chronoCloudRowHeight(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 68.dp else CHRONO_CLOUD_HEIGHT
+private fun chronoPressureRowHeight(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 70.dp else CHRONO_PRESSURE_HEIGHT
+private fun chronoMoistureRowHeight(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 68.dp else CHRONO_MOISTURE_HEIGHT
+private fun chronoWindRowHeight(mode: DisplayMode): Dp =
+    if (mode == DisplayMode.DAILY) 118.dp else CHRONO_WIND_HEIGHT
+
+private fun chronoRowHeights(mode: DisplayMode): List<Dp> = listOf(
     CHRONO_DATE_HEIGHT,
-    CHRONO_TEMP_HEIGHT,
+    chronoTemperatureRowHeight(mode),
     CHRONO_CONDITIONS_HEIGHT,
-    CHRONO_RAIN_HEIGHT,
-    CHRONO_CLOUD_HEIGHT,
+    chronoRainRowHeight(mode),
+    chronoCloudRowHeight(mode),
     CHRONO_SUNSHINE_HEIGHT,
-    CHRONO_PRESSURE_HEIGHT,
-    CHRONO_MOISTURE_HEIGHT,
-    CHRONO_MOISTURE_HEIGHT,
-    CHRONO_WIND_HEIGHT,
+    chronoPressureRowHeight(mode),
+    chronoMoistureRowHeight(mode),
+    chronoMoistureRowHeight(mode),
+    chronoWindRowHeight(mode),
     CHRONO_AGREEMENT_HEIGHT
 )
 

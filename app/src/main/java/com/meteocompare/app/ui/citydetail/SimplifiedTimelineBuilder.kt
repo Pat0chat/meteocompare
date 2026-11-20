@@ -99,10 +99,19 @@ internal data class SimplifiedTimelinePoint(
     val apparentTemperatureC: Double? = null,
     /** Sea-level atmospheric pressure (hPa), hourly or daily mean. */
     val pressureHpa: Double? = null,
+    val pressureMinAcrossModels: Double? = null,
+    val pressureMaxAcrossModels: Double? = null,
+    val pressureModelCount: Int = 0,
     /** Multi-model central relative humidity (%), hourly or daily mean. */
     val humidityPercent: Int? = null,
+    val humidityMinAcrossModels: Int? = null,
+    val humidityMaxAcrossModels: Int? = null,
+    val humidityModelCount: Int = 0,
     /** Multi-model central dew point (°C), hourly or daily mean. */
     val dewPointC: Double? = null,
+    val dewPointMinAcrossModels: Double? = null,
+    val dewPointMaxAcrossModels: Double? = null,
+    val dewPointModelCount: Int = 0,
     val tempMinC: Double? = null,
     val tempMaxC: Double? = null,
     /** Étendue de la température principale entre les modèles à cette échéance. */
@@ -111,6 +120,7 @@ internal data class SimplifiedTimelinePoint(
     /** Daily low-temperature spread, independent of the daily high-temperature spread. */
     val tempMinMinAcrossModels: Double? = null,
     val tempMinMaxAcrossModels: Double? = null,
+    val tempMinModelCount: Int = 0,
     val precipitationPercent: Int? = null,
     val precipitationSource: PrecipitationSignalSource? = null,
     val precipitationModelCount: Int = 0,
@@ -123,6 +133,8 @@ internal data class SimplifiedTimelinePoint(
     val precipitationExpectedMm: Double? = null,
     val precipitationMinAcrossModelsMm: Double? = null,
     val precipitationMaxAcrossModelsMm: Double? = null,
+    val precipitationAmountModelCount: Int = 0,
+    val precipitationProbabilityModelCount: Int = 0,
     /** Accord entre familles sur la quantité de précipitations (mm), comme dans TodaySummaryCard. */
     val precipitationAmountConvergencePercent: Int? = null,
     /** Plage de probabilités lorsque plusieurs modèles la fournissent. */
@@ -709,12 +721,16 @@ private fun timelinePoint(
         null -> null
     }
     val temperatures = meaningful.mapNotNull { if (hourly) it.temperature else it.tempMax }
-    val minimumTemperatures = if (hourly) emptyList() else meaningful.mapNotNull { it.tempMin }
-    val precipitationValues = meaningful.mapNotNull { it.precipitation }
-    val probabilities = meaningful.mapNotNull { it.precipitationProbability }
-    val cloudValues = meaningful.mapNotNull { it.cloudCover }
-    val windValues = meaningful.mapNotNull { it.wind }
-    val gustValues = meaningful.mapNotNull { it.windGust }
+    val minimumTemperatures = if (hourly) emptyList() else meaningful.mapNotNull { it.tempMin?.takeIf(Double::isFinite) }
+    // Preserve only physically valid, finite endpoints; invalid feeds cannot turn into UI ranges.
+    val pressureValues = meaningful.mapNotNull { it.pressure?.takeIf { v -> v.isFinite() && v in 800.0..1100.0 } }
+    val humidityValues = meaningful.mapNotNull { it.humidity?.takeIf { v -> v.isFinite() && v in 0.0..100.0 } }
+    val dewPointValues = meaningful.mapNotNull { it.dewPoint?.takeIf(Double::isFinite) }
+    val precipitationValues = meaningful.mapNotNull { it.precipitation?.takeIf { v -> v.isFinite() && v >= 0.0 } }
+    val probabilities = meaningful.mapNotNull { it.precipitationProbability?.takeIf { v -> v in 0..100 } }
+    val cloudValues = meaningful.mapNotNull { it.cloudCover?.takeIf { v -> v in 0..100 } }
+    val windValues = meaningful.mapNotNull { it.wind?.takeIf { v -> v.isFinite() && v >= 0.0 } }
+    val gustValues = meaningful.mapNotNull { it.windGust?.takeIf { v -> v.isFinite() && v >= 0.0 } }
     val windDirection = circularMeanDegrees(meaningful.mapNotNull { it.windDirection })
     val familyCount = listOf(
         temp.agreement.familyCount,
@@ -729,14 +745,24 @@ private fun timelinePoint(
         temperatureC = if (hourly) temp.forecastValue.central else null,
         apparentTemperatureC = apparent?.forecastValue?.central,
         pressureHpa = pressure.forecastValue.central,
+        pressureMinAcrossModels = pressureValues.takeIf { it.size >= 2 }?.minOrNull(),
+        pressureMaxAcrossModels = pressureValues.takeIf { it.size >= 2 }?.maxOrNull(),
+        pressureModelCount = pressureValues.size,
         humidityPercent = humidity.central?.roundToInt()?.coerceIn(0, 100),
+        humidityMinAcrossModels = humidityValues.takeIf { it.size >= 2 }?.minOrNull()?.roundToInt(),
+        humidityMaxAcrossModels = humidityValues.takeIf { it.size >= 2 }?.maxOrNull()?.roundToInt(),
+        humidityModelCount = humidityValues.size,
         dewPointC = dewPoint.central,
+        dewPointMinAcrossModels = dewPointValues.takeIf { it.size >= 2 }?.minOrNull(),
+        dewPointMaxAcrossModels = dewPointValues.takeIf { it.size >= 2 }?.maxOrNull(),
+        dewPointModelCount = dewPointValues.size,
         tempMinC = tempMin?.forecastValue?.central,
         tempMaxC = if (hourly) null else temp.forecastValue.central,
         temperatureMinAcrossModels = temperatures.minOrNull(),
         temperatureMaxAcrossModels = temperatures.maxOrNull(),
         tempMinMinAcrossModels = minimumTemperatures.takeIf { it.size >= 2 }?.minOrNull(),
         tempMinMaxAcrossModels = minimumTemperatures.takeIf { it.size >= 2 }?.maxOrNull(),
+        tempMinModelCount = minimumTemperatures.size,
         precipitationPercent = precipitationForecast.probabilityPercent
             ?: precipitation.probabilityPercent,
         precipitationSource = source,
@@ -747,6 +773,8 @@ private fun timelinePoint(
         precipitationExpectedMm = precipitationForecast.expectedAmountMm,
         precipitationMinAcrossModelsMm = precipitationValues.minOrNull(),
         precipitationMaxAcrossModelsMm = precipitationValues.maxOrNull(),
+        precipitationAmountModelCount = precipitationValues.size,
+        precipitationProbabilityModelCount = probabilities.size,
         precipitationAmountConvergencePercent = precipitation.amountConvergencePercent,
         precipitationProbabilityMin = probabilities.minOrNull(),
         precipitationProbabilityMax = probabilities.maxOrNull(),
