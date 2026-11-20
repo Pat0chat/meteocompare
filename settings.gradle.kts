@@ -38,6 +38,10 @@ pluginManagement {
         id("androidx.baselineprofile") version "1.5.0"
     }
     repositories {
+        // KSP (com.google.devtools.ksp) est publie sur Maven Central.
+        // Le placer avant google() evite d'interroger Google Maven en premier
+        // pour son plugin-marker et son implementation Gradle.
+        mavenCentral()
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -45,7 +49,6 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
-        mavenCentral()
         gradlePluginPortal()
     }
 }

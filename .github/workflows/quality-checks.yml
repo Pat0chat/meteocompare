@@ -65,8 +65,39 @@ jobs:
           "$SDKMANAGER" "platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;36.0.0"
       - name: Compile and run JVM suite and compile all instrumented tests
         run: |
+          set -euo pipefail
           chmod +x ./gradlew
-          ./gradlew --no-daemon :app:testDebugUnitTest :app:testReleaseUnitTest :app:assembleDebugAndroidTest :app:lintDebug :app:assembleDebug
+          # Une erreur de telechargement du plugin KSP peut etre transitoire.
+          # Ne retenter QUE cette erreur, jamais un test ou une compilation en echec.
+          if ./gradlew --no-daemon :app:testDebugUnitTest :app:testReleaseUnitTest :app:assembleDebugAndroidTest :app:lintDebug :app:assembleDebug 2>&1 | tee gradle-quality.log; then
+            exit 0
+          fi
+          if grep -Fq "Plugin [id: 'com.google.devtools.ksp'" gradle-quality.log; then
+            echo "::warning::KSP plugin introuvable lors de la resolution : nouvel essai avec metadonnees rafraichies"
+            ./gradlew --no-daemon --refresh-dependencies :app:testDebugUnitTest :app:testReleaseUnitTest :app:assembleDebugAndroidTest :app:lintDebug :app:assembleDebug 2>&1 | tee -a gradle-quality.log
+          else
+            exit 1
+          fi
+      - name: Diagnose Maven Central if the Gradle build failed
+        if: failure()
+        shell: bash
+        run: |
+          # Diagnostic non bloquant, seulement si la resolution KSP a echoue.
+          if ! grep -Fq "Plugin [id: 'com.google.devtools.ksp'" gradle-quality.log 2>/dev/null; then
+            exit 0
+          fi
+          KSP_VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["ksp"])')"
+          curl --silent --show-error --location --output /dev/null \
+            --write-out 'KSP plugin marker Maven Central: HTTP %{http_code}\n' \
+            --connect-timeout 10 --max-time 30 --retry 2 --retry-all-errors \
+            "https://repo.maven.apache.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/${KSP_VERSION}/com.google.devtools.ksp.gradle.plugin-${KSP_VERSION}.pom" || true
+      - name: Preserve Gradle build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-gradle-failure-log
+          path: gradle-quality.log
+          if-no-files-found: ignore
       - name: Show JVM and corpus test counts
         if: always()
         run: |
