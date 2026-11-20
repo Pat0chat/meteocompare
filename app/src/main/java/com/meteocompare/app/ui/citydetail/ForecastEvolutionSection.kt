@@ -500,7 +500,7 @@ private fun EvolutionTrendChart(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
-                        .width(if (units.imperial) 64.dp else 48.dp)
+                        .width(if (units.temperatureInFahrenheit) 64.dp else 48.dp)
                         .height(148.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.End

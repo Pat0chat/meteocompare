@@ -2,6 +2,7 @@ package com.meteocompare.app
 
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,6 +27,9 @@ class MainViewModel @Inject constructor(
 
     val unitSystem: StateFlow<UnitSystem> = userPreferences.observeUnitSystem()
         .stateIn(viewModelScope, SharingStarted.Eagerly, UnitSystem.METRIC)
+
+    val customUnits: StateFlow<CustomUnitPreferences> = userPreferences.observeCustomUnits()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CustomUnitPreferences())
 
     val clockFormatPreference: StateFlow<ClockFormatPreference> =
         userPreferences.observeClockFormatPreference()

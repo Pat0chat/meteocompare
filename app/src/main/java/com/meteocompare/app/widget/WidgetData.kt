@@ -8,6 +8,7 @@ import com.meteocompare.app.core.units.WeatherUnit
 import com.meteocompare.app.core.units.WeatherUnits
 
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 
 import android.content.Context
 import com.meteocompare.app.R
@@ -36,6 +37,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.withContext
 
@@ -51,6 +53,7 @@ import kotlinx.coroutines.withContext
  */
 internal data class WidgetData(
     val unitSystem: UnitSystem = UnitSystem.METRIC,
+    val customUnits: CustomUnitPreferences = CustomUnitPreferences(),
     val clockFormatPreference: ClockFormatPreference = ClockFormatPreference.AUTO,
     val cityName: String?,
     val currentTemp: Double?,
@@ -370,7 +373,9 @@ private suspend fun loadWidgetDataInternal(
     )
 
     val prefsRepo = entry.userPreferencesRepository()
-    val units = WeatherUnits(prefsRepo.observeUnitSystem().first())
+    val units = combine(prefsRepo.observeUnitSystem(), prefsRepo.observeCustomUnits()) { system, custom ->
+        WeatherUnits(system, custom)
+    }.first()
     val clockPreference = prefsRepo.observeClockFormatPreference().first()
     val favorites = entry.cityRepository().observeFavorites().first()
     val city = favorites.firstOrNull { city ->
@@ -534,6 +539,7 @@ private suspend fun loadWidgetDataInternal(
                 ?: calc.currentWeatherDecision(forecast, currentInstant, engineContext)
             WidgetData(
                 unitSystem = units.system,
+                customUnits = units.custom,
                 clockFormatPreference = clockPreference,
                 cityName = city.name,
                 currentTemp = calc.currentTemperature(forecast, currentInstant, engineContext),

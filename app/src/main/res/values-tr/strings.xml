@@ -1257,4 +1257,17 @@
     <string name="home_reorder_drag">%1$s basılı tutup sürükle</string>
     <string name="home_reorder_apply">Sırayı kaydet</string>
     <string name="home_reorder_save_error">Yeni sıra kaydedilemedi.</string>
+    <string name="settings_units_custom">Özel (birimleri seç…)</string>
+    <string name="settings_units_custom_title">Özel birimler</string>
+    <string name="settings_units_temperature">Sıcaklık</string>
+    <string name="settings_units_wind">Rüzgâr ve hamleler</string>
+    <string name="settings_units_precipitation">Yağış</string>
+    <string name="settings_units_pressure">Basınç</string>
+    <string name="settings_units_height">Yükseklik</string>
+    <string name="settings_units_distance">Mesafe</string>
+    <string name="settings_units_save">Kaydet</string>
+    <string name="settings_units_cancel">İptal</string>
+    <string name="settings_units_wind_knots">kn (deniz mili/saat)</string>
+    <string name="unit_knots">deniz mili/saat</string>
+    <string name="unit_metres_per_second">metre/saniye</string>
 </resources>

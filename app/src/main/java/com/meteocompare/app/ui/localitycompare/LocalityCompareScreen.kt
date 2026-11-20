@@ -99,7 +99,7 @@ internal fun LocalityCompareContent(
     val hourFormat = remember(locale, clockPreference) {
         WeatherTimeFormat.hourPadded(locale, clockPreference)
     }
-    val units = remember(state.unitSystem) { WeatherUnits(state.unitSystem) }
+    val units = remember(state.unitSystem, state.customUnits) { WeatherUnits(state.unitSystem, state.customUnits) }
     val memo = remember(calculator) { LocalityMetricsMemo(calculator) }
     val selectedCities = state.selectedCities
     val availableDates = remember(state.selectedIds, state.forecasts, currentDate) {

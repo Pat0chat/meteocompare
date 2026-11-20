@@ -8,6 +8,7 @@ import com.meteocompare.app.domain.model.CityForecast
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.UvForecast
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UvIndexRepository
@@ -38,7 +39,8 @@ internal data class LocalityCompareState(
     val selectedIds: List<String> = emptyList(),
     val forecasts: Map<String, CompareForecastState> = emptyMap(),
     val uvForecasts: Map<String, UvForecast> = emptyMap(),
-    val unitSystem: UnitSystem = UnitSystem.METRIC
+    val unitSystem: UnitSystem = UnitSystem.METRIC,
+    val customUnits: CustomUnitPreferences = CustomUnitPreferences()
 ) {
     val selectedCities: List<City> get() = selectedIds.mapNotNull { id -> favorites.firstOrNull { it.id == id } }
 }
@@ -74,6 +76,8 @@ internal class LocalityCompareViewModel @Inject constructor(
         favorites, selectedIds, loaded, loadedUv, units
     ) { all, selected, data, uv, unit ->
         LocalityCompareState(all, selected, data, uv, unit)
+    }.combine(preferences.observeCustomUnits()) { state, custom ->
+        state.copy(customUnits = custom)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LocalityCompareState())
 
     init {

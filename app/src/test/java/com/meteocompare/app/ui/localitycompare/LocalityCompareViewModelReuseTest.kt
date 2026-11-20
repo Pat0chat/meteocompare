@@ -56,6 +56,7 @@ class LocalityCompareViewModelReuseTest {
         every { observeEnabledModels() } returns models
         every { observeRefreshInterval() } returns interval
         every { observeUnitSystem() } returns units
+        every { observeCustomUnits() } returns flowOf(com.meteocompare.app.domain.model.CustomUnitPreferences())
     }
     private lateinit var viewModel: LocalityCompareViewModel
 

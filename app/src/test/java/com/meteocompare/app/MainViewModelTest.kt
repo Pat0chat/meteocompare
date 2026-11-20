@@ -3,6 +3,7 @@ package com.meteocompare.app
 
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
 import io.mockk.every
@@ -26,6 +27,7 @@ class MainViewModelTest {
     private val clockFormats = MutableStateFlow(ClockFormatPreference.AUTO)
     private val preferences: UserPreferencesRepository = mockk(relaxed = true) {
         every { observeUnitSystem() } returns kotlinx.coroutines.flow.flowOf(UnitSystem.METRIC)
+        every { observeCustomUnits() } returns kotlinx.coroutines.flow.flowOf(CustomUnitPreferences())
         every { observeThemePreference() } returns themes
         every { observeClockFormatPreference() } returns clockFormats
     }

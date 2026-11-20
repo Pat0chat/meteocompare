@@ -197,7 +197,7 @@ internal class MeteoWidget : GlanceAppWidget() {
             CompositionLocalProvider(
                 LocalContext provides appCtx,
                 LocalNightMode provides night,
-                LocalWeatherUnits provides WeatherUnits(data.unitSystem),
+                LocalWeatherUnits provides WeatherUnits(data.unitSystem, data.customUnits),
                 LocalWidgetTextScale provides widgetTextScale(
                     LocalSize.current.width.value, LocalSize.current.height.value,
                     autoTextSize, textSizePct

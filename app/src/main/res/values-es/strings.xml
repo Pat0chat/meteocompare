@@ -1249,4 +1249,17 @@ datos</string>
     <string name="home_reorder_drag">Mantener pulsado y arrastrar %1$s</string>
     <string name="home_reorder_apply">Guardar orden</string>
     <string name="home_reorder_save_error">No se pudo guardar el nuevo orden.</string>
+    <string name="settings_units_custom">Personalizado (elegir unidades…)</string>
+    <string name="settings_units_custom_title">Unidades personalizadas</string>
+    <string name="settings_units_temperature">Temperatura</string>
+    <string name="settings_units_wind">Viento y ráfagas</string>
+    <string name="settings_units_precipitation">Precipitación</string>
+    <string name="settings_units_pressure">Presión</string>
+    <string name="settings_units_height">Altura</string>
+    <string name="settings_units_distance">Distancia</string>
+    <string name="settings_units_save">Guardar</string>
+    <string name="settings_units_cancel">Cancelar</string>
+    <string name="settings_units_wind_knots">kn (nudos)</string>
+    <string name="unit_knots">nudos</string>
+    <string name="unit_metres_per_second">metros por segundo</string>
 </resources>

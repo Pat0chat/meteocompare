@@ -1260,4 +1260,17 @@
     <string name="home_reorder_drag">Hold and drag %1$s</string>
     <string name="home_reorder_apply">Save order</string>
     <string name="home_reorder_save_error">Could not save the new order.</string>
+    <string name="settings_units_custom">Custom (choose units…)</string>
+    <string name="settings_units_custom_title">Custom units</string>
+    <string name="settings_units_temperature">Temperature</string>
+    <string name="settings_units_wind">Wind and gusts</string>
+    <string name="settings_units_precipitation">Rainfall</string>
+    <string name="settings_units_pressure">Pressure</string>
+    <string name="settings_units_height">Altitude and height</string>
+    <string name="settings_units_distance">Distance</string>
+    <string name="settings_units_save">Save</string>
+    <string name="settings_units_cancel">Cancel</string>
+    <string name="settings_units_wind_knots">kn (knots)</string>
+    <string name="unit_knots">knots</string>
+    <string name="unit_metres_per_second">metres per second</string>
 </resources>

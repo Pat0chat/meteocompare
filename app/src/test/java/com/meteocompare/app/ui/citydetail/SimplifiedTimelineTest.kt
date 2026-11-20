@@ -39,6 +39,51 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `daily model ranges keep maximum minimum and rainfall independent`() {
+        val values = listOf(
+            WeatherModel.GFS to Triple(25.0, 12.0, 2.0),
+            WeatherModel.ICON_EU to Triple(34.0, 16.0, 32.0),
+            WeatherModel.ECMWF to Triple(32.0, 14.0, 21.0)
+        )
+        val seriesByModel = values.associate { (model, values) ->
+            model to ForecastSeries(model,
+                HourlyForecast(timestamps = emptyList(), temperature2m = emptyList(),
+                    precipitation = emptyList(), windSpeed10m = emptyList()),
+                DailyForecast(dates = listOf(today), tempMax = listOf(values.first),
+                    tempMin = listOf(values.second), precipitationSum = listOf(values.third),
+                    windSpeedMax = listOf(10.0))
+            )
+        }
+        val forecast = CityForecast(paris.copy(timezone = "UTC"), seriesByModel)
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
+        assertEquals(25.0, point.temperatureMinAcrossModels!!, 0.0)
+        assertEquals(34.0, point.temperatureMaxAcrossModels!!, 0.0)
+        assertEquals(12.0, point.tempMinMinAcrossModels!!, 0.0)
+        assertEquals(16.0, point.tempMinMaxAcrossModels!!, 0.0)
+        assertEquals(2.0, point.precipitationMinAcrossModelsMm!!, 0.0)
+        assertEquals(32.0, point.precipitationMaxAcrossModelsMm!!, 0.0)
+        assertEquals(3, point.precipitationModelCount)
+    }
+
+    @Test
+    fun `daily low temperature range stays unavailable with only one low forecast`() {
+        val series = listOf(WeatherModel.GFS, WeatherModel.ICON_EU).mapIndexed { index, model ->
+            model to ForecastSeries(model,
+                HourlyForecast(timestamps = emptyList(), temperature2m = emptyList(),
+                    precipitation = emptyList(), windSpeed10m = emptyList()),
+                DailyForecast(dates = listOf(today), tempMax = listOf(24.0 + index),
+                    tempMin = listOf(if (index == 0) 12.0 else null),
+                    precipitationSum = listOf(0.0), windSpeedMax = listOf(10.0))
+            )
+        }.toMap()
+        val point = buildSimplifiedTimeline(
+            CityForecast(paris.copy(timezone = "UTC"), series), DisplayMode.DAILY, now
+        ).single()
+        assertEquals(null, point.tempMinMinAcrossModels)
+        assertEquals(null, point.tempMinMaxAcrossModels)
+    }
+
+    @Test
     fun `today summary does not mistake next available hour for the present`() {
         val future = SimplifiedTimelinePoint(instant = now.plusSeconds(3600), apparentTemperatureC = 18.0)
         assertEquals(null, currentHourlyApparentTemperature(listOf(future), now))

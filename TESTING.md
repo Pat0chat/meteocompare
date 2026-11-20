@@ -285,3 +285,23 @@ Recette manuelle : vérifier sur Home, Détails, widgets et Engine Comparison qu
 À vérifier également manuellement sur un petit écran et en mode sombre :
 largeurs très étroites, longues dénominations de villes, lecteur d'écran,
 unités impériales et actions contextuelles après dépliage.
+
+## Régression : plages quotidiennes et unités personnalisées
+
+- JVM : `:app:testDebugUnitTest` couvre les six choix d'unités indépendants,
+  les conversions (y compris nœuds, écarts Fahrenheit et précipitations faibles),
+  la persistance tolérante aux anciennes préférences et les plages min/max
+  quotidiennes, avec valeurs manquantes et plusieurs modèles.
+- Instrumentation : `:app:connectedDebugAndroidTest` couvre l'ouverture du
+  dialogue *Custom*, l'annulation sans écriture, la validation et réouverture,
+  ainsi que le rendu des plages de températures et pluie en mode *daily* après
+  changement d'unités.
+- Les prévisions et les valeurs persistées restent métriques ; le rendu de
+  l'application, des widgets, des comparaisons et des notifications utilise
+  les mêmes préférences d'affichage.
+
+Sur une machine équipée d'Android SDK et de Gradle, exécuter :
+
+```bash
+bash ./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest
+```

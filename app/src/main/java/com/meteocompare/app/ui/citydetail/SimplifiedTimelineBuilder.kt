@@ -108,6 +108,9 @@ internal data class SimplifiedTimelinePoint(
     /** Étendue de la température principale entre les modèles à cette échéance. */
     val temperatureMinAcrossModels: Double? = null,
     val temperatureMaxAcrossModels: Double? = null,
+    /** Daily low-temperature spread, independent of the daily high-temperature spread. */
+    val tempMinMinAcrossModels: Double? = null,
+    val tempMinMaxAcrossModels: Double? = null,
     val precipitationPercent: Int? = null,
     val precipitationSource: PrecipitationSignalSource? = null,
     val precipitationModelCount: Int = 0,
@@ -706,6 +709,7 @@ private fun timelinePoint(
         null -> null
     }
     val temperatures = meaningful.mapNotNull { if (hourly) it.temperature else it.tempMax }
+    val minimumTemperatures = if (hourly) emptyList() else meaningful.mapNotNull { it.tempMin }
     val precipitationValues = meaningful.mapNotNull { it.precipitation }
     val probabilities = meaningful.mapNotNull { it.precipitationProbability }
     val cloudValues = meaningful.mapNotNull { it.cloudCover }
@@ -731,6 +735,8 @@ private fun timelinePoint(
         tempMaxC = if (hourly) null else temp.forecastValue.central,
         temperatureMinAcrossModels = temperatures.minOrNull(),
         temperatureMaxAcrossModels = temperatures.maxOrNull(),
+        tempMinMinAcrossModels = minimumTemperatures.takeIf { it.size >= 2 }?.minOrNull(),
+        tempMinMaxAcrossModels = minimumTemperatures.takeIf { it.size >= 2 }?.maxOrNull(),
         precipitationPercent = precipitationForecast.probabilityPercent
             ?: precipitation.probabilityPercent,
         precipitationSource = source,

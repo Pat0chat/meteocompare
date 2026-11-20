@@ -775,7 +775,7 @@ private fun TimelinePointColumn(
         TimelineMetric(
             icon = Icons.Outlined.Speed,
             value = point.pressureHpa?.let {
-                units.format(it, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0)
+                units.format(it, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0)
             } ?: "—",
             tint = MaterialTheme.colorScheme.tertiary
         )

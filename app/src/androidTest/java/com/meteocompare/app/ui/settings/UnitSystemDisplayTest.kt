@@ -21,6 +21,9 @@ import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
+import com.meteocompare.app.domain.model.WindChoice
+import com.meteocompare.app.domain.model.TemperatureChoice
 import com.meteocompare.app.testutil.TestFixtures
 import com.meteocompare.app.ui.citydetail.TodaySummaryCard
 import com.meteocompare.app.ui.citydetail.TAG_TODAY_SUMMARY_TEMP_MAX_CENTRAL
@@ -33,6 +36,86 @@ import org.junit.Assert.assertEquals
 
 class UnitSystemDisplayTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test fun custom_dialog_saves_all_choices_and_cancel_does_not_change_prefs() {
+        val selection = mutableStateOf(UnitSystem.METRIC)
+        val choices = mutableStateOf(CustomUnitPreferences())
+        composeRule.setContent {
+            MeteoCompareTheme {
+                UnitSystemSelector(selection.value, { selection.value = it }, choices.value) { value ->
+                    choices.value = value
+                    selection.value = UnitSystem.CUSTOM
+                }
+            }
+        }
+        composeRule.onNodeWithTag("settings_units_CUSTOM").performClick()
+        composeRule.onNodeWithTag("settings_custom_units_dialog").assertExists()
+        composeRule.onNodeWithTag("settings_custom_wind").performClick()
+        composeRule.onNodeWithTag("settings_custom_wind_KNOTS").performClick()
+        composeRule.onNodeWithTag("settings_custom_units_cancel").performClick()
+        composeRule.runOnIdle {
+            assertEquals(UnitSystem.METRIC, selection.value)
+            assertEquals(WindChoice.KMH, choices.value.wind)
+        }
+        composeRule.onNodeWithTag("settings_units_CUSTOM").performClick()
+        composeRule.onNodeWithTag("settings_custom_temperature").performClick()
+        composeRule.onNodeWithTag("settings_custom_temperature_FAHRENHEIT").performClick()
+        composeRule.onNodeWithTag("settings_custom_wind").performClick()
+        composeRule.onNodeWithTag("settings_custom_wind_KNOTS").performClick()
+        composeRule.onNodeWithTag("settings_custom_units_save").performClick()
+        composeRule.onNodeWithTag("settings_units_CUSTOM").assertIsSelected()
+        composeRule.runOnIdle {
+            assertEquals(WindChoice.KNOTS, choices.value.wind)
+            assertEquals(TemperatureChoice.FAHRENHEIT, choices.value.temperature)
+        }
+        composeRule.onNodeWithTag("settings_units_CUSTOM").performClick()
+        composeRule.onNodeWithTag("settings_custom_wind").assertTextEquals("kn")
+    }
+
+    @Test fun daily_chronology_displays_independent_temperature_and_rain_ranges_after_unit_switch() {
+        val selection = mutableStateOf(UnitSystem.METRIC)
+        val choices = CustomUnitPreferences(
+            temperature = TemperatureChoice.FAHRENHEIT,
+            wind = WindChoice.KNOTS
+        )
+        val now = Instant.parse("2026-09-16T06:00:00Z")
+        val point = SimplifiedTimelinePoint(
+            date = java.time.LocalDate.of(2026, 9, 16),
+            tempMaxC = 32.0, tempMinC = 15.0,
+            temperatureMinAcrossModels = 25.0, temperatureMaxAcrossModels = 34.0,
+            tempMinMinAcrossModels = 12.0, tempMinMaxAcrossModels = 19.0,
+            temperatureModelCount = 3,
+            precipitationMm = 21.0, precipitationConditionalMm = 21.0,
+            precipitationMinAcrossModelsMm = 2.0, precipitationMaxAcrossModelsMm = 32.0,
+            precipitationModelCount = 3
+        )
+        var displayLocale = Locale.getDefault()
+        composeRule.setContent {
+            displayLocale = LocalLocale.current.platformLocale
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(selection.value, choices)) {
+                MeteoCompareTheme { ChronoTimelineView(listOf(point), DisplayMode.DAILY, "UTC", now) }
+            }
+        }
+        composeRule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true)
+            .assertTextEquals("(25–34)")
+        composeRule.onNodeWithTag("timeline_daily_temp_min_range", useUnmergedTree = true)
+            .assertTextEquals("(12–19)")
+        composeRule.onNodeWithTag("timeline_daily_rain_amount", useUnmergedTree = true)
+            .assertTextEquals("${WeatherUnits().rain(21.0, displayLocale)} " +
+                com.meteocompare.app.ui.citydetail.dailyTimelineRange(2.0, 32.0,
+                    WeatherUnits(), com.meteocompare.app.core.units.WeatherUnit.PRECIPITATION,
+                    digits = 1, locale = displayLocale))
+        composeRule.runOnIdle { selection.value = UnitSystem.CUSTOM }
+        composeRule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true)
+            .assertTextEquals("(77–93)")
+        composeRule.onNodeWithTag("timeline_daily_temp_min_range", useUnmergedTree = true)
+            .assertTextEquals("(54–66)")
+        composeRule.onNodeWithTag("timeline_daily_rain_amount", useUnmergedTree = true)
+            .assertTextEquals("${WeatherUnits().rain(21.0, displayLocale)} " +
+                com.meteocompare.app.ui.citydetail.dailyTimelineRange(2.0, 32.0,
+                    WeatherUnits(), com.meteocompare.app.core.units.WeatherUnit.PRECIPITATION,
+                    digits = 1, locale = displayLocale))
+    }
 
     @Test fun chronology_converts_wind_and_gusts_without_changing_the_hour() {
         val selection = mutableStateOf(UnitSystem.METRIC)

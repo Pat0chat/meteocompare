@@ -1811,17 +1811,17 @@ private fun precipitationMetricPresentation(
         MetricPresentation(value = stringResource(R.string.precip_dry))
     is PrecipitationConfidence.Rain -> {
         val value = if (units.sameDisplayedValue(precip.minMm, precip.maxMm, WeatherUnit.PRECIPITATION, 1)) {
-            units.value((precip.meta.centralAmountMm ?: precip.meanMm), WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)
+            units.value((precip.meta.centralAmountMm ?: precip.meanMm), WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)
         } else {
-            "${units.value(precip.minMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}–${units.value(precip.maxMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}"
+            "${units.value(precip.minMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}–${units.value(precip.maxMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}"
         }
         MetricPresentation(value = value, unit = units.precipitationUnit)
     }
     is PrecipitationConfidence.Divided -> {
         val value = if (units.sameDisplayedValue(precip.rainMinMm, precip.rainMaxMm, WeatherUnit.PRECIPITATION, 1)) {
-            units.value((precip.meta.centralAmountMm ?: precip.rainMeanMm), WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)
+            units.value((precip.meta.centralAmountMm ?: precip.rainMeanMm), WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)
         } else {
-            "${units.value(precip.rainMinMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}–${units.value(precip.rainMaxMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}"
+            "${units.value(precip.rainMinMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}–${units.value(precip.rainMaxMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}"
         }
         MetricPresentation(
             value = value,

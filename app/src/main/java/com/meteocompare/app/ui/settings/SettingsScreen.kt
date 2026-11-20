@@ -8,6 +8,14 @@ import androidx.compose.foundation.selection.selectable
 
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
+import com.meteocompare.app.domain.model.TemperatureChoice
+import com.meteocompare.app.domain.model.WindChoice
+import com.meteocompare.app.domain.model.PrecipitationChoice
+import com.meteocompare.app.domain.model.PressureChoice
+import com.meteocompare.app.domain.model.HeightChoice
+import com.meteocompare.app.domain.model.DistanceChoice
+import com.meteocompare.app.domain.model.UnitChoice
 
 import android.annotation.SuppressLint
 import android.Manifest
@@ -30,6 +38,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -38,6 +48,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -127,6 +141,7 @@ fun SettingsScreen(
 ) {
     val enabled by viewModel.enabledModels.collectAsStateWithLifecycle()
     val unitSystem by viewModel.unitSystem.collectAsStateWithLifecycle()
+    val customUnits by viewModel.customUnits.collectAsStateWithLifecycle()
     val clockFormat by viewModel.clockFormatPreference.collectAsStateWithLifecycle()
     val theme by viewModel.themePreference.collectAsStateWithLifecycle()
     val language by viewModel.languagePreference.collectAsStateWithLifecycle()
@@ -229,6 +244,8 @@ fun SettingsScreen(
             enabledModels = enabled,
             onToggle = viewModel::onModelToggled,
             unitSystem = unitSystem,
+            customUnits = customUnits,
+            onCustomUnitsSelected = viewModel::onCustomUnitsSelected,
             clockFormat = clockFormat,
             onClockFormatSelected = viewModel::onClockFormatSelected,
             onUnitSystemSelected = viewModel::onUnitSystemSelected,
@@ -308,6 +325,8 @@ internal fun SettingsContent(
     notificationSection: @Composable () -> Unit = {},
     unitSystem: UnitSystem = UnitSystem.METRIC,
     onUnitSystemSelected: (UnitSystem) -> Unit = {},
+    customUnits: CustomUnitPreferences = CustomUnitPreferences(),
+    onCustomUnitsSelected: (CustomUnitPreferences) -> Unit = {},
     clockFormat: ClockFormatPreference = ClockFormatPreference.AUTO,
     onClockFormatSelected: (ClockFormatPreference) -> Unit = {}
 ) {
@@ -376,7 +395,7 @@ internal fun SettingsContent(
                 Text(stringResource(R.string.settings_units), style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
-                UnitSystemSelector(unitSystem, onUnitSystemSelected)
+                UnitSystemSelector(unitSystem, onUnitSystemSelected, customUnits, onCustomUnitsSelected)
             }
         }
         item { HorizontalDivider() }
@@ -907,26 +926,128 @@ internal fun ClockFormatSelector(
     }
 }
 
+/** Retain the existing trailing-lambda API used by previews and integration tests. */
 @Composable
 internal fun UnitSystemSelector(selected: UnitSystem, onSelect: (UnitSystem) -> Unit) {
+    UnitSystemSelector(selected, onSelect, CustomUnitPreferences()) { onSelect(UnitSystem.CUSTOM) }
+}
+
+@Composable
+internal fun UnitSystemSelector(
+    selected: UnitSystem,
+    onSelect: (UnitSystem) -> Unit,
+    customUnits: CustomUnitPreferences,
+    onCustomUnitsSelected: (CustomUnitPreferences) -> Unit
+) {
+    var showCustomDialog by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.selectableGroup()) {
         UnitSystem.entries.forEach { system ->
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .selectable(selected = system == selected,
                         role = androidx.compose.ui.semantics.Role.RadioButton,
-                        onClick = { onSelect(system) })
+                        onClick = {
+                            if (system == UnitSystem.CUSTOM) showCustomDialog = true
+                            else onSelect(system)
+                        })
                     .testTag("settings_units_${system.name}").padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 androidx.compose.material3.RadioButton(selected = system == selected, onClick = null)
                 Spacer(Modifier.width(8.dp))
-                val example = WeatherUnits(system)
-                Text(stringResource(when (system) {
-                    UnitSystem.METRIC -> R.string.settings_units_metric
-                    UnitSystem.IMPERIAL -> R.string.settings_units_imperial
-                    UnitSystem.UK_MIXED -> R.string.settings_units_uk
-                }, example.temperatureUnit, example.windUnit, example.precipitationUnit, example.distanceUnit))
+                if (system == UnitSystem.CUSTOM) {
+                    Text(stringResource(R.string.settings_units_custom))
+                } else {
+                    val example = WeatherUnits(system)
+                    Text(stringResource(when (system) {
+                        UnitSystem.METRIC -> R.string.settings_units_metric
+                        UnitSystem.IMPERIAL -> R.string.settings_units_imperial
+                        UnitSystem.UK_MIXED -> R.string.settings_units_uk
+                        UnitSystem.CUSTOM -> error("Handled above")
+                    }, example.temperatureUnit, example.windUnit, example.precipitationUnit, example.distanceUnit))
+                }
+            }
+        }
+    }
+    if (showCustomDialog) {
+        CustomUnitsDialog(
+            initial = customUnits,
+            onDismiss = { showCustomDialog = false },
+            onConfirm = { choices ->
+                onCustomUnitsSelected(choices)
+                showCustomDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+internal fun CustomUnitsDialog(
+    initial: CustomUnitPreferences,
+    onDismiss: () -> Unit,
+    onConfirm: (CustomUnitPreferences) -> Unit
+) {
+    var choices by remember(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        modifier = Modifier.testTag("settings_custom_units_dialog"),
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_units_custom_title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                CustomUnitDropdown(stringResource(R.string.settings_units_temperature), "temperature",
+                    TemperatureChoice.entries, choices.temperature) { choices = choices.copy(temperature = it) }
+                CustomUnitDropdown(stringResource(R.string.settings_units_wind), "wind",
+                    WindChoice.entries, choices.wind) { choices = choices.copy(wind = it) }
+                CustomUnitDropdown(stringResource(R.string.settings_units_precipitation), "precipitation",
+                    PrecipitationChoice.entries, choices.precipitation) { choices = choices.copy(precipitation = it) }
+                CustomUnitDropdown(stringResource(R.string.settings_units_pressure), "pressure",
+                    PressureChoice.entries, choices.pressure) { choices = choices.copy(pressure = it) }
+                CustomUnitDropdown(stringResource(R.string.settings_units_height), "height",
+                    HeightChoice.entries, choices.height) { choices = choices.copy(height = it) }
+                CustomUnitDropdown(stringResource(R.string.settings_units_distance), "distance",
+                    DistanceChoice.entries, choices.distance) { choices = choices.copy(distance = it) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(choices) }, modifier = Modifier.testTag("settings_custom_units_save")) {
+                Text(stringResource(R.string.settings_units_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("settings_custom_units_cancel")) {
+                Text(stringResource(R.string.settings_units_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun <T> CustomUnitDropdown(
+    label: String,
+    key: String,
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit
+) where T : Enum<T>, T : UnitChoice {
+    var expanded by remember { mutableStateOf(false) }
+    Column {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth().testTag("settings_custom_$key"),
+            onClick = { expanded = true }
+        ) { Text(selected.symbol) }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(if (option == WindChoice.KNOTS) {
+                        stringResource(R.string.settings_units_wind_knots)
+                    } else option.symbol) },
+                    modifier = Modifier.testTag("settings_custom_${key}_${option.name}"),
+                    onClick = { onSelect(option); expanded = false }
+                )
             }
         }
     }

@@ -103,7 +103,10 @@ internal class WeatherNotificationWorker(
         }
 
         val notifier = WeatherNotifier(applicationContext,
-            WeatherUnits(entry.userPreferencesRepository().observeUnitSystem().first()))
+            kotlinx.coroutines.flow.combine(
+                entry.userPreferencesRepository().observeUnitSystem(),
+                entry.userPreferencesRepository().observeCustomUnits()
+            ) { system, custom -> WeatherUnits(system, custom) }.first())
         // Permission refusée ou notifications bloquées : inutile de consommer
         // réseau et batterie pour un résultat qui ne serait pas affiché.
         if (!notifier.canPost()) {

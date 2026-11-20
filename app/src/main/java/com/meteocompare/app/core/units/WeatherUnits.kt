@@ -1,33 +1,63 @@
 package com.meteocompare.app.core.units
 
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
+import com.meteocompare.app.domain.model.TemperatureChoice
+import com.meteocompare.app.domain.model.WindChoice
+import com.meteocompare.app.domain.model.PrecipitationChoice
+import com.meteocompare.app.domain.model.PressureChoice
+import com.meteocompare.app.domain.model.HeightChoice
+import com.meteocompare.app.domain.model.DistanceChoice
 import java.util.Locale
 import kotlin.math.abs
 
 /** Presentation boundary: every input is metric, every output is display-only. */
-data class WeatherUnits(val system: UnitSystem = UnitSystem.METRIC) {
-    /** Full imperial profile only. Do not use for wind or distance in UK_MIXED. */
+data class WeatherUnits(
+    val system: UnitSystem = UnitSystem.METRIC,
+    val custom: CustomUnitPreferences = CustomUnitPreferences()
+) {
+    /** Existing presets are unaffected by custom choices. */
     val imperial: Boolean get() = system == UnitSystem.IMPERIAL
-    val windInMph: Boolean get() = system != UnitSystem.METRIC
-    val distanceInMiles: Boolean get() = system != UnitSystem.METRIC
-    val temperatureUnit: String get() = if (imperial) "°F" else "°C"
-    val temperatureSuffix: String get() = if (imperial) "°F" else "°"
-    val windUnit: String get() = if (windInMph) "mph" else "km/h"
-    val precipitationUnit: String get() = if (imperial) "in" else "mm"
-    val heightUnit: String get() = if (imperial) "ft" else "m"
+    val temperatureInFahrenheit: Boolean get() = if (system == UnitSystem.CUSTOM)
+        custom.temperature == TemperatureChoice.FAHRENHEIT else imperial
+    val windInMph: Boolean get() = if (system == UnitSystem.CUSTOM)
+        custom.wind == WindChoice.MPH else system != UnitSystem.METRIC
+            && system != UnitSystem.CUSTOM
+    val distanceInMiles: Boolean get() = if (system == UnitSystem.CUSTOM)
+        custom.distance == DistanceChoice.MILES else system != UnitSystem.METRIC
+    val precipitationInInches: Boolean get() = if (system == UnitSystem.CUSTOM)
+        custom.precipitation == PrecipitationChoice.INCHES else imperial
+    val pressureInInHg: Boolean get() = if (system == UnitSystem.CUSTOM)
+        custom.pressure == PressureChoice.INHG else imperial
+    val heightInFeet: Boolean get() = if (system == UnitSystem.CUSTOM)
+        custom.height == HeightChoice.FEET else imperial
+    val temperatureUnit: String get() = if (temperatureInFahrenheit) "°F" else "°C"
+    val temperatureSuffix: String get() = if (temperatureInFahrenheit) "°F" else "°"
+    val windUnit: String get() = when {
+        system == UnitSystem.CUSTOM -> custom.wind.symbol
+        windInMph -> "mph"
+        else -> "km/h"
+    }
+    val precipitationUnit: String get() = if (precipitationInInches) "in" else "mm"
+    val heightUnit: String get() = if (heightInFeet) "ft" else "m"
     val distanceUnit: String get() = if (distanceInMiles) "mi" else "km"
-    val precipitationDigits: Int get() = if (imperial) 2 else 1
+    val precipitationDigits: Int get() = if (precipitationInInches) 2 else 1
 
-    fun temperature(celsius: Double): Double = if (imperial) celsius * 1.8 + 32.0 else celsius
+    fun temperature(celsius: Double): Double = if (temperatureInFahrenheit) celsius * 1.8 + 32.0 else celsius
     /** Differences, MAE, spread and standard deviation must never receive the +32 offset. */
-    fun temperatureDelta(celsius: Double): Double = if (imperial) celsius * 1.8 else celsius
-    fun wind(kmh: Double): Double = if (windInMph) kmh / 1.609344 else kmh
-    fun precipitation(mm: Double): Double = if (imperial) mm / 25.4 else mm
-    fun height(metres: Double): Double = if (imperial) metres / 0.3048 else metres
+    fun temperatureDelta(celsius: Double): Double = if (temperatureInFahrenheit) celsius * 1.8 else celsius
+    fun wind(kmh: Double): Double = when (windUnit) {
+        "mph" -> kmh / 1.609344
+        "kn" -> kmh / 1.852
+        "m/s" -> kmh / 3.6
+        else -> kmh
+    }
+    fun precipitation(mm: Double): Double = if (precipitationInInches) mm / 25.4 else mm
+    fun height(metres: Double): Double = if (heightInFeet) metres / 0.3048 else metres
     fun distance(km: Double): Double = if (distanceInMiles) km / 1.609344 else km
 
     // NIST SP 811: conventional inch of mercury = 3386.389 Pa.
-    fun pressure(hpa: Double): Double = if (imperial) hpa / 33.86389 else hpa
+    fun pressure(hpa: Double): Double = if (pressureInInHg) hpa / 33.86389 else hpa
 
     fun convert(value: Double, metricUnit: WeatherUnit, delta: Boolean = false): Double = when (metricUnit) {
         WeatherUnit.TEMPERATURE, WeatherUnit.TEMPERATURE_COMPACT ->
@@ -48,7 +78,7 @@ data class WeatherUnits(val system: UnitSystem = UnitSystem.METRIC) {
         WeatherUnit.PRECIPITATION_RATE -> "$precipitationUnit/h"
         WeatherUnit.HEIGHT -> heightUnit
         WeatherUnit.DISTANCE -> distanceUnit
-        WeatherUnit.PRESSURE -> if (imperial) "inHg" else "hPa"
+        WeatherUnit.PRESSURE -> if (pressureInInHg) "inHg" else "hPa"
         WeatherUnit.PERCENT -> "%"
         WeatherUnit.SECONDS -> "s"
     }
@@ -98,8 +128,8 @@ data class WeatherUnits(val system: UnitSystem = UnitSystem.METRIC) {
     }
 
     private fun precision(unit: WeatherUnit, digits: Int): Int = when {
-        unit.isPrecipitation -> maxOf(if (imperial) 2 else 1, digits)
-        imperial && unit == WeatherUnit.PRESSURE -> maxOf(2, digits)
+        unit.isPrecipitation -> maxOf(precipitationDigits, digits)
+        pressureInInHg && unit == WeatherUnit.PRESSURE -> maxOf(2, digits)
         else -> digits
     }.coerceIn(0, 6)
 

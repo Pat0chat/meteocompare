@@ -264,7 +264,7 @@ internal fun displayDayMetric(
     CompareChartMetric.APPARENT -> "${units.temp(day.apparentMinC, locale = locale)} / ${units.temp(day.apparentMaxC, locale = locale)}"
     CompareChartMetric.HUMIDITY -> day.humidityPercent?.let { "$it %" } ?: "—"
     CompareChartMetric.DEW_POINT -> units.temp(day.dewPointC, locale = locale)
-    CompareChartMetric.PRESSURE -> units.format(day.pressureHpa, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0, locale)
+    CompareChartMetric.PRESSURE -> units.format(day.pressureHpa, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0, locale)
     CompareChartMetric.RAIN -> units.rain(day.precipitationMm, locale)
     CompareChartMetric.RAIN_RISK -> day.rainProbabilityPercent?.let { "$it %" } ?: "—"
     CompareChartMetric.CLOUDS -> day.cloudCoverPercent?.let { "$it %" } ?: "—"
