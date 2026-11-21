@@ -539,6 +539,8 @@
     <string name="timeline_layout_chrono">Frise</string>
     <string name="timeline_date_label">Date</string>
     <string name="timeline_disagreement_hint">Le score indique la convergence ; les icônes signalent les variables qui divergent.</string>
+    <string name="timeline_convergence_info_title">À propos de la convergence</string>
+    <string name="timeline_convergence_open_info">Comprendre le score de convergence</string>
     <string name="timeline_now">Maintenant</string>
     <string name="timeline_today">Aujourd’hui</string>
     <string name="timeline_tomorrow">Demain</string>

@@ -363,8 +363,9 @@ Tests Compose : `DailyRangeLayoutComposeTest`, `UnitSystemDisplayTest`.
 
 - Le contrôle est désormais un **switch Material 3** dont toute la zone est
   cliquable (rôle accessible `Switch`). Il se trouve **sous la visualisation**,
-  mais avant le texte d'explication du score de convergence (s'il est présent),
-  quel que soit le choix Columns/Timeline.
+  quel que soit le choix Columns/Timeline. L'explication de convergence ne
+  s'affiche désormais plus sous la chronologie : elle est dans un popup ouvert
+  en touchant le score ou les icônes de divergence.
 - En mode plage activée, la largeur de Columns est limitée à **136 dp**
   (112 dp sinon), la largeur d'un jour Timeline reste **148 dp** dans les deux
   états. La colonne fixe d'icônes/étiquettes de la frise fait 96 dp sur mobile.
@@ -401,3 +402,24 @@ ainsi que `DailyRangeLayoutComposeTest` (switch, placement, rail d'icônes).
 - Tests Compose concernés : `DailyRangeLayoutComposeTest` et
   `CityListContentTest`. Lancer les tests complets Android :
   `./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest :app:lintDebug`.
+
+
+### Information convergence et heatmap Daily Columns (v1.23.0)
+
+- La note d'information « Le score indique la convergence ; les icônes signalent
+  les variables qui divergent » n'occupe plus de ligne sous la chronologie.
+  Cliquer sur un score dans **Columns** (y compris une icône de divergence), sur
+  une cellule de convergence dans **Timeline** ou sur le titre fixe
+  « Convergence » ouvre une boîte d'information Material 3 avec cette note.
+  Tester en **Daily** et **Hourly**, pour un score présent, absent, ou une
+  convergence sans divergence explicite. Le bouton « Fermer » et le bouton
+  Retour doivent fermer la boîte sans modifier les prévisions ni les plages.
+- En **Daily Columns**, la bande heatmap des températures fait toujours
+  **64 dp**, plages affichées ou non. Les plages min/max passent sur une seule
+  ligne avec leur température ; en cas de manque de largeur, seule la plage
+  secondaire peut être tronquée. Tester avec °C, °F et une police 1.4×.
+  L'horaire conserve une heatmap de **46 dp**.
+- Tests Compose : `DailyRangeLayoutComposeTest` (dialogue et fermeture, titre
+  cliquable, Daily/Hourly, dimensions fixes, débordements). Contrôles rapides :
+  `python3 -m unittest scripts.tests.test_chronology_convergence_info_heatmap_contract -v`.
+  Comme pour les autres tests Compose, validation sur émulateur requise.

@@ -19,6 +19,7 @@ import com.meteocompare.app.core.units.LocalWeatherUnits
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,6 +70,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import com.meteocompare.app.core.units.weatherStringResource as stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -104,7 +106,8 @@ internal fun ChronoTimelineView(
     modifier: Modifier = Modifier,
     scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     highlightedKey: String? = null,
-    showDailyRanges: Boolean = false
+    showDailyRanges: Boolean = false,
+    onConvergenceClick: (() -> Unit)? = null
 ) {
     if (points.isEmpty()) return
 
@@ -144,7 +147,8 @@ internal fun ChronoTimelineView(
             ChronoLabelsColumn(
                 width = labelWidth,
                 mode = mode,
-                showDailyRanges = showDailyRanges
+                showDailyRanges = showDailyRanges,
+                onConvergenceClick = onConvergenceClick
             )
 
             Box(
@@ -185,7 +189,7 @@ internal fun ChronoTimelineView(
                         ChronoMoistureLane(points = points, humidity = true, mode = mode, showDailyRanges = showDailyRanges)
                         ChronoMoistureLane(points = points, humidity = false, mode = mode, showDailyRanges = showDailyRanges)
                         ChronoWindLane(points = points, mode = mode, showDailyRanges = showDailyRanges)
-                        ChronoAgreementLane(points = points)
+                        ChronoAgreementLane(points = points, onConvergenceClick = onConvergenceClick)
                     }
                 }
             }
@@ -240,6 +244,7 @@ private fun ChronoLabelsColumn(
     width: Dp,
     mode: DisplayMode,
     showDailyRanges: Boolean,
+    onConvergenceClick: (() -> Unit)? = null,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -339,7 +344,9 @@ private fun ChronoLabelsColumn(
                 title = stringResource(R.string.home_agreement_label),
                 support = units.label(WeatherUnit.PERCENT),
                 height = CHRONO_AGREEMENT_HEIGHT,
-                tint = confidenceColor(80)
+                tint = confidenceColor(80),
+                onClick = onConvergenceClick,
+                interactionTag = TAG_TIMELINE_CHRONO_CONVERGENCE_TITLE
             )
         }
 
@@ -380,12 +387,23 @@ private fun ChronoRowLabel(
     support: String,
     height: Dp,
     tint: Color,
-    iconTag: String? = null
+    iconTag: String? = null,
+    onClick: (() -> Unit)? = null,
+    interactionTag: String? = null
 ) {
+    val clickModifier = if (onClick != null) {
+        Modifier.clickable(
+            role = Role.Button,
+            onClickLabel = stringResource(R.string.timeline_convergence_open_info),
+            onClick = onClick
+        )
+    } else Modifier
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
+            .then(clickModifier)
+            .then(interactionTag?.let { Modifier.testTag(it) } ?: Modifier)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1091,9 +1109,16 @@ private fun ChronoWindLane(
     }
 }
 
+internal const val TAG_TIMELINE_CHRONO_CONVERGENCE_CELL = "timeline_chrono_convergence_cell"
+internal const val TAG_TIMELINE_CHRONO_CONVERGENCE_TITLE = "timeline_chrono_convergence_title"
+
 @Composable
-private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
+private fun ChronoAgreementLane(
+    points: List<SimplifiedTimelinePoint>,
+    onConvergenceClick: (() -> Unit)? = null
+) {
     val scheme = MaterialTheme.colorScheme
+    val openInfoLabel = stringResource(R.string.timeline_convergence_open_info)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1108,7 +1133,12 @@ private fun ChronoAgreementLane(points: List<SimplifiedTimelinePoint>) {
             } else {
                 scheme.onSurfaceVariant
             }
-            ChronoCell {
+            val clickModifier = if (onConvergenceClick != null) {
+                Modifier.clickable(role = Role.Button, onClickLabel = openInfoLabel,
+                    onClick = onConvergenceClick)
+            } else Modifier
+            ChronoCell(modifier = Modifier.testTag(TAG_TIMELINE_CHRONO_CONVERGENCE_CELL)
+                .then(clickModifier)) {
                 Column(
                     modifier = Modifier.padding(horizontal = 9.dp),
                     verticalArrangement = Arrangement.Center

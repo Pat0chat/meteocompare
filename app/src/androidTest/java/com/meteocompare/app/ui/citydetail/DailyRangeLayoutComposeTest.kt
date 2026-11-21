@@ -2,6 +2,8 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -13,6 +15,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
@@ -142,7 +145,7 @@ class DailyRangeLayoutComposeTest {
         assertTrue(narrowRange.top >= narrowValue.bottom)
     }
 
-    @Test fun switch_is_below_both_visualizations_and_before_convergence_explanation() {
+    @Test fun switch_is_below_both_visualizations_without_persistent_convergence_explanation() {
         val layout = mutableStateOf(TimelineLayout.COLUMNS)
         rule.setContent {
             MeteoCompareTheme {
@@ -157,18 +160,163 @@ class DailyRangeLayoutComposeTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val hint = context.getString(R.string.timeline_disagreement_hint)
         val switch = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
-        val hintY = rule.onNodeWithText(hint).fetchSemanticsNode().boundsInRoot.top
         val columnsY = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot.bottom
         assertTrue(switch.fetchSemanticsNode().boundsInRoot.top > columnsY)
-        assertTrue(switch.fetchSemanticsNode().boundsInRoot.bottom <= hintY)
+        rule.onNodeWithText(hint).assertDoesNotExist()
 
         rule.onNodeWithText(context.getString(R.string.timeline_layout_chrono)).performClick()
         val chronoBottom = rule.onNodeWithTag(TAG_TIMELINE_CHRONO_VIEW)
             .fetchSemanticsNode().boundsInRoot.bottom
         assertTrue(switch.fetchSemanticsNode().boundsInRoot.top >= chronoBottom)
-        assertTrue(switch.fetchSemanticsNode().boundsInRoot.bottom <=
-            rule.onNodeWithText(hint).fetchSemanticsNode().boundsInRoot.top)
+        rule.onNodeWithText(hint).assertDoesNotExist()
+    }
+
+    @Test fun tapping_convergence_in_daily_columns_opens_and_dismisses_explanation() {
+        val point = dailyPoint().copy(
+            consensusPercent = 63, consensusLevel = ModelConsensusLevel.MEDIUM,
+            divergenceReasons = setOf(DivergenceReason.WIND)
+        )
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SimplifiedTimelineCard(
+                        points = listOf(point), mode = DisplayMode.DAILY,
+                        timezone = "UTC", now = now
+                    )
+                }
+            }
+        }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val hint = context.getString(R.string.timeline_disagreement_hint)
+        rule.onNodeWithText(hint).assertDoesNotExist()
+        rule.onNodeWithTag(TAG_TIMELINE_CONSENSUS_BADGE)
+            .assertHasClickAction().performScrollTo().performClick()
+        rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_DIALOG).assertIsDisplayed()
+        rule.onNodeWithText(hint).assertIsDisplayed()
+        rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_CLOSE).performClick()
+        rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_DIALOG).assertDoesNotExist()
+        rule.onNodeWithText(hint).assertDoesNotExist()
+        // The divergence icons are part of the same interactive score area.
+        rule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_REASON)
+            .assertHasClickAction().performScrollTo().performClick()
+        rule.onNodeWithText(hint).assertIsDisplayed()
+    }
+
+    @Test fun hourly_columns_score_opens_help_without_divergence() {
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SimplifiedTimelineCard(
+                        points = listOf(SimplifiedTimelinePoint(
+                            instant = now, temperatureC = 19.0,
+                            consensusPercent = 90,
+                            consensusLevel = ModelConsensusLevel.HIGH
+                        )),
+                        mode = DisplayMode.HOURLY, timezone = "UTC", now = now
+                    )
+                }
+            }
+        }
+        val hint = InstrumentationRegistry.getInstrumentation().targetContext.getString(
+            R.string.timeline_disagreement_hint
+        )
+        rule.onNodeWithText(hint).assertDoesNotExist()
+        rule.onNodeWithTag(TAG_TIMELINE_CONSENSUS_BADGE)
+            .assertHasClickAction().performScrollTo().performClick()
+        rule.onNodeWithText(hint).assertIsDisplayed()
+        rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_CLOSE).performClick()
+        rule.onNodeWithText(hint).assertDoesNotExist()
+    }
+
+    @Test fun tapping_convergence_in_chrono_opens_explanation_in_daily_and_hourly() {
+        val mode = mutableStateOf(DisplayMode.DAILY)
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SimplifiedTimelineCard(
+                        points = listOf(if (mode.value == DisplayMode.DAILY) {
+                            dailyPoint().copy(consensusPercent = 75)
+                        } else {
+                            SimplifiedTimelinePoint(
+                                instant = now, temperatureC = 17.0,
+                                consensusPercent = 75,
+                                consensusLevel = ModelConsensusLevel.HIGH
+                            )
+                        }),
+                        mode = mode.value, timezone = "UTC", now = now,
+                        layout = TimelineLayout.CHRONO
+                    )
+                }
+            }
+        }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val hint = context.getString(R.string.timeline_disagreement_hint)
+        for (displayMode in listOf(DisplayMode.DAILY, DisplayMode.HOURLY)) {
+            rule.runOnIdle { mode.value = displayMode }
+            rule.waitForIdle()
+            rule.onNodeWithText(hint).assertDoesNotExist()
+            rule.onNodeWithTag(TAG_TIMELINE_CHRONO_CONVERGENCE_CELL)
+                .assertHasClickAction().performScrollTo().performClick()
+            rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_DIALOG).assertIsDisplayed()
+            rule.onNodeWithText(hint).assertIsDisplayed()
+            rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_CLOSE).performClick()
+            rule.onNodeWithText(hint).assertDoesNotExist()
+            rule.onNodeWithTag(TAG_TIMELINE_CHRONO_CONVERGENCE_TITLE)
+                .assertHasClickAction().performScrollTo().performClick()
+            rule.onNodeWithText(hint).assertIsDisplayed()
+            rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_CLOSE).performClick()
+        }
+    }
+
+    @Test fun daily_heatmap_keeps_exact_height_and_visible_temperatures_with_ranges() {
+        val enabled = mutableStateOf(false)
+        rule.setContent {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(dailyPoint()),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                    showDailyRanges = enabled.value,
+                    onShowDailyRangesChange = { enabled.value = it }
+                )
+            }
+        }
+        val original = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals(64f * rule.density.density, original.height, 1f * rule.density.density)
+        rule.runOnIdle { enabled.value = true }
+        val withRanges = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals("The daily heatmap must never grow when ranges are enabled",
+            original.height, withRanges.height, 1f)
+        for (tag in listOf("columns_daily_temp_max_range", "columns_daily_temp_min_range")) {
+            val bounds = rule.onNodeWithTag(tag, useUnmergedTree = true)
+                .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("$tag must fit vertically into the original heatmap",
+                bounds.top >= withRanges.top - 1f && bounds.bottom <= withRanges.bottom + 1f)
+        }
+        rule.runOnIdle { enabled.value = false }
+        assertEquals(original.height,
+            rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot.height, 1f)
+    }
+
+    @Test fun single_line_temperature_range_never_expands_vertically_on_narrow_columns() {
+        rule.setContent {
+            MeteoCompareTheme {
+                DailyRangeLabel(
+                    value = "101°F", range = "(84–115°F)", rangeTag = "fixed_range",
+                    valueTag = "fixed_value", modifier = Modifier.width(90.dp),
+                    singleLine = true
+                )
+            }
+        }
+        val value = rule.onNodeWithTag("fixed_value", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val range = rule.onNodeWithTag("fixed_range", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("Secondary range should remain on the same line", range.top < value.bottom)
+        assertTrue("Main temperature should remain readable", value.width > 0f)
     }
 
     @Test fun columns_icons_remain_next_to_values_with_and_without_model_ranges() {

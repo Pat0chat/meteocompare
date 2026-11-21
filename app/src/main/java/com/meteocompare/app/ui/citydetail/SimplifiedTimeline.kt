@@ -17,6 +17,7 @@ import com.meteocompare.app.core.units.LocalWeatherUnits
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +50,11 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -138,6 +142,7 @@ internal fun SimplifiedTimelineCard(
     val snapFlingBehavior = rememberSnapFlingBehavior(listState)
     val density = LocalDensity.current
     var highlightedKey by remember { mutableStateOf<String?>(null) }
+    var showConvergenceInfo by remember { mutableStateOf(false) }
 
     LaunchedEffect(focusRequestId, focusPoint, points, layout, mode, showDailyRanges, expanded) {
         if (!expanded || focusRequestId <= 0 || focusPoint == null) return@LaunchedEffect
@@ -266,7 +271,8 @@ internal fun SimplifiedTimelineCard(
                                 isFirst = index == 0,
                                 isLast = index == points.lastIndex,
                                 isFocused = highlightedKey == timelinePointKey(point),
-                                showDailyRanges = showDailyRanges
+                                showDailyRanges = showDailyRanges,
+                                onConvergenceClick = { showConvergenceInfo = true }
                             )
                         }
                     }
@@ -278,42 +284,44 @@ internal fun SimplifiedTimelineCard(
                         now = now,
                         scrollState = chronoScrollState,
                         highlightedKey = highlightedKey,
-                        showDailyRanges = showDailyRanges
+                        showDailyRanges = showDailyRanges,
+                        onConvergenceClick = { showConvergenceInfo = true }
                     )
                 }
 
                 // Keep this control immediately below either visualization and
-                // immediately above the convergence explanation, never in the
-                // mode/layout selector row.
+                // never in the mode/layout selector row. Convergence information
+                // is now available by tapping the score instead of taking screen space.
                 if (mode == DisplayMode.DAILY && onShowDailyRangesChange != null) {
                     TimelineDailyRangesToggle(
                         checked = showDailyRanges,
                         onCheckedChange = onShowDailyRangesChange
                     )
                 }
-
-                if (points.any { it.isDivergent }) {
-                    Row(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.WarningAmber,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.timeline_disagreement_hint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             }
         }
     }
+    if (expanded && showConvergenceInfo) {
+        TimelineConvergenceInfoDialog(onDismiss = { showConvergenceInfo = false })
+    }
+}
+
+/** Shared explanation for the convergence score in both chronological layouts. */
+@Composable
+private fun TimelineConvergenceInfoDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(TAG_TIMELINE_CONVERGENCE_INFO_DIALOG),
+        icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+        title = { Text(stringResource(R.string.timeline_convergence_info_title)) },
+        text = { Text(stringResource(R.string.timeline_disagreement_hint)) },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TAG_TIMELINE_CONVERGENCE_INFO_CLOSE)
+            ) { Text(stringResource(R.string.toast_dismiss)) }
+        }
+    )
 }
 
 /** Lightweight, card-free Material 3 toggle shared by Columns and Timeline. */
@@ -679,6 +687,7 @@ private fun TimelinePointColumn(
     isLast: Boolean,
     isFocused: Boolean,
     showDailyRanges: Boolean = false,
+    onConvergenceClick: (() -> Unit)? = null,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val displayLocale = LocalConfiguration.current.locales[0]
@@ -891,7 +900,7 @@ private fun TimelinePointColumn(
         )
 
         Spacer(Modifier.height(6.dp))
-        TimelineConsensus(point)
+        TimelineConsensus(point, onConvergenceClick)
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -961,7 +970,7 @@ private fun TemperatureHeatmapBand(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (mode == DisplayMode.DAILY) { if (showDailyRanges) 70.dp else 64.dp } else 46.dp)
+            .height(if (mode == DisplayMode.DAILY) 58.dp else 52.dp)
             .clip(shape)
             .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
             .testTag(TAG_TIMELINE_HEATMAP_BAND),
@@ -1002,6 +1011,7 @@ private fun TemperatureHeatmapBand(
                         rangeTag = "columns_daily_temp_max_range",
                         modifier = Modifier.fillMaxWidth(),
                         valueStyle = MaterialTheme.typography.labelLarge,
+                        singleLine = showDailyRanges,
                         valueColor = contentColor,
                         rangeColor = contentColor.copy(alpha = 0.85f)
                     )
@@ -1013,6 +1023,7 @@ private fun TemperatureHeatmapBand(
                         rangeTag = "columns_daily_temp_min_range",
                         modifier = Modifier.fillMaxWidth(),
                         valueStyle = MaterialTheme.typography.labelSmall,
+                        singleLine = showDailyRanges,
                         valueColor = contentColor.copy(alpha = 0.90f),
                         rangeColor = contentColor.copy(alpha = 0.80f)
                     )
@@ -1078,7 +1089,10 @@ private fun timelinePrecipitationAmountLabel(point: SimplifiedTimelinePoint): St
 }
 
 @Composable
-private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
+private fun TimelineConsensus(
+    point: SimplifiedTimelinePoint,
+    onConvergenceClick: (() -> Unit)? = null
+) {
     val reasons = orderedDivergenceReasons(point.divergenceReasons)
     val hasDisagreement = reasons.isNotEmpty()
     val displayLevel = timelineConsensusDisplayLevel(point)
@@ -1125,6 +1139,10 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
             percent
         )
     } ?: agreementLabel
+    val openInfoLabel = stringResource(R.string.timeline_convergence_open_info)
+    val clickModifier = if (onConvergenceClick != null) {
+        Modifier.clickable(role = Role.Button, onClickLabel = openInfoLabel, onClick = onConvergenceClick)
+    } else Modifier
     val reasonContentDescription = if (reasonItems.isNotEmpty()) {
         stringResource(
             R.string.timeline_divergence_variables_accessibility,
@@ -1142,6 +1160,7 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
         Row(
             modifier = Modifier
                 .testTag(TAG_TIMELINE_CONSENSUS_BADGE)
+                .then(clickModifier)
                 .semantics { contentDescription = agreementContentDescription },
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1165,6 +1184,7 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
             Row(
                 modifier = Modifier
                     .testTag(TAG_TIMELINE_DIVERGENCE_REASON)
+                    .then(clickModifier)
                     .semantics { contentDescription = reasonContentDescription },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -1333,6 +1353,8 @@ internal const val TAG_TIMELINE_EVENT_MARKER = "timeline_event_marker"
 internal const val TAG_TIMELINE_POINT_FOCUSED = "timeline_point_focused"
 internal const val TAG_TIMELINE_DIVERGENCE_REASON = "timeline_divergence_reason"
 internal const val TAG_TIMELINE_CONSENSUS_BADGE = "timeline_consensus_badge"
+internal const val TAG_TIMELINE_CONVERGENCE_INFO_DIALOG = "timeline_convergence_info_dialog"
+internal const val TAG_TIMELINE_CONVERGENCE_INFO_CLOSE = "timeline_convergence_info_close"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_RAIN = "timeline_divergence_icon_rain"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_WIND = "timeline_divergence_icon_wind"
 internal const val TAG_TIMELINE_COLUMNS_APPARENT = "timeline_columns_apparent"

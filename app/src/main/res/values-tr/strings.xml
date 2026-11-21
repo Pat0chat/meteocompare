@@ -537,6 +537,8 @@
     <string name="timeline_layout_chrono">Zaman çizelgesi</string>
     <string name="timeline_date_label">Tarih</string>
     <string name="timeline_disagreement_hint">Puan uyumu gösterir; simgeler farklılaşan değişkenleri işaretler.</string>
+    <string name="timeline_convergence_info_title">Yakınsama hakkında</string>
+    <string name="timeline_convergence_open_info">Yakınsama puanı hakkında bilgi</string>
     <string name="timeline_now">Şimdi</string>
     <string name="timeline_today">Bugün</string>
     <string name="timeline_tomorrow">Yarın</string>

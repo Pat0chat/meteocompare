@@ -531,6 +531,8 @@ datos</string>
     <string name="timeline_layout_chrono">Friso temporal</string>
     <string name="timeline_date_label">Fecha</string>
     <string name="timeline_disagreement_hint">El valor muestra la convergencia; los iconos señalan las variables que divergen.</string>
+    <string name="timeline_convergence_info_title">Sobre la convergencia</string>
+    <string name="timeline_convergence_open_info">Información sobre el índice de convergencia</string>
     <string name="timeline_now">Ahora</string>
     <string name="timeline_today">Hoy</string>
     <string name="timeline_tomorrow">Mañana</string>

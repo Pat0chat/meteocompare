@@ -35,6 +35,7 @@ internal fun DailyRangeLabel(
     valueColor: Color = MaterialTheme.colorScheme.onSurface,
     rangeColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     valueWeight: FontWeight? = FontWeight.SemiBold,
+    singleLine: Boolean = false,
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally
 ) {
     // This fast path is shared by the hourly timeline and the default daily view.
@@ -46,6 +47,24 @@ internal fun DailyRangeLabel(
             Text(value, style = valueStyle, color = valueColor, fontWeight = valueWeight,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = if (valueTag != null) Modifier.testTag(valueTag) else Modifier)
+        }
+        return
+    }
+    // The daily temperature heatmap has a fixed height. Keep both readings on
+    // one line even with ranges, truncating only the secondary range as needed.
+    if (singleLine) {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = if (horizontalAlignment == Alignment.Start)
+                Arrangement.Start else Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(value, style = valueStyle, color = valueColor, fontWeight = valueWeight,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = if (valueTag != null) Modifier.testTag(valueTag) else Modifier)
+            Text(range, style = rangeStyle, color = rangeColor,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 3.dp).weight(1f, fill = false).testTag(rangeTag))
         }
         return
     }
@@ -68,7 +87,7 @@ internal fun DailyRangeLabel(
                 Text(value, style = valueStyle, color = valueColor, fontWeight = valueWeight,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = if (valueTag != null) Modifier.testTag(valueTag) else Modifier)
-                Text(range!!, style = rangeStyle, color = rangeColor,
+                Text(range, style = rangeStyle, color = rangeColor,
                     maxLines = 1, modifier = Modifier.padding(start = 5.dp).testTag(rangeTag))
             }
         } else {

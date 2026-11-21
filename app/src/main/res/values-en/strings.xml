@@ -539,6 +539,8 @@
     <string name="timeline_layout_chrono">Timeline</string>
     <string name="timeline_date_label">Date</string>
     <string name="timeline_disagreement_hint">The score shows convergence; icons flag the variables that diverge.</string>
+    <string name="timeline_convergence_info_title">About convergence</string>
+    <string name="timeline_convergence_open_info">Learn about convergence scores</string>
     <string name="timeline_now">Now</string>
     <string name="timeline_today">Today</string>
     <string name="timeline_tomorrow">Tomorrow</string>

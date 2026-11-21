@@ -530,6 +530,8 @@ Daten</string>
     <string name="timeline_layout_chrono">Zeitstrahl</string>
     <string name="timeline_date_label">Datum</string>
     <string name="timeline_disagreement_hint">Der Wert zeigt die Konvergenz; Symbole markieren abweichende Variablen.</string>
+    <string name="timeline_convergence_info_title">Über die Konvergenz</string>
+    <string name="timeline_convergence_open_info">Konvergenzwert erklären</string>
     <string name="timeline_now">Jetzt</string>
     <string name="timeline_today">Heute</string>
     <string name="timeline_tomorrow">Morgen</string>
