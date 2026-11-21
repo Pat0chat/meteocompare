@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun DailyRangeLabel(
@@ -28,15 +29,19 @@ internal fun DailyRangeLabel(
     valueTag: String? = null,
     modifier: Modifier = Modifier,
     valueStyle: TextStyle = MaterialTheme.typography.labelMedium,
-    rangeStyle: TextStyle = MaterialTheme.typography.labelSmall,
+    rangeStyle: TextStyle = MaterialTheme.typography.labelSmall.copy(
+        fontSize = 9.sp, lineHeight = 11.sp
+    ),
     valueColor: Color = MaterialTheme.colorScheme.onSurface,
     rangeColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    valueWeight: FontWeight? = FontWeight.SemiBold
+    valueWeight: FontWeight? = FontWeight.SemiBold,
+    horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally
 ) {
     // This fast path is shared by the hourly timeline and the default daily view.
     // No text measurement or layout negotiation is needed when ranges are hidden.
     if (range.isNullOrBlank()) {
-        Row(modifier = modifier, horizontalArrangement = Arrangement.Center,
+        Row(modifier = modifier,
+            horizontalArrangement = if (horizontalAlignment == Alignment.Start) Arrangement.Start else Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically) {
             Text(value, style = valueStyle, color = valueColor, fontWeight = valueWeight,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -52,12 +57,12 @@ internal fun DailyRangeLabel(
                 maxLines = 1).size.width,
             measure.measure(AnnotatedString(range), rangeStyle, maxLines = 1).size.width,
             available,
-            with(androidx.compose.ui.platform.LocalDensity.current) { 7.dp.roundToPx() }
+            with(androidx.compose.ui.platform.LocalDensity.current) { 5.dp.roundToPx() }
         )
         if (inline) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = if (horizontalAlignment == Alignment.Start) Arrangement.Start else Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(value, style = valueStyle, color = valueColor, fontWeight = valueWeight,
@@ -69,7 +74,7 @@ internal fun DailyRangeLabel(
         } else {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment = horizontalAlignment,
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(value, style = valueStyle, color = valueColor, fontWeight = valueWeight,

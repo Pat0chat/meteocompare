@@ -40,13 +40,24 @@ class ChronoTimelineTemperatureTest {
     }
 
     @Test
-    fun daily_ranges_expand_only_the_display_that_needs_room() {
+    fun daily_ranges_fit_into_compact_columns_and_do_not_widen_the_chrono_grid() {
         assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY))
-        assertEquals(174.dp, chronoPointWidth(DisplayMode.DAILY, true))
+        assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY, true))
         assertEquals(96.dp, chronoPointWidth(DisplayMode.HOURLY, true))
         assertEquals(112.dp, timelineColumnWidth(DisplayMode.DAILY, false))
-        assertEquals(166.dp, timelineColumnWidth(DisplayMode.DAILY, true))
+        assertEquals(136.dp, timelineColumnWidth(DisplayMode.DAILY, true))
         assertEquals(112.dp, timelineColumnWidth(DisplayMode.HOURLY, true))
+    }
+
+    @Test
+    fun compact_daily_ranges_add_less_than_one_small_row_to_the_chrono_grid() {
+        val base = chronoRowHeights(DisplayMode.DAILY, false).sumOf { it.value.toDouble() }
+        val expanded = chronoRowHeights(DisplayMode.DAILY, true).sumOf { it.value.toDouble() }
+        assertTrue("Ranges should add less than 25 dp in total", expanded - base < 25.0)
+        assertEquals(
+            chronoRowHeights(DisplayMode.HOURLY, false),
+            chronoRowHeights(DisplayMode.HOURLY, true)
+        )
     }
 
     @Test

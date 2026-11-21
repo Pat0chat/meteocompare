@@ -6,6 +6,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -58,9 +61,12 @@ class DailyRangeLayoutComposeTest {
         }
         val toggle = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
         toggle.assertIsDisplayed()
+        toggle.assertIsOff()
+        toggle.assertHasClickAction()
         rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("columns_daily_rain_amount_range", useUnmergedTree = true).assertDoesNotExist()
         toggle.performClick()
+        toggle.assertIsOn()
         rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("columns_daily_rain_amount_range", useUnmergedTree = true).assertIsDisplayed()
 
@@ -69,6 +75,7 @@ class DailyRangeLayoutComposeTest {
         rule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true).assertIsDisplayed()
         toggle.performClick()
+        toggle.assertIsOff()
         rule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithText(context.getString(R.string.timeline_layout_columns)).performClick()
@@ -133,5 +140,89 @@ class DailyRangeLayoutComposeTest {
         assertTrue(wideRange.left >= wideValue.right)
         assertTrue(wideRange.top < wideValue.bottom)
         assertTrue(narrowRange.top >= narrowValue.bottom)
+    }
+
+    @Test fun switch_is_below_both_visualizations_and_before_convergence_explanation() {
+        val layout = mutableStateOf(TimelineLayout.COLUMNS)
+        rule.setContent {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(dailyPoint().copy(divergenceReasons = setOf(DivergenceReason.WIND))),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                    layout = layout.value, onLayoutChange = { layout.value = it },
+                    onShowDailyRangesChange = {}
+                )
+            }
+        }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val hint = context.getString(R.string.timeline_disagreement_hint)
+        val switch = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
+        val hintY = rule.onNodeWithText(hint).fetchSemanticsNode().boundsInRoot.top
+        val columnsY = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.bottom
+        assertTrue(switch.fetchSemanticsNode().boundsInRoot.top > columnsY)
+        assertTrue(switch.fetchSemanticsNode().boundsInRoot.bottom <= hintY)
+
+        rule.onNodeWithText(context.getString(R.string.timeline_layout_chrono)).performClick()
+        val chronoBottom = rule.onNodeWithTag(TAG_TIMELINE_CHRONO_VIEW)
+            .fetchSemanticsNode().boundsInRoot.bottom
+        assertTrue(switch.fetchSemanticsNode().boundsInRoot.top >= chronoBottom)
+        assertTrue(switch.fetchSemanticsNode().boundsInRoot.bottom <=
+            rule.onNodeWithText(hint).fetchSemanticsNode().boundsInRoot.top)
+    }
+
+    @Test fun columns_icons_remain_next_to_values_with_and_without_model_ranges() {
+        val visible = mutableStateOf(true)
+        rule.setContent {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(dailyPoint()),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                    showDailyRanges = visible.value,
+                    onShowDailyRangesChange = { visible.value = it }
+                )
+            }
+        }
+        fun iconGap(icon: String, value: String): Float {
+            val a = rule.onNodeWithTag(icon, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            val b = rule.onNodeWithTag(value, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            return b.left - a.right
+        }
+        // 3 dp spacer; allow extra rounding due to density.
+        val density = rule.density.density
+        assertTrue(iconGap("columns_daily_rain_probability_icon",
+            "columns_daily_rain_probability_value") in 0f..(5f * density))
+        assertTrue(iconGap("columns_daily_cloud_icon",
+            "columns_daily_cloud_value") in 0f..(5f * density))
+        rule.runOnIdle { visible.value = false }
+        assertTrue(iconGap("columns_daily_rain_probability_icon",
+            "columns_daily_rain_probability_value") in 0f..(6f * density))
+    }
+
+    @Test fun chrono_icon_values_stay_together_with_ranges_enabled() {
+        rule.setContent {
+            MeteoCompareTheme {
+                ChronoTimelineView(
+                    points = listOf(dailyPoint().copy(windKmh = 28.0,
+                        windMinAcrossModels = 12.0, windMaxAcrossModels = 45.0,
+                        windModelCount = 3)),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                    showDailyRanges = true
+                )
+            }
+        }
+        val density = rule.density.density
+        for ((icon, value) in listOf(
+            "timeline_daily_rain_probability_icon" to "timeline_daily_rain_probability_value",
+            "timeline_daily_wind_icon" to "timeline_daily_wind_value"
+        )) {
+            val right = rule.onNodeWithTag(icon, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot.right
+            val left = rule.onNodeWithTag(value, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot.left
+            assertTrue("Icon and reading drifted apart: $icon", left - right in 0f..(7f * density))
+        }
     }
 }

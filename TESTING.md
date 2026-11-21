@@ -358,3 +358,25 @@ Cas de non-régression :
 
 Tests JVM dédiés : `DailyRangePlacementTest`.
 Tests Compose : `DailyRangeLayoutComposeTest`, `UnitSystemDisplayTest`.
+
+### Raffinement de la présentation des plages (daily)
+
+- Le contrôle est désormais un **switch Material 3** dont toute la zone est
+  cliquable (rôle accessible `Switch`). Il se trouve **sous la visualisation**,
+  mais avant le texte d'explication du score de convergence (s'il est présent),
+  quel que soit le choix Columns/Timeline.
+- En mode plage activée, la largeur de Columns est limitée à **136 dp**
+  (112 dp sinon), la largeur d'un jour Timeline reste **148 dp** dans les deux
+  états. La colonne fixe d'icônes/étiquettes de la frise fait 96 dp sur mobile.
+- Les lignes de Columns utilisent désormais un rail d'icônes commun : les
+  valeurs commencent immédiatement après l'icône, sans espace élastique ; les
+  lignes sans icône ont le même alignement. Les valeurs de pluie/vent dans la
+  frise utilisent aussi un alignement à gauche lorsqu'il y a une icône.
+- Les plages sont en caractères secondaires discrets (9 sp), à droite si la
+  largeur mesurée le permet, sinon sous la valeur, en une ligne.
+- Contrôler à **fontScale 1.0 et 1.4** avec un écran 360 dp, puis sur tablette ;
+  vérifier les unités longues, le français et l'allemand, l'orientation et
+  les rangées sans plage disponible. Tester aussi une chronologie horaire.
+
+Tests : `ChronoTimelineTemperatureTest`, `CityDetailTimelineNavigationTest`
+ainsi que `DailyRangeLayoutComposeTest` (switch, placement, rail d'icônes).
