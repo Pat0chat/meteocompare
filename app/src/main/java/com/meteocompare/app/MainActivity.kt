@@ -54,9 +54,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themePreference by viewModel.themePreference.collectAsStateWithLifecycle()
             val unitSystem by viewModel.unitSystem.collectAsStateWithLifecycle()
+            val customUnits by viewModel.customUnits.collectAsStateWithLifecycle()
             val clockFormat by viewModel.clockFormatPreference.collectAsStateWithLifecycle()
             CompositionLocalProvider(
-                LocalWeatherUnits provides WeatherUnits(unitSystem),
+                LocalWeatherUnits provides WeatherUnits(unitSystem, customUnits),
                 LocalClockFormatPreference provides clockFormat
             ) {
                 MeteoCompareTheme(themePreference = themePreference) {

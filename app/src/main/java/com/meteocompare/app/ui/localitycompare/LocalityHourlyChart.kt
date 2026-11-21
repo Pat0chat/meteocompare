@@ -100,7 +100,7 @@ internal enum class CompareChartMetric(val labelRes: Int) {
         val value = rawValue(hour) ?: return "—"
         return when (this) {
             TEMPERATURE, APPARENT, DEW_POINT -> units.temp(value, locale = locale)
-            PRESSURE -> units.format(value, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0, locale)
+            PRESSURE -> units.format(value, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0, locale)
             RAIN -> units.rain(value, locale)
             WIND -> units.speed(value, locale = locale).let { speed ->
                 windCardinal(hour?.windDirectionDeg, locale)?.let { "$speed · $it" } ?: speed
@@ -172,11 +172,11 @@ internal fun chartAxisUnit(metric: CompareChartMetric, units: WeatherUnits, suns
 internal fun chartAxisLabel(value: Double, step: Double, metric: CompareChartMetric,
                             units: WeatherUnits, locale: Locale): String {
     val digits = when (metric) {
-        CompareChartMetric.RAIN -> if (units.imperial) 2 else if (step < 1) 1 else 0
+        CompareChartMetric.RAIN -> if (units.precipitationInInches) 2 else if (step < 1) 1 else 0
         CompareChartMetric.SUNSHINE -> 0
         CompareChartMetric.UV -> if (step < 1) 1 else 0
         CompareChartMetric.TEMPERATURE, CompareChartMetric.APPARENT, CompareChartMetric.DEW_POINT, CompareChartMetric.WIND -> if (step < 1) 1 else 0
-        CompareChartMetric.PRESSURE -> if (units.imperial) 2 else if (step < 1) 1 else 0
+        CompareChartMetric.PRESSURE -> if (units.pressureInInHg) 2 else if (step < 1) 1 else 0
         else -> 0
     }
     return units.number(value, digits, locale)

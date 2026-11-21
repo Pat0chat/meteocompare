@@ -5,7 +5,8 @@ enum class UnitSystem(val storageKey: String) {
     METRIC("metric"),
     IMPERIAL("imperial"),
     /** UK convention: Celsius, mm, metres and hPa, but miles and mph. */
-    UK_MIXED("uk_mixed");
+    UK_MIXED("uk_mixed"),
+    CUSTOM("custom");
 
     companion object {
         fun fromStorage(value: String?): UnitSystem =

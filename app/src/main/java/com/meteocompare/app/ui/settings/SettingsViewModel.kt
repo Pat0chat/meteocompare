@@ -16,6 +16,7 @@ import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
 import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.UserPreferencesRepository
@@ -93,6 +94,9 @@ class SettingsViewModel @Inject constructor(
 
     val unitSystem: StateFlow<UnitSystem> = prefs.observeUnitSystem()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UnitSystem.METRIC)
+
+    val customUnits: StateFlow<CustomUnitPreferences> = prefs.observeCustomUnits()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CustomUnitPreferences())
 
     val clockFormatPreference: StateFlow<ClockFormatPreference> = prefs.observeClockFormatPreference()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ClockFormatPreference.AUTO)
@@ -249,6 +253,17 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    fun onCustomUnitsSelected(choices: CustomUnitPreferences) {
+        viewModelScope.launch {
+            val result = runSuspendCatching { prefs.setCustomUnits(choices) }
+            _feedback.send(when {
+                result.isFailure -> AppToastEvent.error(R.string.toast_settings_save_error)
+                triggerWidgetRefreshSafely() -> AppToastEvent.success(R.string.toast_units_updated)
+                else -> AppToastEvent.warning(R.string.toast_widget_refresh_delayed)
+            })
         }
     }
 

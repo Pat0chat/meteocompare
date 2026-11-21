@@ -770,7 +770,7 @@ private fun GraphicSelectionHeader(
                 label = stringResource(R.string.metric_atmospheric_pressure),
                 icon = Icons.Outlined.Speed,
                 accent = MaterialTheme.colorScheme.tertiary,
-                value = units.format(point.pressureHpa, WeatherUnit.PRESSURE, if (units.imperial) 2 else 0),
+                value = units.format(point.pressureHpa, WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0),
                 detail = "",
                 agreement = null
             )
@@ -1837,7 +1837,7 @@ private fun PressurePlot(
             StructuredSelectionBadge(
                 icon = Icons.Outlined.Speed,
                 accent = accent,
-                primary = units.format(selected.pressureHpa, WeatherUnit.PRESSURE, if (units.imperial) 2 else 0),
+                primary = units.format(selected.pressureHpa, WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0),
                 primaryTag = "graphic_pressure_tooltip_value",
                 secondary = emptyList(),
                 containerTag = TAG_GRAPHIC_PRESSURE_TOOLTIP,

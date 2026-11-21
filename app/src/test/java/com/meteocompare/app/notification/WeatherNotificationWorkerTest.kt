@@ -8,12 +8,15 @@ import androidx.work.workDataOf
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 import com.meteocompare.app.domain.model.ForecastEngine
 import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.NotificationSettings
 import com.meteocompare.app.domain.model.RefreshInterval
+import com.meteocompare.app.domain.model.TemperatureChoice
 import com.meteocompare.app.domain.model.UnitSystem
 import com.meteocompare.app.domain.model.WeatherModel
+import com.meteocompare.app.domain.model.WindChoice
 import com.meteocompare.app.domain.model.WeatherNotification
 import com.meteocompare.app.domain.repository.CityRepository
 import com.meteocompare.app.domain.repository.ForecastEvolutionHistoryData
@@ -103,6 +106,7 @@ class WeatherNotificationWorkerTest {
         every { entry.clock() } returns Clock.fixed(now, ZoneOffset.UTC)
         every { prefs.observeNotificationSettings() } returns settings
         every { prefs.observeUnitSystem() } returns flowOf(UnitSystem.METRIC)
+        every { prefs.observeCustomUnits() } returns flowOf(CustomUnitPreferences())
         every { prefs.observeEnabledModels() } returns flowOf(listOf(WeatherModel.GFS))
         every { prefs.observeRefreshInterval() } returns flowOf(RefreshInterval.DEFAULT)
         every { prefs.observeForecastEngine() } returns flowOf(ForecastEngine.DEFAULT)
@@ -143,15 +147,30 @@ class WeatherNotificationWorkerTest {
 
     @Test fun `historique lent ne supprime pas la divergence deja calculee`() = runTest {
         coEvery { history.getPreviousForecasts(any(), any(), any(), any(), any()) } coAnswers { awaitCancellation() }
-        worker(WeatherNotificationWorker.Kind.ALERTS).doWork()
+        assertEquals(ListenableWorker.Result.success(), worker(WeatherNotificationWorker.Kind.ALERTS).doWork())
         verify(exactly = 1) { anyConstructed<WeatherNotifier>().post(divergence) }
         assertEquals(10_000L, testScheduler.currentTime)
     }
 
     @Test fun `historique en erreur ne supprime pas la divergence`() = runTest {
         coEvery { history.getPreviousForecasts(any(), any(), any(), any(), any()) } throws IOException("history unavailable")
-        worker(WeatherNotificationWorker.Kind.ALERTS).doWork()
+        assertEquals(ListenableWorker.Result.success(), worker(WeatherNotificationWorker.Kind.ALERTS).doWork())
         verify(exactly = 1) { anyConstructed<WeatherNotifier>().post(divergence) }
+    }
+
+    @Test fun `les unites personnalisees ne bloquent ni le resume ni sa deduplication`() = runTest {
+        val custom = CustomUnitPreferences(
+            temperature = TemperatureChoice.FAHRENHEIT,
+            wind = WindChoice.KNOTS
+        )
+        every { prefs.observeUnitSystem() } returns flowOf(UnitSystem.CUSTOM)
+        every { prefs.observeCustomUnits() } returns flowOf(custom)
+
+        assertEquals(ListenableWorker.Result.success(), worker(WeatherNotificationWorker.Kind.DAILY_SUMMARY).doWork())
+        verify(exactly = 1) { prefs.observeUnitSystem() }
+        verify(exactly = 1) { prefs.observeCustomUnits() }
+        verify(exactly = 1) { anyConstructed<WeatherNotifier>().post(summary) }
+        verify(exactly = 1) { anyConstructed<NotificationDedupStore>().markNotified(summary.dedupKey, now) }
     }
 
     @Test fun `desactivation du type pendant le chargement empeche publication et deduplication`() = runTest {

@@ -2,6 +2,7 @@ package com.meteocompare.app.data.preferences
 
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -111,6 +112,17 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setUnitSystem(system: UnitSystem) = withContext(ioDispatcher) {
         context.preferencesDataStore.edit { it[UnitSystemPreferenceCodec.key] = system.storageKey }
+        Unit
+    }
+
+    override fun observeCustomUnits(): Flow<CustomUnitPreferences> =
+        safePreferences.map(CustomUnitPreferenceCodec::read).distinctUntilChanged()
+
+    override suspend fun setCustomUnits(choices: CustomUnitPreferences) = withContext(ioDispatcher) {
+        context.preferencesDataStore.edit { prefs ->
+            CustomUnitPreferenceCodec.write(prefs, choices)
+            prefs[UnitSystemPreferenceCodec.key] = UnitSystem.CUSTOM.storageKey
+        }
         Unit
     }
 

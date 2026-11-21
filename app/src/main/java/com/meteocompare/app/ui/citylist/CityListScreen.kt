@@ -419,6 +419,11 @@ internal fun CityListContent(
     homeExpandedCityId: String? = null,
     onHomeCityExpanded: ((String) -> Unit)? = null
 ) {
+    // Toutes les actions flottantes de Home partagent la même palette que
+    // « Ajouter une ville », y compris avec Material You et le thème sombre.
+    val actionContainerColor = MaterialTheme.colorScheme.primary
+    val actionContentColor = MaterialTheme.colorScheme.onPrimary
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         snackbarHost = {
@@ -453,17 +458,6 @@ internal fun CityListContent(
                         )
                         Spacer(Modifier.width(12.dp))
                     }
-                    if (uiState.items.size >= 2) {
-                        IconButton(
-                            onClick = onCompareClick,
-                            modifier = Modifier.testTag("home_compare_localities")
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.CompareArrows,
-                                contentDescription = stringResource(R.string.compare_localities_title)
-                            )
-                        }
-                    }
                     DonationHeartButton(onClick = onDonateClick)
                     IconButton(
                         onClick = onHelpClick,
@@ -487,9 +481,18 @@ internal fun CityListContent(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (uiState.items.size >= 2) {
                     SmallFloatingActionButton(
+                        onClick = onCompareClick,
+                        containerColor = actionContainerColor,
+                        contentColor = actionContentColor,
+                        modifier = Modifier.testTag("home_compare_localities")
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.CompareArrows,
+                            contentDescription = stringResource(R.string.compare_localities_title))
+                    }
+                    SmallFloatingActionButton(
                         onClick = onReorderClick,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        containerColor = actionContainerColor,
+                        contentColor = actionContentColor,
                         modifier = Modifier.testTag("home_reorder_action")
                     ) {
                         Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.home_reorder_title))
@@ -497,8 +500,8 @@ internal fun CityListContent(
                 }
                 FloatingActionButton(
                     onClick = onAddClick,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = actionContainerColor,
+                    contentColor = actionContentColor,
                     modifier = Modifier.testTag(TAG_ADD_FAB)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_city))
@@ -1811,17 +1814,17 @@ private fun precipitationMetricPresentation(
         MetricPresentation(value = stringResource(R.string.precip_dry))
     is PrecipitationConfidence.Rain -> {
         val value = if (units.sameDisplayedValue(precip.minMm, precip.maxMm, WeatherUnit.PRECIPITATION, 1)) {
-            units.value((precip.meta.centralAmountMm ?: precip.meanMm), WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)
+            units.value((precip.meta.centralAmountMm ?: precip.meanMm), WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)
         } else {
-            "${units.value(precip.minMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}–${units.value(precip.maxMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}"
+            "${units.value(precip.minMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}–${units.value(precip.maxMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}"
         }
         MetricPresentation(value = value, unit = units.precipitationUnit)
     }
     is PrecipitationConfidence.Divided -> {
         val value = if (units.sameDisplayedValue(precip.rainMinMm, precip.rainMaxMm, WeatherUnit.PRECIPITATION, 1)) {
-            units.value((precip.meta.centralAmountMm ?: precip.rainMeanMm), WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)
+            units.value((precip.meta.centralAmountMm ?: precip.rainMeanMm), WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)
         } else {
-            "${units.value(precip.rainMinMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}–${units.value(precip.rainMaxMm, WeatherUnit.PRECIPITATION, if (units.imperial) 2 else 0)}"
+            "${units.value(precip.rainMinMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}–${units.value(precip.rainMaxMm, WeatherUnit.PRECIPITATION, if (units.precipitationInInches) 2 else 0)}"
         }
         MetricPresentation(
             value = value,

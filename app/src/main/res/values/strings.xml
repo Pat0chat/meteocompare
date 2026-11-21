@@ -535,9 +535,12 @@
     <string name="timeline_subtitle_daily">Consensus des modèles disponibles pour les prochains jours.</string>
     <string name="timeline_layout_aria">Affichage de la chronologie</string>
     <string name="timeline_layout_columns">Colonnes</string>
+    <string name="timeline_show_ranges">Afficher les plages</string>
     <string name="timeline_layout_chrono">Frise</string>
     <string name="timeline_date_label">Date</string>
     <string name="timeline_disagreement_hint">Le score indique la convergence ; les icônes signalent les variables qui divergent.</string>
+    <string name="timeline_convergence_info_title">À propos de la convergence</string>
+    <string name="timeline_convergence_open_info">Comprendre le score de convergence</string>
     <string name="timeline_now">Maintenant</string>
     <string name="timeline_today">Aujourd’hui</string>
     <string name="timeline_tomorrow">Demain</string>
@@ -1261,4 +1264,17 @@
     <string name="home_reorder_drag">Maintenir et déplacer %1$s</string>
     <string name="home_reorder_apply">Enregistrer l’ordre</string>
     <string name="home_reorder_save_error">Impossible d’enregistrer le nouvel ordre.</string>
+    <string name="settings_units_custom">Personnalisé (choisir les unités…)</string>
+    <string name="settings_units_custom_title">Unités personnalisées</string>
+    <string name="settings_units_temperature">Température</string>
+    <string name="settings_units_wind">Vent et rafales</string>
+    <string name="settings_units_precipitation">Pluie</string>
+    <string name="settings_units_pressure">Pression</string>
+    <string name="settings_units_height">Altitude et hauteur</string>
+    <string name="settings_units_distance">Distance</string>
+    <string name="settings_units_save">Enregistrer</string>
+    <string name="settings_units_cancel">Annuler</string>
+    <string name="settings_units_wind_knots">kn (nœuds)</string>
+    <string name="unit_knots">nœuds</string>
+    <string name="unit_metres_per_second">mètres par seconde</string>
 </resources>

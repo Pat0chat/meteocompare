@@ -527,9 +527,12 @@ datos</string>
     <string name="timeline_subtitle_daily">Consenso de los modelos disponibles para los próximos días</string>
     <string name="timeline_layout_aria">Vista de la cronología</string>
     <string name="timeline_layout_columns">Columnas</string>
+    <string name="timeline_show_ranges">Mostrar intervalos</string>
     <string name="timeline_layout_chrono">Friso temporal</string>
     <string name="timeline_date_label">Fecha</string>
     <string name="timeline_disagreement_hint">El valor muestra la convergencia; los iconos señalan las variables que divergen.</string>
+    <string name="timeline_convergence_info_title">Sobre la convergencia</string>
+    <string name="timeline_convergence_open_info">Información sobre el índice de convergencia</string>
     <string name="timeline_now">Ahora</string>
     <string name="timeline_today">Hoy</string>
     <string name="timeline_tomorrow">Mañana</string>
@@ -1249,4 +1252,17 @@ datos</string>
     <string name="home_reorder_drag">Mantener pulsado y arrastrar %1$s</string>
     <string name="home_reorder_apply">Guardar orden</string>
     <string name="home_reorder_save_error">No se pudo guardar el nuevo orden.</string>
+    <string name="settings_units_custom">Personalizado (elegir unidades…)</string>
+    <string name="settings_units_custom_title">Unidades personalizadas</string>
+    <string name="settings_units_temperature">Temperatura</string>
+    <string name="settings_units_wind">Viento y ráfagas</string>
+    <string name="settings_units_precipitation">Precipitación</string>
+    <string name="settings_units_pressure">Presión</string>
+    <string name="settings_units_height">Altura</string>
+    <string name="settings_units_distance">Distancia</string>
+    <string name="settings_units_save">Guardar</string>
+    <string name="settings_units_cancel">Cancelar</string>
+    <string name="settings_units_wind_knots">kn (nudos)</string>
+    <string name="unit_knots">nudos</string>
+    <string name="unit_metres_per_second">metros por segundo</string>
 </resources>

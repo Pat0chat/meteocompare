@@ -250,6 +250,13 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
     override fun observeUnitSystem(): Flow<UnitSystem> = unitSystem
     override suspend fun setUnitSystem(system: UnitSystem) { unitSystem.value = system }
 
+    val customUnits = MutableStateFlow(com.meteocompare.app.domain.model.CustomUnitPreferences())
+    override fun observeCustomUnits(): Flow<com.meteocompare.app.domain.model.CustomUnitPreferences> = customUnits
+    override suspend fun setCustomUnits(choices: com.meteocompare.app.domain.model.CustomUnitPreferences) {
+        customUnits.value = choices
+        unitSystem.value = UnitSystem.CUSTOM
+    }
+
     override fun observeClockFormatPreference(): Flow<ClockFormatPreference> = clockFormat
     override suspend fun setClockFormatPreference(preference: ClockFormatPreference) { clockFormat.value = preference }
 

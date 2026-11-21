@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.repository
 
 import com.meteocompare.app.domain.model.ClockFormatPreference
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
 
 import com.meteocompare.app.domain.model.CityDetailContentTab
 import com.meteocompare.app.domain.model.CityDetailSection
@@ -26,6 +27,9 @@ interface UserPreferencesRepository {
     /** Presentation only; independent of locale and forecast settings. */
     fun observeUnitSystem(): Flow<UnitSystem>
     suspend fun setUnitSystem(system: UnitSystem)
+    fun observeCustomUnits(): Flow<CustomUnitPreferences>
+    /** Saves all six choices and activates CUSTOM atomically. */
+    suspend fun setCustomUnits(choices: CustomUnitPreferences)
 
     /** Clock display is independent of the active language. */
     fun observeClockFormatPreference(): Flow<ClockFormatPreference>

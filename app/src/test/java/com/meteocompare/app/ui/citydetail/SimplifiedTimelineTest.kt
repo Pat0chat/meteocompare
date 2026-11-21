@@ -39,6 +39,106 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `daily model ranges keep maximum minimum and rainfall independent`() {
+        val values = listOf(
+            WeatherModel.GFS to Triple(25.0, 12.0, 2.0),
+            WeatherModel.ICON_EU to Triple(34.0, 16.0, 32.0),
+            WeatherModel.ECMWF to Triple(32.0, 14.0, 21.0)
+        )
+        val seriesByModel = values.associate { (model, values) ->
+            model to ForecastSeries(model,
+                HourlyForecast(timestamps = emptyList(), temperature2m = emptyList(),
+                    precipitation = emptyList(), windSpeed10m = emptyList()),
+                DailyForecast(dates = listOf(today), tempMax = listOf(values.first),
+                    tempMin = listOf(values.second), precipitationSum = listOf(values.third),
+                    windSpeedMax = listOf(10.0))
+            )
+        }
+        val forecast = CityForecast(paris.copy(timezone = "UTC"), seriesByModel)
+        val point = buildSimplifiedTimeline(forecast, DisplayMode.DAILY, now).single()
+        assertEquals(25.0, point.temperatureMinAcrossModels!!, 0.0)
+        assertEquals(34.0, point.temperatureMaxAcrossModels!!, 0.0)
+        assertEquals(12.0, point.tempMinMinAcrossModels!!, 0.0)
+        assertEquals(16.0, point.tempMinMaxAcrossModels!!, 0.0)
+        assertEquals(2.0, point.precipitationMinAcrossModelsMm!!, 0.0)
+        assertEquals(32.0, point.precipitationMaxAcrossModelsMm!!, 0.0)
+        assertEquals(3, point.precipitationModelCount)
+        assertEquals(3, point.precipitationAmountModelCount)
+        assertEquals(3, point.tempMinModelCount)
+        assertEquals(3, point.windModelCount)
+        assertEquals("(25–34)", dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE,
+            com.meteocompare.app.core.units.WeatherUnits(), java.util.Locale.US))
+        assertEquals("(12–16)", dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE,
+            com.meteocompare.app.core.units.WeatherUnits(), java.util.Locale.US))
+    }
+
+    @Test
+    fun `daily low temperature range stays unavailable with only one low forecast`() {
+        val series = listOf(WeatherModel.GFS, WeatherModel.ICON_EU).mapIndexed { index, model ->
+            model to ForecastSeries(model,
+                HourlyForecast(timestamps = emptyList(), temperature2m = emptyList(),
+                    precipitation = emptyList(), windSpeed10m = emptyList()),
+                DailyForecast(dates = listOf(today), tempMax = listOf(24.0 + index),
+                    tempMin = listOf(if (index == 0) 12.0 else null),
+                    precipitationSum = listOf(0.0), windSpeedMax = listOf(10.0))
+            )
+        }.toMap()
+        val point = buildSimplifiedTimeline(
+            CityForecast(paris.copy(timezone = "UTC"), series), DisplayMode.DAILY, now
+        ).single()
+        assertEquals(null, point.tempMinMinAcrossModels)
+        assertEquals(null, point.tempMinMaxAcrossModels)
+        assertEquals(1, point.tempMinModelCount)
+        assertEquals(null, dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE,
+            com.meteocompare.app.core.units.WeatherUnits()))
+    }
+
+    @Test
+    fun `daily ranges use representative pressure moisture cloud and independent wind gust models`() {
+        val start = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val hours = List(24) { start.plusSeconds(it * 3600L) }
+        fun series(model: WeatherModel, pressure: Double, humidity: Int,
+                   dewPoint: Double, cloud: Int, wind: Double, gust: Double,
+                   rainProbability: Int): ForecastSeries = ForecastSeries(
+            model,
+            HourlyForecast(
+                timestamps = hours,
+                temperature2m = List(24) { null },
+                precipitation = List(24) { 0.0 },
+                windSpeed10m = List(24) { null },
+                pressureMsl = List(24) { pressure },
+                relativeHumidity2m = List(24) { humidity },
+                dewPoint2m = List(24) { dewPoint },
+                cloudCover = List(24) { cloud }
+            ),
+            DailyForecast(
+                dates = listOf(today), tempMax = listOf(30.0), tempMin = listOf(15.0),
+                precipitationSum = listOf(2.0), windSpeedMax = listOf(wind),
+                windGustsMax = listOf(gust), precipitationProbabilityMax = listOf(rainProbability)
+            )
+        )
+        val point = buildSimplifiedTimeline(
+            CityForecast(paris.copy(timezone = "UTC"), linkedMapOf(
+                WeatherModel.GFS to series(WeatherModel.GFS, 1000.0, 40, 9.0, 20, 18.52, 46.3, 20),
+                WeatherModel.ECMWF to series(WeatherModel.ECMWF, 1030.0, 70, 17.0, 80, 37.04, 92.6, 90)
+            )), DisplayMode.DAILY, now
+        ).single()
+        val units = com.meteocompare.app.core.units.WeatherUnits()
+        val locale = java.util.Locale.US
+        assertEquals("(1000–1030)", dailyMetricRange(point, DailyRangeMetric.PRESSURE, units, locale))
+        assertEquals("(40–70%)", dailyMetricRange(point, DailyRangeMetric.HUMIDITY, units, locale))
+        assertEquals("(9–17)", dailyMetricRange(point, DailyRangeMetric.DEW_POINT, units, locale))
+        assertEquals("(20–80%)", dailyMetricRange(point, DailyRangeMetric.CLOUD_COVER, units, locale))
+        assertEquals("(20–90%)", dailyMetricRange(point, DailyRangeMetric.RAIN_PROBABILITY, units, locale))
+        assertEquals("(19–37)", dailyMetricRange(point, DailyRangeMetric.WIND, units, locale))
+        assertEquals("(46–93)", dailyMetricRange(point, DailyRangeMetric.WIND_GUST, units, locale))
+        assertEquals(2, point.pressureModelCount)
+        assertEquals(2, point.humidityModelCount)
+        assertEquals(2, point.dewPointModelCount)
+        assertEquals(2, point.windGustModelCount)
+    }
+
+    @Test
     fun `today summary does not mistake next available hour for the present`() {
         val future = SimplifiedTimelinePoint(instant = now.plusSeconds(3600), apparentTemperatureC = 18.0)
         assertEquals(null, currentHourlyApparentTemperature(listOf(future), now))

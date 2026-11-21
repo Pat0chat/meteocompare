@@ -527,9 +527,12 @@ dato</string>
     <string name="timeline_subtitle_daily">Consenso dei modelli disponibili per i prossimi giorni</string>
     <string name="timeline_layout_aria">Visualizzazione della cronologia</string>
     <string name="timeline_layout_columns">Colonne</string>
+    <string name="timeline_show_ranges">Mostra intervalli</string>
     <string name="timeline_layout_chrono">Linea temporale</string>
     <string name="timeline_date_label">Data</string>
     <string name="timeline_disagreement_hint">Il valore mostra la convergenza; le icone segnalano le variabili divergenti.</string>
+    <string name="timeline_convergence_info_title">Informazioni sulla convergenza</string>
+    <string name="timeline_convergence_open_info">Informazioni sul punteggio di convergenza</string>
     <string name="timeline_now">Ora</string>
     <string name="timeline_today">Oggi</string>
     <string name="timeline_tomorrow">Domani</string>
@@ -1249,4 +1252,17 @@ dato</string>
     <string name="home_reorder_drag">Tieni premuto e trascina %1$s</string>
     <string name="home_reorder_apply">Salva ordine</string>
     <string name="home_reorder_save_error">Impossibile salvare il nuovo ordine.</string>
+    <string name="settings_units_custom">Personalizzato (scegli unità…)</string>
+    <string name="settings_units_custom_title">Unità personalizzate</string>
+    <string name="settings_units_temperature">Temperatura</string>
+    <string name="settings_units_wind">Vento e raffiche</string>
+    <string name="settings_units_precipitation">Precipitazioni</string>
+    <string name="settings_units_pressure">Pressione</string>
+    <string name="settings_units_height">Altitudine e altezza</string>
+    <string name="settings_units_distance">Distanza</string>
+    <string name="settings_units_save">Salva</string>
+    <string name="settings_units_cancel">Annulla</string>
+    <string name="settings_units_wind_knots">kn (nodi)</string>
+    <string name="unit_knots">nodi</string>
+    <string name="unit_metres_per_second">metri al secondo</string>
 </resources>

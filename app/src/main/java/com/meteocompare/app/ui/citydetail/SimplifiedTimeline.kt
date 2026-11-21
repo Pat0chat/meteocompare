@@ -17,12 +17,14 @@ import com.meteocompare.app.core.units.LocalWeatherUnits
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +39,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,7 +50,11 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +70,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -112,6 +120,8 @@ internal fun SimplifiedTimelineCard(
     availableRanges: Set<TimelineRange> = setOf(range),
     layout: TimelineLayout = TimelineLayout.COLUMNS,
     onLayoutChange: ((TimelineLayout) -> Unit)? = null,
+    showDailyRanges: Boolean = false,
+    onShowDailyRangesChange: ((Boolean) -> Unit)? = null,
     now: Instant = Instant.now(),
     expanded: Boolean = true,
     onExpandedChange: (Boolean) -> Unit = {}
@@ -132,8 +142,9 @@ internal fun SimplifiedTimelineCard(
     val snapFlingBehavior = rememberSnapFlingBehavior(listState)
     val density = LocalDensity.current
     var highlightedKey by remember { mutableStateOf<String?>(null) }
+    var showConvergenceInfo by remember { mutableStateOf(false) }
 
-    LaunchedEffect(focusRequestId, focusPoint, points, layout, mode, expanded) {
+    LaunchedEffect(focusRequestId, focusPoint, points, layout, mode, showDailyRanges, expanded) {
         if (!expanded || focusRequestId <= 0 || focusPoint == null) return@LaunchedEffect
         val index = nearestTimelineDisplayIndex(points, focusPoint)
         if (index < 0) return@LaunchedEffect
@@ -144,7 +155,7 @@ internal fun SimplifiedTimelineCard(
                 val target = with(density) {
                     chronoFocusScrollOffset(
                         index = index,
-                        pointWidthPx = chronoPointWidth(mode).roundToPx()
+                        pointWidthPx = chronoPointWidth(mode, showDailyRanges).roundToPx()
                     )
                 }
                 chronoScrollState.animateScrollTo(target)
@@ -259,7 +270,9 @@ internal fun SimplifiedTimelineCard(
                                 windAccent = windAccent,
                                 isFirst = index == 0,
                                 isLast = index == points.lastIndex,
-                                isFocused = highlightedKey == timelinePointKey(point)
+                                isFocused = highlightedKey == timelinePointKey(point),
+                                showDailyRanges = showDailyRanges,
+                                onConvergenceClick = { showConvergenceInfo = true }
                             )
                         }
                     }
@@ -270,29 +283,84 @@ internal fun SimplifiedTimelineCard(
                         timezone = timezone,
                         now = now,
                         scrollState = chronoScrollState,
-                        highlightedKey = highlightedKey
+                        highlightedKey = highlightedKey,
+                        showDailyRanges = showDailyRanges,
+                        onConvergenceClick = { showConvergenceInfo = true }
                     )
                 }
 
-                if (points.any { it.isDivergent }) {
-                    Row(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.WarningAmber,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.timeline_disagreement_hint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                // Keep this control immediately below either visualization and
+                // never in the mode/layout selector row. Convergence information
+                // is now available by tapping the score instead of taking screen space.
+                if (mode == DisplayMode.DAILY && onShowDailyRangesChange != null) {
+                    TimelineDailyRangesToggle(
+                        checked = showDailyRanges,
+                        onCheckedChange = onShowDailyRangesChange
+                    )
                 }
+            }
+        }
+    }
+    if (expanded && showConvergenceInfo) {
+        TimelineConvergenceInfoDialog(onDismiss = { showConvergenceInfo = false })
+    }
+}
+
+/** Shared explanation for the convergence score in both chronological layouts. */
+@Composable
+private fun TimelineConvergenceInfoDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(TAG_TIMELINE_CONVERGENCE_INFO_DIALOG),
+        icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
+        title = { Text(stringResource(R.string.timeline_convergence_info_title)) },
+        text = { Text(stringResource(R.string.timeline_disagreement_hint)) },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TAG_TIMELINE_CONVERGENCE_INFO_CLOSE)
+            ) { Text(stringResource(R.string.toast_dismiss)) }
+        }
+    )
+}
+
+/** Lightweight, card-free Material 3 toggle shared by Columns and Timeline. */
+@Composable
+private fun TimelineDailyRangesToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Keep the accessible Switch role and a single click target on the
+        // complete label + thumb, but don't paint a background card.
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .testTag(TAG_TIMELINE_RANGES_TOGGLE)
+                .padding(start = 2.dp, end = 2.dp, top = 1.dp, bottom = 1.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.timeline_show_ranges),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (checked) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // Visually ~36 x 23 dp. The parent Row owns the accessible hit area.
+            Box(Modifier.width(40.dp).height(30.dp), contentAlignment = Alignment.Center) {
+                Switch(
+                    checked = checked,
+                    onCheckedChange = null,
+                    modifier = Modifier.scale(0.72f)
+                )
             }
         }
     }
@@ -618,8 +686,11 @@ private fun TimelinePointColumn(
     isFirst: Boolean,
     isLast: Boolean,
     isFocused: Boolean,
+    showDailyRanges: Boolean = false,
+    onConvergenceClick: (() -> Unit)? = null,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     val separatorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
     val focusColor = MaterialTheme.colorScheme.primary
     val focusShape = RoundedCornerShape(14.dp)
@@ -645,7 +716,7 @@ private fun TimelinePointColumn(
 
     Column(
         modifier = Modifier
-            .width(TIMELINE_COLUMN_WIDTH)
+            .width(timelineColumnWidth(mode, showDailyRanges))
             .then(focusModifier)
             .drawBehind {
                 if (!isLast) {
@@ -720,7 +791,8 @@ private fun TimelinePointColumn(
             point = point,
             mode = mode,
             isFirst = isFirst,
-            isLast = isLast
+            isLast = isLast,
+            showDailyRanges = showDailyRanges
         )
         if (mode == DisplayMode.HOURLY) {
             TimelineSupportingText(
@@ -736,19 +808,36 @@ private fun TimelinePointColumn(
             accent = precipitationAccent
         )
 
+        // Daily readings are paired with their ranges rather than inserting ten
+        // additional empty rows. Every range obeys the same visibility switch.
         TimelineMetric(
             icon = Icons.Outlined.WaterDrop,
             value = point.precipitationPercent?.let { "$it%" } ?: "—",
-            tint = precipitationAccent
+            tint = precipitationAccent,
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.RAIN_PROBABILITY, units, displayLocale) else null,
+            rangeTag = "columns_daily_rain_probability_range",
+            iconTag = "columns_daily_rain_probability_icon",
+            valueTag = "columns_daily_rain_probability_value"
         )
         TimelineSupportingText(
-            text = timelinePrecipitationAmountLabel(point)
+            text = timelinePrecipitationAmountLabel(point),
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT, units, displayLocale) else null,
+            rangeTag = "columns_daily_rain_amount_range"
         )
-
         TimelineMetric(
             icon = Icons.Outlined.Cloud,
             value = point.cloudCoverPercent?.let { "$it%" } ?: "—",
-            tint = MaterialTheme.colorScheme.secondary
+            tint = MaterialTheme.colorScheme.secondary,
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.CLOUD_COVER, units, displayLocale) else null,
+            rangeTag = "columns_daily_cloud_range",
+            iconTag = "columns_daily_cloud_icon",
+            valueTag = "columns_daily_cloud_value"
         )
         TimelineMetric(
             icon = Icons.Filled.WbSunny,
@@ -756,46 +845,62 @@ private fun TimelinePointColumn(
                 point.estimatedSunHours, hourly = point.instant != null, units, LocalConfiguration.current.locales[0], localizedSunshineDurationFormats()
             ),
             tint = MaterialTheme.colorScheme.tertiary,
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
             semanticLabel = stringResource(R.string.compare_sunshine)
         )
-
         TimelineMetric(
             icon = HumidityMetricIcon,
             value = point.humidityPercent?.let { "$it%" } ?: "—",
             tint = MaterialTheme.colorScheme.secondary,
-            semanticLabel = stringResource(R.string.metric_humidity)
+            semanticLabel = stringResource(R.string.metric_humidity),
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.HUMIDITY, units, displayLocale) else null,
+            rangeTag = "columns_daily_humidity_range"
         )
         TimelineMetric(
             icon = DewPointMetricIcon,
             value = point.dewPointC?.let { units.temp(it) } ?: "—",
             tint = MaterialTheme.colorScheme.tertiary,
-            semanticLabel = stringResource(R.string.metric_dew_point)
+            semanticLabel = stringResource(R.string.metric_dew_point),
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.DEW_POINT, units, displayLocale) else null,
+            rangeTag = "columns_daily_dew_point_range"
         )
-
         TimelineMetric(
             icon = Icons.Outlined.Speed,
             value = point.pressureHpa?.let {
-                units.format(it, com.meteocompare.app.core.units.WeatherUnit.PRESSURE, if (units.imperial) 2 else 0)
+                units.format(it, WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0)
             } ?: "—",
-            tint = MaterialTheme.colorScheme.tertiary
+            tint = MaterialTheme.colorScheme.tertiary,
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.PRESSURE, units, displayLocale) else null,
+            rangeTag = "columns_daily_pressure_range"
         )
-
         TimelineMetric(
             icon = Icons.Outlined.Air,
             value = point.windKmh?.let { speed ->
                 val formatted = units.speed(speed)
-                windCardinal(point.windDirectionDeg, LocalConfiguration.current.locales[0])?.let { "$formatted · $it" } ?: formatted
+                windCardinal(point.windDirectionDeg, displayLocale)?.let { "$formatted · $it" } ?: formatted
             } ?: "—",
-            tint = windAccent
+            tint = windAccent,
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.WIND, units, displayLocale) else null,
+            rangeTag = "columns_daily_wind_range"
         )
         TimelineSupportingText(
-            text = point.windGustKmh?.let {
-                stringResource(R.string.timeline_wind_gust, it)
-            } ?: "—"
+            text = point.windGustKmh?.let { stringResource(R.string.timeline_wind_gust, it) } ?: "—",
+            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            range = if (showDailyRanges && mode == DisplayMode.DAILY)
+                dailyMetricRange(point, DailyRangeMetric.WIND_GUST, units, displayLocale) else null,
+            rangeTag = "columns_daily_gust_range"
         )
 
         Spacer(Modifier.height(6.dp))
-        TimelineConsensus(point)
+        TimelineConsensus(point, onConvergenceClick)
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -806,8 +911,10 @@ private fun TemperatureHeatmapBand(
     mode: DisplayMode,
     isFirst: Boolean,
     isLast: Boolean,
+    showDailyRanges: Boolean = false,
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
+    val displayLocale = LocalConfiguration.current.locales[0]
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val noData = MaterialTheme.colorScheme.surfaceVariant
     val heatStrength = 0.54f
@@ -863,7 +970,7 @@ private fun TemperatureHeatmapBand(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .height(if (mode == DisplayMode.DAILY) 58.dp else 52.dp)
             .clip(shape)
             .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
             .testTag(TAG_TIMELINE_HEATMAP_BAND),
@@ -893,22 +1000,32 @@ private fun TemperatureHeatmapBand(
                 val high = units.temp(point.tempMaxC)
                 val low = units.temp(point.tempMinC)
                 Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = high,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = contentColor,
-                        maxLines = 1
+                    DailyRangeLabel(
+                        value = high,
+                        range = if (showDailyRanges)
+                            dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, units, displayLocale) else null,
+                        rangeTag = "columns_daily_temp_max_range",
+                        modifier = Modifier.fillMaxWidth(),
+                        valueStyle = MaterialTheme.typography.labelLarge,
+                        singleLine = showDailyRanges,
+                        valueColor = contentColor,
+                        rangeColor = contentColor.copy(alpha = 0.85f)
                     )
-                    Text(
-                        text = low,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = contentColor.copy(alpha = 0.84f),
-                        maxLines = 1
+                    Spacer(Modifier.height(3.dp))
+                    DailyRangeLabel(
+                        value = low,
+                        range = if (showDailyRanges)
+                            dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE, units, displayLocale) else null,
+                        rangeTag = "columns_daily_temp_min_range",
+                        modifier = Modifier.fillMaxWidth(),
+                        valueStyle = MaterialTheme.typography.labelSmall,
+                        singleLine = showDailyRanges,
+                        valueColor = contentColor.copy(alpha = 0.90f),
+                        rangeColor = contentColor.copy(alpha = 0.80f)
                     )
                 }
             }
@@ -972,7 +1089,10 @@ private fun timelinePrecipitationAmountLabel(point: SimplifiedTimelinePoint): St
 }
 
 @Composable
-private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
+private fun TimelineConsensus(
+    point: SimplifiedTimelinePoint,
+    onConvergenceClick: (() -> Unit)? = null
+) {
     val reasons = orderedDivergenceReasons(point.divergenceReasons)
     val hasDisagreement = reasons.isNotEmpty()
     val displayLevel = timelineConsensusDisplayLevel(point)
@@ -1019,6 +1139,10 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
             percent
         )
     } ?: agreementLabel
+    val openInfoLabel = stringResource(R.string.timeline_convergence_open_info)
+    val clickModifier = if (onConvergenceClick != null) {
+        Modifier.clickable(role = Role.Button, onClickLabel = openInfoLabel, onClick = onConvergenceClick)
+    } else Modifier
     val reasonContentDescription = if (reasonItems.isNotEmpty()) {
         stringResource(
             R.string.timeline_divergence_variables_accessibility,
@@ -1036,6 +1160,7 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
         Row(
             modifier = Modifier
                 .testTag(TAG_TIMELINE_CONSENSUS_BADGE)
+                .then(clickModifier)
                 .semantics { contentDescription = agreementContentDescription },
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1059,6 +1184,7 @@ private fun TimelineConsensus(point: SimplifiedTimelinePoint) {
             Row(
                 modifier = Modifier
                     .testTag(TAG_TIMELINE_DIVERGENCE_REASON)
+                    .then(clickModifier)
                     .semantics { contentDescription = reasonContentDescription },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -1112,53 +1238,101 @@ private fun orderedDivergenceReasons(
     DivergenceReason.CONDITION
 ).filter { it in reasons }
 
+/**
+ * On the opt-in daily layout every icon sits on the same left rail. The value
+ * starts immediately after the icon; the range may use the remaining width or
+ * wrap to a tiny second line. Rows with no range retain the same alignment.
+ */
 @Composable
 private fun TimelineMetric(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     value: String,
     tint: Color,
-    semanticLabel: String? = null
+    semanticLabel: String? = null,
+    range: String? = null,
+    rangeTag: String = "",
+    compact: Boolean = false,
+    iconTag: String? = null,
+    valueTag: String? = null
 ) {
+    val semanticModifier = if (semanticLabel != null) Modifier.semantics(mergeDescendants = true) {
+        contentDescription = "$semanticLabel $value${range?.let { " $it" } ?: ""}"
+    } else Modifier
+    if (!compact && range == null) {
+        // Preserve the established layout for hourly and ranges-off daily.
+        Row(modifier = Modifier.height(20.dp).then(semanticModifier),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = tint,
+                modifier = Modifier.size(12.dp).then(iconTag?.let { Modifier.testTag(it) } ?: Modifier))
+            Spacer(Modifier.width(4.dp))
+            Text(value, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium, maxLines = 1,
+                modifier = valueTag?.let(Modifier::testTag) ?: Modifier)
+        }
+        return
+    }
     Row(
-        modifier = Modifier.height(20.dp).then(
-            if (semanticLabel != null) Modifier.semantics(mergeDescendants = true) {
-                contentDescription = "$semanticLabel $value"
-            } else Modifier
-        ),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 19.dp)
+            .padding(start = 7.dp, end = 5.dp).then(semanticModifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(12.dp)
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1
+        // Fixed narrow icon rail; labels (including wrapped spreads) start at
+        // one common baseline, rather than drifting across the column.
+        Box(Modifier.width(15.dp), contentAlignment = Alignment.CenterStart) {
+            Icon(icon, contentDescription = null, tint = tint,
+                modifier = Modifier.size(12.dp)
+                    .then(iconTag?.let { Modifier.testTag(it) } ?: Modifier))
+        }
+        DailyRangeLabel(
+            value = value,
+            valueTag = valueTag,
+            range = range,
+            rangeTag = rangeTag,
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.Start,
+            valueStyle = MaterialTheme.typography.labelSmall,
+            valueColor = MaterialTheme.colorScheme.onSurface,
+            rangeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            valueWeight = FontWeight.SemiBold
         )
     }
 }
 
 @Composable
-private fun TimelineSupportingText(text: String, modifier: Modifier = Modifier) {
+private fun TimelineSupportingText(
+    text: String,
+    modifier: Modifier = Modifier,
+    range: String? = null,
+    rangeTag: String = "",
+    compact: Boolean = false
+) {
+    if (!compact && range == null) {
+        Box(modifier = modifier.fillMaxWidth().height(18.dp).padding(horizontal = 4.dp),
+            contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
+    // The inset equals the icon + the gap in TimelineMetric, so consecutive
+    // figures have the same starting x position even without an icon.
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(18.dp)
-            .padding(horizontal = 4.dp),
-        contentAlignment = Alignment.Center
+        modifier = modifier.fillMaxWidth().heightIn(min = 18.dp)
+            .padding(start = 22.dp, end = 5.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+        DailyRangeLabel(
+            value = text,
+            range = range,
+            rangeTag = rangeTag,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start,
+            valueStyle = MaterialTheme.typography.labelSmall,
+            valueColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+            rangeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            valueWeight = FontWeight.Normal
         )
     }
 }
@@ -1173,18 +1347,22 @@ private fun divergenceIconTag(reason: DivergenceReason): String = when (reason) 
 internal const val TAG_SIMPLIFIED_TIMELINE = "simplified_timeline"
 internal const val TAG_TIMELINE_MODE_SELECTOR = "timeline_mode_selector"
 internal const val TAG_TIMELINE_LAYOUT_SELECTOR = "timeline_layout_selector"
+internal const val TAG_TIMELINE_RANGES_TOGGLE = "timeline_daily_ranges_toggle"
 internal const val TAG_TIMELINE_EVENT_RULER = "timeline_event_ruler"
 internal const val TAG_TIMELINE_EVENT_MARKER = "timeline_event_marker"
 internal const val TAG_TIMELINE_POINT_FOCUSED = "timeline_point_focused"
 internal const val TAG_TIMELINE_DIVERGENCE_REASON = "timeline_divergence_reason"
 internal const val TAG_TIMELINE_CONSENSUS_BADGE = "timeline_consensus_badge"
+internal const val TAG_TIMELINE_CONVERGENCE_INFO_DIALOG = "timeline_convergence_info_dialog"
+internal const val TAG_TIMELINE_CONVERGENCE_INFO_CLOSE = "timeline_convergence_info_close"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_RAIN = "timeline_divergence_icon_rain"
 internal const val TAG_TIMELINE_DIVERGENCE_ICON_WIND = "timeline_divergence_icon_wind"
 internal const val TAG_TIMELINE_COLUMNS_APPARENT = "timeline_columns_apparent"
 internal const val TAG_TIMELINE_HEATMAP_BAND = "timeline_heatmap_band"
 internal const val TAG_TIMELINE_PRECIP_HEAT_DOT = "timeline_precip_heat_dot"
 private const val TAG_TIMELINE_POINT_PREFIX = "timeline_point_"
-private val TIMELINE_COLUMN_WIDTH = 112.dp
+internal fun timelineColumnWidth(mode: DisplayMode, showDailyRanges: Boolean): androidx.compose.ui.unit.Dp =
+    if (mode == DisplayMode.DAILY && showDailyRanges) 136.dp else 112.dp
 private val EVENT_RULER_HEIGHT = 24.dp
 private val TIMELINE_RULER_EDGE_INSET = 56.dp
 private const val MAX_MARKERS_PER_SLOT = 4

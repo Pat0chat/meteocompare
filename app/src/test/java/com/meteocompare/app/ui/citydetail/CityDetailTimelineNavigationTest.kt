@@ -59,6 +59,8 @@ class CityDetailTimelineNavigationTest {
     fun `chrono fixed label column stays compact on phones and tablets`() {
         assertEquals(104.dp, chronoLabelColumnWidth(screenWidthDp = 412))
         assertEquals(128.dp, chronoLabelColumnWidth(screenWidthDp = 800))
+        assertEquals(96.dp, chronoLabelColumnWidth(screenWidthDp = 412, compact = true))
+        assertEquals(120.dp, chronoLabelColumnWidth(screenWidthDp = 800, compact = true))
     }
 
     @Test

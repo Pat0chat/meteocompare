@@ -15,7 +15,7 @@ fun weatherString(resources: Resources, units: WeatherUnits, @StringRes id: Int,
     val locale = resources.configuration.locales[0]
     val staticArgs: Array<out Any>? = when (id) {
         R.string.temp_legend_above_normal, R.string.temp_legend_below_normal ->
-            arrayOf(units.format(2.0, WeatherUnit.TEMPERATURE_COMPACT, if (units.imperial) 1 else 0, locale, delta = true))
+            arrayOf(units.format(2.0, WeatherUnit.TEMPERATURE_COMPACT, if (units.temperatureInFahrenheit) 1 else 0, locale, delta = true))
         R.string.bias_reliability_method_note -> arrayOf(units.rain(0.5, locale))
         R.string.forecast_insight_detail_temperature_frost -> arrayOf(units.temp(0.0, locale = locale))
         R.string.var_wind_max, R.string.var_wind_gust_max, R.string.a11y_wind_max_label ->
@@ -37,9 +37,15 @@ fun weatherString(resources: Resources, units: WeatherUnits, @StringRes id: Int,
 
 internal fun spokenUnit(resources: Resources, units: WeatherUnits, metricUnit: WeatherUnit): String {
     return resources.getString(when (metricUnit) {
-        WeatherUnit.TEMPERATURE, WeatherUnit.TEMPERATURE_COMPACT -> if (units.imperial) R.string.unit_degrees_fahrenheit else R.string.unit_degrees_celsius
-        WeatherUnit.WIND_SPEED -> if (units.windInMph) R.string.unit_miles_per_hour else R.string.a11y_kmh_unit
-        WeatherUnit.PRECIPITATION -> if (units.imperial) R.string.unit_inches else R.string.unit_millimetres
+        WeatherUnit.TEMPERATURE, WeatherUnit.TEMPERATURE_COMPACT -> if (units.temperatureInFahrenheit) R.string.unit_degrees_fahrenheit else R.string.unit_degrees_celsius
+        WeatherUnit.WIND_SPEED -> when (units.windUnit) {
+            "mph" -> R.string.unit_miles_per_hour
+            "km/h" -> R.string.a11y_kmh_unit
+            "kn" -> R.string.unit_knots
+            "m/s" -> R.string.unit_metres_per_second
+            else -> return units.windUnit
+        }
+        WeatherUnit.PRECIPITATION -> if (units.precipitationInInches) R.string.unit_inches else R.string.unit_millimetres
         else -> return units.label(metricUnit)
     })
 }

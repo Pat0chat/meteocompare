@@ -4,6 +4,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -11,11 +13,14 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
@@ -79,6 +84,99 @@ class CityListContentTest {
         }
         composeRule.onNodeWithTag("home_compare_localities").assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertTrue(opened) }
+    }
+
+    @Test
+    fun compare_is_adjacent_to_reorder_in_bottom_action_row() {
+        var compared = false
+        var reordered = false
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        CityCardState(TestFixtures.lyon, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {},
+                    onCompareClick = { compared = true }, onReorderClick = { reordered = true }
+                )
+            }
+        }
+        val compare = composeRule.onNodeWithTag("home_compare_localities")
+        val reorder = composeRule.onNodeWithTag("home_reorder_action")
+        // Semantics bounds may expand to the minimum 48 dp touch target and
+        // shift independently of the 40 dp FAB visuals. Measure layout bounds
+        // in dp to verify visual adjacency, in either LTR or RTL locales.
+        val compareBounds = compare.getUnclippedBoundsInRoot()
+        val reorderBounds = reorder.getUnclippedBoundsInRoot()
+        val compareCenterY = (compareBounds.top.value + compareBounds.bottom.value) / 2f
+        val reorderCenterY = (reorderBounds.top.value + reorderBounds.bottom.value) / 2f
+        val verticalOffset = kotlin.math.abs(compareCenterY - reorderCenterY)
+        assertTrue("Compare and reorder FABs are on different rows: $compareBounds vs $reorderBounds",
+            verticalOffset <= 2f)
+        val (left, right) = listOf(compareBounds, reorderBounds).sortedBy { it.left }
+        val gap = (right.left - left.right).value
+        // The Row adds 10 dp between 48 dp minimum touch targets, while a
+        // SmallFloatingActionButton draws a 40 dp surface within that target.
+        // The visible surfaces are thus about 18 dp apart (not 10 dp).
+        assertTrue("Compare and reorder FABs are not adjacent: $compareBounds vs $reorderBounds (gap=$gap dp)",
+            gap in 0f..22f)
+        compare.performClick()
+        reorder.performClick()
+        composeRule.runOnIdle { assertTrue(compared && reordered) }
+    }
+
+    @Test
+    fun home_floating_actions_share_add_city_color_in_light_theme() =
+        assertHomeFloatingActionColors(ThemePreference.LIGHT)
+
+    @Test
+    fun home_floating_actions_share_add_city_color_in_dark_theme() =
+        assertHomeFloatingActionColors(ThemePreference.DARK)
+
+    /** Capture l'intérieur du fond (hors icône et bord arrondi) de chaque FAB. */
+    private fun assertHomeFloatingActionColors(theme: ThemePreference) {
+        composeRule.setContent {
+            MeteoCompareTheme(themePreference = theme, dynamicColor = false) {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        CityCardState(TestFixtures.lyon, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {}
+                )
+            }
+        }
+
+        fun backgroundPixel(tag: String): Color {
+            val bitmap = composeRule.onNodeWithTag(tag).assertIsDisplayed().captureToImage()
+            // Au centre horizontal, à 1/8 de la hauteur, la couleur est celle du fond
+            // et non de l'icône ; fonctionne pour les petits et grands FAB.
+            return bitmap.toPixelMap()[bitmap.width / 2, bitmap.height / 8]
+        }
+
+        val addCityColor = backgroundPixel(TAG_ADD_FAB)
+        assertEquals(addCityColor, backgroundPixel("home_compare_localities"))
+        assertEquals(addCityColor, backgroundPixel("home_reorder_action"))
+    }
+
+    @Test
+    fun compare_and_reorder_are_hidden_for_only_one_city() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {}
+                )
+            }
+        }
+        composeRule.onNodeWithTag("home_compare_localities").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_reorder_action").assertDoesNotExist()
     }
 
     @Test

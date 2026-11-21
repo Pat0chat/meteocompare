@@ -533,9 +533,12 @@
     <string name="timeline_subtitle_daily">Önümüzdeki günler için mevcut modellerin uzlaşısı</string>
     <string name="timeline_layout_aria">Zaman çizelgesi görünümü</string>
     <string name="timeline_layout_columns">Sütunlar</string>
+    <string name="timeline_show_ranges">Aralıkları göster</string>
     <string name="timeline_layout_chrono">Zaman çizelgesi</string>
     <string name="timeline_date_label">Tarih</string>
     <string name="timeline_disagreement_hint">Puan uyumu gösterir; simgeler farklılaşan değişkenleri işaretler.</string>
+    <string name="timeline_convergence_info_title">Yakınsama hakkında</string>
+    <string name="timeline_convergence_open_info">Yakınsama puanı hakkında bilgi</string>
     <string name="timeline_now">Şimdi</string>
     <string name="timeline_today">Bugün</string>
     <string name="timeline_tomorrow">Yarın</string>
@@ -1257,4 +1260,17 @@
     <string name="home_reorder_drag">%1$s basılı tutup sürükle</string>
     <string name="home_reorder_apply">Sırayı kaydet</string>
     <string name="home_reorder_save_error">Yeni sıra kaydedilemedi.</string>
+    <string name="settings_units_custom">Özel (birimleri seç…)</string>
+    <string name="settings_units_custom_title">Özel birimler</string>
+    <string name="settings_units_temperature">Sıcaklık</string>
+    <string name="settings_units_wind">Rüzgâr ve hamleler</string>
+    <string name="settings_units_precipitation">Yağış</string>
+    <string name="settings_units_pressure">Basınç</string>
+    <string name="settings_units_height">Yükseklik</string>
+    <string name="settings_units_distance">Mesafe</string>
+    <string name="settings_units_save">Kaydet</string>
+    <string name="settings_units_cancel">İptal</string>
+    <string name="settings_units_wind_knots">kn (deniz mili/saat)</string>
+    <string name="unit_knots">deniz mili/saat</string>
+    <string name="unit_metres_per_second">metre/saniye</string>
 </resources>

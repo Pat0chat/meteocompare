@@ -526,9 +526,12 @@ Daten</string>
     <string name="timeline_subtitle_daily">Konsens der verfügbaren Modelle für die nächsten Tage</string>
     <string name="timeline_layout_aria">Darstellung der Zeitleiste</string>
     <string name="timeline_layout_columns">Spalten</string>
+    <string name="timeline_show_ranges">Wertebereiche anzeigen</string>
     <string name="timeline_layout_chrono">Zeitstrahl</string>
     <string name="timeline_date_label">Datum</string>
     <string name="timeline_disagreement_hint">Der Wert zeigt die Konvergenz; Symbole markieren abweichende Variablen.</string>
+    <string name="timeline_convergence_info_title">Über die Konvergenz</string>
+    <string name="timeline_convergence_open_info">Konvergenzwert erklären</string>
     <string name="timeline_now">Jetzt</string>
     <string name="timeline_today">Heute</string>
     <string name="timeline_tomorrow">Morgen</string>
@@ -1243,4 +1246,17 @@ Daten</string>
     <string name="home_reorder_drag">%1$s gedrückt halten und ziehen</string>
     <string name="home_reorder_apply">Reihenfolge speichern</string>
     <string name="home_reorder_save_error">Die neue Reihenfolge konnte nicht gespeichert werden.</string>
+    <string name="settings_units_custom">Benutzerdefiniert (Einheiten wählen…)</string>
+    <string name="settings_units_custom_title">Benutzerdefinierte Einheiten</string>
+    <string name="settings_units_temperature">Temperatur</string>
+    <string name="settings_units_wind">Wind und Böen</string>
+    <string name="settings_units_precipitation">Niederschlag</string>
+    <string name="settings_units_pressure">Luftdruck</string>
+    <string name="settings_units_height">Höhe</string>
+    <string name="settings_units_distance">Entfernung</string>
+    <string name="settings_units_save">Speichern</string>
+    <string name="settings_units_cancel">Abbrechen</string>
+    <string name="settings_units_wind_knots">kn (Knoten)</string>
+    <string name="unit_knots">Knoten</string>
+    <string name="unit_metres_per_second">Meter pro Sekunde</string>
 </resources>

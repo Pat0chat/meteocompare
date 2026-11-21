@@ -91,6 +91,7 @@ class SettingsViewModelTest {
             Unit
         }
         every { observeUnitSystem() } returns kotlinx.coroutines.flow.flowOf(UnitSystem.METRIC)
+        every { observeCustomUnits() } returns kotlinx.coroutines.flow.flowOf(com.meteocompare.app.domain.model.CustomUnitPreferences())
         every { observeClockFormatPreference() } returns clockFormatFlow
         coEvery { setClockFormatPreference(any()) } answers {
             clockFormatFlow.value = firstArg()

@@ -1,6 +1,11 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import com.meteocompare.app.core.locale.LocalClockFormatPreference
@@ -15,6 +20,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
 import com.meteocompare.app.ui.theme.MeteoCompareTheme
@@ -176,11 +182,15 @@ class SimplifiedTimelineCardTest {
         setContentWith24HourClock {
             MeteoCompareTheme {
                 Surface {
-                    SimplifiedTimelineCard(
-                        points = listOf(point),
-                        mode = DisplayMode.HOURLY,
-                        timezone = "Europe/Paris"
-                    )
+                    // The divergence badge sits below the tall hourly column.
+                    // Scroll to it rather than checking an off-viewport icon.
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        SimplifiedTimelineCard(
+                            points = listOf(point),
+                            mode = DisplayMode.HOURLY,
+                            timezone = "Europe/Paris"
+                        )
+                    }
                 }
             }
         }
@@ -192,12 +202,15 @@ class SimplifiedTimelineCardTest {
             R.string.timeline_divergence_variables_accessibility,
             "$rainLabel, $windLabel"
         )
-        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_REASON)
+        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_REASON, useUnmergedTree = true)
+            .performScrollTo()
             .assertIsDisplayed()
             .assertContentDescriptionEquals(expected)
-        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_RAIN)
+        // Icon content descriptions are intentionally merged into the parent
+        // badge's accessible label; visual tags live in the unmerged tree.
+        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_RAIN, useUnmergedTree = true)
             .assertIsDisplayed()
-        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_WIND)
+        composeRule.onNodeWithTag(TAG_TIMELINE_DIVERGENCE_ICON_WIND, useUnmergedTree = true)
             .assertIsDisplayed()
     }
 

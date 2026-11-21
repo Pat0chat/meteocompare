@@ -30,8 +30,34 @@ class ChronoTimelineTemperatureTest {
         val highOffset = chronoDailyHighTemperatureLabelOffset(20.0, domainMin, domainMax)
         val lowOffset = chronoDailyLowTemperatureLabelOffset(8.0, domainMin, domainMax)
 
-        assertEquals(7.dp, highOffset)
-        assertEquals(99.dp, lowOffset)
+        assertEquals(17.dp, highOffset)
+        assertEquals(103.dp, lowOffset)
+        val withRange = chronoDailyHighTemperatureLabelOffset(20.0, domainMin, domainMax, withRange = true)
+        assertEquals(2.dp, withRange)
+        // With 2 labels above the maximum, their bottom stays above the curve (40 dp).
+        assertTrue(withRange + 32.dp < 40.dp)
+        assertTrue(lowOffset + 32.dp < chronoTemperatureRowHeight(DisplayMode.DAILY))
+    }
+
+    @Test
+    fun daily_ranges_fit_into_compact_columns_and_do_not_widen_the_chrono_grid() {
+        assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY))
+        assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY, true))
+        assertEquals(96.dp, chronoPointWidth(DisplayMode.HOURLY, true))
+        assertEquals(112.dp, timelineColumnWidth(DisplayMode.DAILY, false))
+        assertEquals(136.dp, timelineColumnWidth(DisplayMode.DAILY, true))
+        assertEquals(112.dp, timelineColumnWidth(DisplayMode.HOURLY, true))
+    }
+
+    @Test
+    fun compact_daily_ranges_add_less_than_one_small_row_to_the_chrono_grid() {
+        val base = chronoRowHeights(DisplayMode.DAILY, false).sumOf { it.value.toDouble() }
+        val expanded = chronoRowHeights(DisplayMode.DAILY, true).sumOf { it.value.toDouble() }
+        assertTrue("Ranges should add less than 25 dp in total", expanded - base < 25.0)
+        assertEquals(
+            chronoRowHeights(DisplayMode.HOURLY, false),
+            chronoRowHeights(DisplayMode.HOURLY, true)
+        )
     }
 
     @Test

@@ -1314,7 +1314,7 @@ private fun MeteogramCombinedSelectedAxis(
         MeteogramAxisChoice.CLOUDS, MeteogramAxisChoice.HUMIDITY -> "%"
         MeteogramAxisChoice.RAIN -> "${units.precipitationUnit}/h"
         MeteogramAxisChoice.WIND -> units.windUnit
-        MeteogramAxisChoice.PRESSURE -> if (units.imperial) "inHg" else "hPa"
+        MeteogramAxisChoice.PRESSURE -> if (units.pressureInInHg) "inHg" else "hPa"
     }
 
     fun label(value: Double): String = when (choice) {
@@ -1328,7 +1328,7 @@ private fun MeteogramCombinedSelectedAxis(
         MeteogramAxisChoice.WIND -> units.number(units.wind(value))
         MeteogramAxisChoice.PRESSURE -> units.number(
             units.pressure(value),
-            if (units.imperial) 2 else 0
+            if (units.pressureInInHg) 2 else 0
         )
     }
 
@@ -1393,7 +1393,7 @@ private fun MeteogramChartLegend(kind: MeteogramKind, units: WeatherUnits) {
         MeteogramKind.PRESSURE -> listOf(
             LegendEntry(
                 PressureColor,
-                if (units.imperial) "inHg" else "hPa",
+                if (units.pressureInInHg) "inHg" else "hPa",
                 line = true
             )
         )
@@ -1437,7 +1437,7 @@ private fun MeteogramCloudRainLegend(units: WeatherUnits) {
                 ),
                 LegendEntry(
                     PressureColor,
-                    "${stringResource(R.string.meteogram_pressure)} (${if (units.imperial) "inHg" else "hPa"})",
+                    "${stringResource(R.string.meteogram_pressure)} (${if (units.pressureInInHg) "inHg" else "hPa"})",
                     line = true,
                     tag = TAG_METEOGRAM_PRESSURE_LEGEND
                 )
@@ -1481,7 +1481,7 @@ private fun MeteogramCombinedLegend(units: WeatherUnits) {
             ),
             LegendEntry(
                 PressureColor,
-                "${stringResource(R.string.meteogram_pressure)} (${if (units.imperial) "inHg" else "hPa"})",
+                "${stringResource(R.string.meteogram_pressure)} (${if (units.pressureInInHg) "inHg" else "hPa"})",
                 line = true
             ),
             LegendEntry(WindColor, stringResource(R.string.meteogram_wind), line = true),
@@ -1597,7 +1597,7 @@ private fun MeteogramValueAxis(
         MeteogramKind.PRESSURE -> values.map {
             units.number(
                 units.pressure(it),
-                if (units.imperial) 2 else 0
+                if (units.pressureInInHg) 2 else 0
             )
         }
     }
@@ -1606,7 +1606,7 @@ private fun MeteogramValueAxis(
         MeteogramKind.WIND -> units.windUnit
         MeteogramKind.TEMPERATURE -> units.temperatureUnit
         MeteogramKind.HUMIDITY -> "%"
-        MeteogramKind.PRESSURE -> if (units.imperial) "inHg" else "hPa"
+        MeteogramKind.PRESSURE -> if (units.pressureInInHg) "inHg" else "hPa"
     }
     val shortName = when (kind) {
         MeteogramKind.EVERYDAY -> meteogramAxisShortLabel(MeteogramAxisChoice.RAIN)
@@ -2472,9 +2472,9 @@ private fun MeteogramCardSelectedValues(
                     "${
                         units.number(
                             units.pressure(it),
-                            if (units.imperial) 2 else 0
+                            if (units.pressureInInHg) 2 else 0
                         )
-                    } ${if (units.imperial) "inHg" else "hPa"}"
+                    } ${if (units.pressureInInHg) "inHg" else "hPa"}"
                 } ?: "—")
         )
 
@@ -2528,9 +2528,9 @@ private fun MeteogramCardSelectedValues(
                     "${
                         units.number(
                             units.pressure(it),
-                            if (units.imperial) 2 else 0
+                            if (units.pressureInInHg) 2 else 0
                         )
-                    } ${if (units.imperial) "inHg" else "hPa"}"
+                    } ${if (units.pressureInInHg) "inHg" else "hPa"}"
                 } ?: "—")
         )
     }
@@ -2580,9 +2580,9 @@ private fun MeteogramSelectedValues(hour: MeteogramHour, units: WeatherUnits, lo
                 "${
                     units.number(
                         units.pressure(it),
-                        if (units.imperial) 2 else 0
+                        if (units.pressureInInHg) 2 else 0
                     )
-                } ${if (units.imperial) "inHg" else "hPa"}"
+                } ${if (units.pressureInInHg) "inHg" else "hPa"}"
             } ?: "—"),
         Triple(
             CloudLowColor,

@@ -715,6 +715,8 @@ private fun LoadedView(
     var timelineLayoutName by rememberSaveable(forecast.city.id) {
         mutableStateOf(TimelineLayout.COLUMNS.name)
     }
+    // Shared by the daily column and chronological views; disabled by default.
+    var showDailyRanges by rememberSaveable(forecast.city.id) { mutableStateOf(false) }
     val timelineLayout = remember(timelineLayoutName) {
         TimelineLayout.entries.firstOrNull { it.name == timelineLayoutName } ?: TimelineLayout.COLUMNS
     }
@@ -928,6 +930,8 @@ private fun LoadedView(
                     },
                     availableRanges = timelineAvailableRanges,
                     layout = timelineLayout,
+                    showDailyRanges = showDailyRanges,
+                    onShowDailyRangesChange = { showDailyRanges = it },
                     onLayoutChange = { newLayout ->
                         timelineLayoutName = newLayout.name
                     },
@@ -1568,7 +1572,7 @@ private fun HourlyPrecipitationLegend(units: WeatherUnits = LocalWeatherUnits.cu
             Color(0xFF1E88E5), Color(0xFF1976D2), Color(0xFF1565C0),
             Color(0xFF0D47A1)
         ),
-        tickLabels = if (units.imperial) {
+        tickLabels = if (units.temperatureInFahrenheit) {
             listOf(0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0).map {
                 units.value(it, WeatherUnit.PRECIPITATION, 3).removePrefix("0")
             } + "≥${units.value(10.0, WeatherUnit.PRECIPITATION, 3).removePrefix("0")}"

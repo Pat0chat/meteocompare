@@ -2,6 +2,10 @@ package com.meteocompare.app.widget
 
 import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.domain.model.UnitSystem
+import com.meteocompare.app.domain.model.CustomUnitPreferences
+import com.meteocompare.app.domain.model.WindChoice
+import com.meteocompare.app.domain.model.TemperatureChoice
+import com.meteocompare.app.domain.model.PrecipitationChoice
 
 import com.meteocompare.app.domain.model.WeatherCondition
 import org.junit.Assert.assertEquals
@@ -68,6 +72,26 @@ class WidgetFormattingTest {
             error = WidgetError.Loading
         )
         assertEquals("", buildExtrasLine(data))
+    }
+
+    @Test
+    fun `widget applies saved custom knots temperatures and rain`() {
+        val data = WidgetData.empty(cityName = "Paris", error = WidgetError.Loading).copy(
+            unitSystem = UnitSystem.CUSTOM,
+            customUnits = CustomUnitPreferences(
+                temperature = TemperatureChoice.FAHRENHEIT,
+                wind = WindChoice.KNOTS,
+                precipitation = PrecipitationChoice.INCHES
+            ),
+            currentCondition = WeatherCondition.CLEAR,
+            currentWindSpeedKmh = 18.52,
+            apparentTemp = 20.0,
+            precipMm = 25.4
+        )
+        val line = buildExtrasLine(data, includeApparent = true, apparentPrefix = "Feels")
+        assert(line.contains("Feels 68°F")) { line }
+        assert(line.contains("10 kn")) { line }
+        assert(line.contains("in")) { line }
     }
 
     @Test

@@ -58,6 +58,13 @@ private fun unrelated() { NotPreviewedComposable() }
             self.assertIn('TargetComposable', calls)
             self.assertNotIn('NotPreviewedComposable', calls)
 
+    def test_daily_range_label_has_a_real_debug_preview(self):
+        # This visual composable requires a reachable, annotated preview in
+        # src/debug: a comment or unannotated helper must not satisfy CI.
+        preview = (ROOT / 'app/src/debug/java/com/meteocompare/app/ui/'
+                   'citydetail/DailyRangeLabelPreviews.kt')
+        self.assertIn('DailyRangeLabel', self.previews.preview_invocations([preview]))
+
     def test_a_preview_annotation_definition_is_not_a_preview_function(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'Annotation.kt'
