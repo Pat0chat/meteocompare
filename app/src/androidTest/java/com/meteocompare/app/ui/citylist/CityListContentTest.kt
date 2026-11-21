@@ -5,6 +5,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -104,11 +105,23 @@ class CityListContentTest {
         }
         val compare = composeRule.onNodeWithTag("home_compare_localities")
         val reorder = composeRule.onNodeWithTag("home_reorder_action")
-        val compareBounds = compare.fetchSemanticsNode().boundsInRoot
-        val reorderBounds = reorder.fetchSemanticsNode().boundsInRoot
-        val density = composeRule.density.density
-        assertTrue(kotlin.math.abs(compareBounds.center.y - reorderBounds.center.y) < 2f * density)
-        assertTrue(reorderBounds.left - compareBounds.right in 0f..(12f * density))
+        // Semantics bounds may expand to the minimum 48 dp touch target and
+        // shift independently of the 40 dp FAB visuals. Measure layout bounds
+        // in dp to verify visual adjacency, in either LTR or RTL locales.
+        val compareBounds = compare.getUnclippedBoundsInRoot()
+        val reorderBounds = reorder.getUnclippedBoundsInRoot()
+        val compareCenterY = (compareBounds.top.value + compareBounds.bottom.value) / 2f
+        val reorderCenterY = (reorderBounds.top.value + reorderBounds.bottom.value) / 2f
+        val verticalOffset = kotlin.math.abs(compareCenterY - reorderCenterY)
+        assertTrue("Compare and reorder FABs are on different rows: $compareBounds vs $reorderBounds",
+            verticalOffset <= 2f)
+        val (left, right) = listOf(compareBounds, reorderBounds).sortedBy { it.left }
+        val gap = (right.left - left.right).value
+        // The Row adds 10 dp between 48 dp minimum touch targets, while a
+        // SmallFloatingActionButton draws a 40 dp surface within that target.
+        // The visible surfaces are thus about 18 dp apart (not 10 dp).
+        assertTrue("Compare and reorder FABs are not adjacent: $compareBounds vs $reorderBounds (gap=$gap dp)",
+            gap in 0f..22f)
         compare.performClick()
         reorder.performClick()
         composeRule.runOnIdle { assertTrue(compared && reordered) }

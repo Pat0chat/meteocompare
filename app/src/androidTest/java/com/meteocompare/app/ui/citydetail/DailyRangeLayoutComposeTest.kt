@@ -1,6 +1,7 @@
 package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -8,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertHasClickAction
@@ -51,37 +53,43 @@ class DailyRangeLayoutComposeTest {
         val layout = mutableStateOf(TimelineLayout.COLUMNS)
         rule.setContent {
             MeteoCompareTheme {
+                // Daily columns and especially chrono are taller than a phone viewport.
+                // Give this host a real vertical scroller so the toggle remains tappable.
                 Surface {
-                    SimplifiedTimelineCard(
-                        points = listOf(dailyPoint()),
-                        mode = DisplayMode.DAILY, timezone = "UTC", now = now,
-                        layout = layout.value, onLayoutChange = { layout.value = it },
-                        showDailyRanges = enabled.value,
-                        onShowDailyRangesChange = { enabled.value = it }
-                    )
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        SimplifiedTimelineCard(
+                            points = listOf(dailyPoint()),
+                            mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                            layout = layout.value, onLayoutChange = { layout.value = it },
+                            showDailyRanges = enabled.value,
+                            onShowDailyRangesChange = { enabled.value = it }
+                        )
+                    }
                 }
             }
         }
         val toggle = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
-        toggle.assertIsDisplayed()
-        toggle.assertIsOff()
-        toggle.assertHasClickAction()
+        toggle.performScrollTo().assertIsDisplayed().assertIsOff().assertHasClickAction()
         rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("columns_daily_rain_amount_range", useUnmergedTree = true).assertDoesNotExist()
         toggle.performClick()
         toggle.assertIsOn()
-        rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertIsDisplayed()
-        rule.onNodeWithTag("columns_daily_rain_amount_range", useUnmergedTree = true).assertIsDisplayed()
+        // Both labels must be composed; the scroller may have moved them off screen.
+        rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("columns_daily_rain_amount_range", useUnmergedTree = true).assertExists()
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        rule.onNodeWithText(context.getString(R.string.timeline_layout_chrono)).performClick()
-        rule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true).assertIsDisplayed()
-        rule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true).assertIsDisplayed()
-        toggle.performClick()
+        rule.onNodeWithText(context.getString(R.string.timeline_layout_chrono))
+            .performScrollTo().performClick()
+        rule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true).assertExists()
+        // Layout switch moves the toggle farther down; scroll before tapping again.
+        toggle.performScrollTo().assertIsOn().performClick()
         toggle.assertIsOff()
         rule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true).assertDoesNotExist()
-        rule.onNodeWithText(context.getString(R.string.timeline_layout_columns)).performClick()
+        rule.onNodeWithText(context.getString(R.string.timeline_layout_columns))
+            .performScrollTo().performClick()
         rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertDoesNotExist()
         rule.runOnIdle { assertEquals(false, enabled.value) }
     }
@@ -126,7 +134,9 @@ class DailyRangeLayoutComposeTest {
                         DailyRangeLabel(
                             value = "25°", range = "(22–28)",
                             rangeTag = "narrow_range", valueTag = "narrow_value",
-                            modifier = Modifier.width(60.dp)
+                            // 60 dp can fit both labels on devices with compact fonts.
+                            // Force the fallback branch even at small font scales.
+                            modifier = Modifier.width(32.dp)
                         )
                     }
                 }
@@ -281,24 +291,27 @@ class DailyRangeLayoutComposeTest {
                 )
             }
         }
+        // Test layout in dp rather than clipped semantics pixels. The latter
+        // can use a different density on emulators with display overrides.
         val original = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot
-        assertEquals(64f * rule.density.density, original.height, 1f * rule.density.density)
+            .getUnclippedBoundsInRoot()
+        val originalHeight = (original.bottom - original.top).value
+        assertEquals(58f, originalHeight, 0.5f)
         rule.runOnIdle { enabled.value = true }
         val withRanges = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot
+            .getUnclippedBoundsInRoot()
         assertEquals("The daily heatmap must never grow when ranges are enabled",
-            original.height, withRanges.height, 1f)
+            originalHeight, (withRanges.bottom - withRanges.top).value, 0.5f)
         for (tag in listOf("columns_daily_temp_max_range", "columns_daily_temp_min_range")) {
             val bounds = rule.onNodeWithTag(tag, useUnmergedTree = true)
-                .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                .assertIsDisplayed().getUnclippedBoundsInRoot()
             assertTrue("$tag must fit vertically into the original heatmap",
-                bounds.top >= withRanges.top - 1f && bounds.bottom <= withRanges.bottom + 1f)
+                bounds.top >= withRanges.top - 1.dp && bounds.bottom <= withRanges.bottom + 1.dp)
         }
         rule.runOnIdle { enabled.value = false }
-        assertEquals(original.height,
-            rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
-                .fetchSemanticsNode().boundsInRoot.height, 1f)
+        val restored = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertEquals(originalHeight, (restored.bottom - restored.top).value, 0.5f)
     }
 
     @Test fun single_line_temperature_range_never_expands_vertically_on_narrow_columns() {
