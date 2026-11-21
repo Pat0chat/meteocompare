@@ -419,6 +419,11 @@ internal fun CityListContent(
     homeExpandedCityId: String? = null,
     onHomeCityExpanded: ((String) -> Unit)? = null
 ) {
+    // Toutes les actions flottantes de Home partagent la même palette que
+    // « Ajouter une ville », y compris avec Material You et le thème sombre.
+    val actionContainerColor = MaterialTheme.colorScheme.primary
+    val actionContentColor = MaterialTheme.colorScheme.onPrimary
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         snackbarHost = {
@@ -477,8 +482,8 @@ internal fun CityListContent(
                 if (uiState.items.size >= 2) {
                     SmallFloatingActionButton(
                         onClick = onCompareClick,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        containerColor = actionContainerColor,
+                        contentColor = actionContentColor,
                         modifier = Modifier.testTag("home_compare_localities")
                     ) {
                         Icon(Icons.AutoMirrored.Outlined.CompareArrows,
@@ -486,8 +491,8 @@ internal fun CityListContent(
                     }
                     SmallFloatingActionButton(
                         onClick = onReorderClick,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        containerColor = actionContainerColor,
+                        contentColor = actionContentColor,
                         modifier = Modifier.testTag("home_reorder_action")
                     ) {
                         Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.home_reorder_title))
@@ -495,8 +500,8 @@ internal fun CityListContent(
                 }
                 FloatingActionButton(
                     onClick = onAddClick,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor = actionContainerColor,
+                    contentColor = actionContentColor,
                     modifier = Modifier.testTag(TAG_ADD_FAB)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_add_city))

@@ -3,8 +3,8 @@ package com.meteocompare.app.ui.citylist
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -12,11 +12,14 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.ThemePreference
 import com.meteocompare.app.domain.model.ConfidenceScore
 import com.meteocompare.app.domain.model.DayConfidence
 import com.meteocompare.app.domain.model.PrecipitationConfidence
@@ -109,6 +112,41 @@ class CityListContentTest {
         compare.performClick()
         reorder.performClick()
         composeRule.runOnIdle { assertTrue(compared && reordered) }
+    }
+
+    @Test
+    fun home_floating_actions_share_add_city_color_in_light_theme() =
+        assertHomeFloatingActionColors(ThemePreference.LIGHT)
+
+    @Test
+    fun home_floating_actions_share_add_city_color_in_dark_theme() =
+        assertHomeFloatingActionColors(ThemePreference.DARK)
+
+    /** Capture l'intérieur du fond (hors icône et bord arrondi) de chaque FAB. */
+    private fun assertHomeFloatingActionColors(theme: ThemePreference) {
+        composeRule.setContent {
+            MeteoCompareTheme(themePreference = theme, dynamicColor = false) {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        CityCardState(TestFixtures.lyon, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {}
+                )
+            }
+        }
+
+        fun backgroundPixel(tag: String): Color {
+            val bitmap = composeRule.onNodeWithTag(tag).assertIsDisplayed().captureToImage()
+            // Au centre horizontal, à 1/8 de la hauteur, la couleur est celle du fond
+            // et non de l'icône ; fonctionne pour les petits et grands FAB.
+            return bitmap.toPixelMap()[bitmap.width / 2, bitmap.height / 8]
+        }
+
+        val addCityColor = backgroundPixel(TAG_ADD_FAB)
+        assertEquals(addCityColor, backgroundPixel("home_compare_localities"))
+        assertEquals(addCityColor, backgroundPixel("home_reorder_action"))
     }
 
     @Test

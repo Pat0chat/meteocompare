@@ -1,7 +1,5 @@
 package com.meteocompare.app.ui.localitycompare
 
-import com.meteocompare.app.ui.components.CityLocationDetails
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +35,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -202,8 +201,18 @@ internal fun LocalityCompareContent(
                                 (!checked && state.selectedIds.size < 3),
                             label = {
                                 Column {
-                                    Text(city.name, maxLines = 1)
-                                    CityLocationDetails(city)
+                                    Text(city.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    // Selection: only the country is needed to disambiguate a city.
+                                    if (city.country.isNotBlank()) {
+                                        Text(
+                                            text = city.country,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.testTag("compare_city_country_${city.id}")
+                                        )
+                                    }
                                 }
                             },
                             modifier = Modifier.testTag("compare_city_${city.id}")

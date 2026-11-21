@@ -16,6 +16,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -98,6 +100,81 @@ class LocalityCompareContentTest {
             compose.onAllNodesWithTag(tag, useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    @Test fun overviewCityHeader_showsOnlyNameWithoutLocationDetails() {
+        val detailedCity = cities[0].copy(
+            admin1 = "Île-de-France", departmentName = "Paris", admin3 = "Quartier du Palais-Royal",
+            postalCode = "75001"
+        )
+        compose.setContent {
+            MaterialTheme {
+                LocalityComparisonOverview(
+                    cities = listOf(detailedCity), days = emptyMap(), forecasts = emptyMap(),
+                    units = WeatherUnits(), locale = Locale.FRANCE,
+                    selectedMetric = CompareChartMetric.TEMPERATURE, onMetricSelected = {}
+                )
+            }
+        }
+        compose.onNodeWithTag("compare_overview_city_name_paris", useUnmergedTree = true)
+            .assertTextEquals("Paris")
+        listOf("France", "Île-de-France", "Quartier du Palais-Royal", "75001").forEach { detail ->
+            compose.onAllNodesWithText(detail, useUnmergedTree = true).assertCountEquals(0)
+        }
+    }
+
+    @Test fun citySelectionChips_showNameAndCountryOnlyAndKeepCityIds() {
+        val enriched = cities.mapIndexed { index, city ->
+            city.copy(admin1 = "Region-$index", departmentName = "Department-$index",
+                postalCode = "Postal-$index")
+        }
+        var toggledCity: String? = null
+        compose.setContent {
+            MaterialTheme {
+                LocalityCompareContent(
+                    state = LocalityCompareState(
+                        favorites = enriched, selectedIds = listOf("paris", "lyon")
+                    ),
+                    calculator = calculator,
+                    onBack = {}, onToggleCity = { toggledCity = it }, onRefresh = {},
+                    currentDate = LocalDate.of(2026, 10, 14)
+                )
+            }
+        }
+        compose.onNodeWithTag("compare_city_country_paris", useUnmergedTree = true)
+            .assertTextEquals("France")
+        compose.onNodeWithTag("compare_city_country_lyon", useUnmergedTree = true)
+            .assertTextEquals("France")
+        enriched.forEachIndexed { index, _ ->
+            listOf("Region-$index", "Department-$index", "Postal-$index").forEach { detail ->
+                compose.onAllNodesWithText(detail, useUnmergedTree = true).assertCountEquals(0)
+            }
+        }
+        compose.onNodeWithTag("compare_city_lille").performClick()
+        compose.runOnIdle { assertEquals("lille", toggledCity) }
+    }
+
+    @Test fun sameNamedCities_remainDistinctByCountryInSelectionChips() {
+        val franceParis = cities[0].copy(id = "paris_fr", country = "France", admin1 = "Île-de-France")
+        val usParis = cities[0].copy(id = "paris_us", country = "United States", admin1 = "Texas")
+        compose.setContent {
+            MaterialTheme {
+                LocalityCompareContent(
+                    state = LocalityCompareState(
+                        favorites = listOf(franceParis, usParis),
+                        selectedIds = listOf(franceParis.id, usParis.id)
+                    ),
+                    calculator = calculator, onBack = {}, onToggleCity = {}, onRefresh = {},
+                    currentDate = LocalDate.of(2026, 10, 14)
+                )
+            }
+        }
+        compose.onNodeWithTag("compare_city_country_paris_fr", useUnmergedTree = true)
+            .assertTextEquals("France")
+        compose.onNodeWithTag("compare_city_country_paris_us", useUnmergedTree = true)
+            .assertTextEquals("United States")
+        compose.onAllNodesWithText("Île-de-France", useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Texas", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test fun comparisonShowsDailySunshineHoursAndHourlyMinutes() {
