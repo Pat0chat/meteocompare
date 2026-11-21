@@ -288,7 +288,8 @@ private fun ChronoLabelsColumn(
                 title = stringResource(R.string.metric_precipitation),
                 support = "% · ${units.precipitationUnit}",
                 height = chronoRainRowHeight(mode, showDailyRanges),
-                tint = precipitationMetricAccent()
+                tint = precipitationMetricAccent(),
+                iconTag = "timeline_title_rain_icon"
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.Cloud,
@@ -330,7 +331,8 @@ private fun ChronoLabelsColumn(
                 title = stringResource(R.string.metric_wind),
                 support = units.windUnit,
                 height = chronoWindRowHeight(mode, showDailyRanges),
-                tint = windMetricAccent()
+                tint = windMetricAccent(),
+                iconTag = "timeline_title_wind_icon"
             )
             ChronoRowLabel(
                 icon = Icons.Outlined.CheckCircle,
@@ -377,7 +379,8 @@ private fun ChronoRowLabel(
     title: String,
     support: String,
     height: Dp,
-    tint: Color
+    tint: Color,
+    iconTag: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -406,6 +409,7 @@ private fun ChronoRowLabel(
                     contentDescription = null,
                     tint = tint,
                     modifier = Modifier.size(16.dp)
+                        .then(iconTag?.let { Modifier.testTag(it) } ?: Modifier)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
@@ -891,22 +895,16 @@ private fun ChronoRainLane(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Outlined.WaterDrop, contentDescription = null,
-                            tint = accent, modifier = Modifier.size(13.dp)
-                                .testTag("timeline_daily_rain_probability_icon"))
-                        Spacer(Modifier.width(3.dp))
-                        ChronoDailyReading(
-                            value = probability?.let { "$it%" } ?: "—", point = point,
-                            metric = DailyRangeMetric.RAIN_PROBABILITY, units = units,
-                            showDailyRanges = showDailyRanges && mode == DisplayMode.DAILY,
-                            tag = "timeline_daily_rain_probability_range",
-                            modifier = Modifier.weight(1f),
-                            alignStart = showDailyRanges && mode == DisplayMode.DAILY,
-                            valueTag = "timeline_daily_rain_probability_value"
-                        )
-                    }
+                    // The fixed title column already contains the rain icon.
+                    // Center the reading in both hourly and daily cells.
+                    ChronoDailyReading(
+                        value = probability?.let { "$it%" } ?: "—", point = point,
+                        metric = DailyRangeMetric.RAIN_PROBABILITY, units = units,
+                        showDailyRanges = showDailyRanges && mode == DisplayMode.DAILY,
+                        tag = "timeline_daily_rain_probability_range",
+                        modifier = Modifier.fillMaxWidth(),
+                        valueTag = "timeline_daily_rain_probability_value"
+                    )
                     Spacer(Modifier.height(if (showDailyRanges && mode == DisplayMode.DAILY) 2.dp else 3.dp))
                     ChronoDailyReading(
                         value = chronoRainAmountCompact(point), point = point,
@@ -915,11 +913,8 @@ private fun ChronoRainLane(
                         tag = "timeline_daily_rain_range",
                         valueTag = if (mode == DisplayMode.DAILY) "timeline_daily_rain_amount"
                             else "timeline_hourly_rain_amount",
-                        modifier = Modifier.fillMaxWidth().padding(
-                            start = if (showDailyRanges && mode == DisplayMode.DAILY) 16.dp else 0.dp
-                        ),
-                        valueStyle = MaterialTheme.typography.labelSmall,
-                        alignStart = showDailyRanges && mode == DisplayMode.DAILY
+                        modifier = Modifier.fillMaxWidth(),
+                        valueStyle = MaterialTheme.typography.labelSmall
                     )
                 }
             }
@@ -1057,37 +1052,32 @@ private fun ChronoWindLane(
             ChronoCell {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 7.dp),
                     verticalArrangement = Arrangement.Center) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Air, contentDescription = null, tint = accent,
-                            modifier = Modifier.size(14.dp).testTag("timeline_daily_wind_icon"))
-                        Spacer(Modifier.width(5.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            ChronoDailyReading(
-                                value = point.windKmh?.let {
-                                    val speed = stringResource(R.string.forecast_insight_metric_wind, it)
-                                    windCardinal(point.windDirectionDeg, locale)
-                                        ?.let { direction -> "$speed · $direction" } ?: speed
-                                } ?: "—", point = point,
-                                metric = DailyRangeMetric.WIND, units = units,
-                                showDailyRanges = showDailyRanges && mode == DisplayMode.DAILY,
-                                tag = "timeline_daily_wind_range",
-                                modifier = Modifier.fillMaxWidth(),
-                                alignStart = showDailyRanges && mode == DisplayMode.DAILY,
-                                valueTag = "timeline_daily_wind_value"
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            ChronoDailyReading(
-                                value = point.windGustKmh?.let { stringResource(R.string.timeline_wind_gust, it) } ?: "—",
-                                point = point,
-                                metric = DailyRangeMetric.WIND_GUST, units = units,
-                                showDailyRanges = showDailyRanges && mode == DisplayMode.DAILY,
-                                tag = "timeline_daily_gust_range",
-                                modifier = Modifier.fillMaxWidth(),
-                                valueStyle = MaterialTheme.typography.labelSmall,
-                                alignStart = showDailyRanges && mode == DisplayMode.DAILY
-                            )
-                        }
-                    }
+                    // The left-hand row title already identifies the wind;
+                    // removing its duplicate icon gives both readings full width.
+                    ChronoDailyReading(
+                        value = point.windKmh?.let {
+                            val speed = units.speed(it)
+                            windCardinal(point.windDirectionDeg, locale)
+                                ?.let { direction -> "$speed · $direction" } ?: speed
+                        } ?: "—", point = point,
+                        metric = DailyRangeMetric.WIND, units = units,
+                        showDailyRanges = showDailyRanges && mode == DisplayMode.DAILY,
+                        tag = "timeline_daily_wind_range",
+                        modifier = Modifier.fillMaxWidth(),
+                        valueTag = "timeline_daily_wind_value"
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    ChronoDailyReading(
+                        value = point.windGustKmh?.let {
+                            stringResource(R.string.timeline_wind_gust, it)
+                        } ?: "—",
+                        point = point,
+                        metric = DailyRangeMetric.WIND_GUST, units = units,
+                        showDailyRanges = showDailyRanges && mode == DisplayMode.DAILY,
+                        tag = "timeline_daily_gust_range",
+                        modifier = Modifier.fillMaxWidth(),
+                        valueStyle = MaterialTheme.typography.labelSmall
+                    )
                     Spacer(Modifier.height(5.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(3.dp)
                         .clip(RoundedCornerShape(50))

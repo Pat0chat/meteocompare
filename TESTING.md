@@ -380,3 +380,24 @@ Tests Compose : `DailyRangeLayoutComposeTest`, `UnitSystemDisplayTest`.
 
 Tests : `ChronoTimelineTemperatureTest`, `CityDetailTimelineNavigationTest`
 ainsi que `DailyRangeLayoutComposeTest` (switch, placement, rail d'icônes).
+
+
+### Raffinement de la chronologie et des actions Home (v1.23.0)
+
+- Le toggle « Afficher les plages » conserve son rôle `Switch`, mais la commande est
+  réduite et n'a plus de Surface/Card colorée. Vérifier la lisibilité et la zone
+  de clic (y compris TalkBack) sur un petit téléphone, avec fontScale 1.0/1.4.
+- Dans **Daily Columns**, les icônes partagent un rail étroit de 15 dp et les
+  valeurs sont regroupées avec leurs plages, en typographie secondaire discrète,
+  sans sacrifier les valeurs principales ; contrôler les longs libellés en
+  français/allemand et en unités personnalisées.
+- Dans **Chronology Timeline**, les icônes de pluie et de vent sont présentes
+  uniquement dans la première colonne de titres, et pas dans les cellules de
+  valeurs, en Daily **et** Hourly. Vérifier avec plages visibles/invisibles.
+- Sur **Home**, « Comparer les villes » apparaît dans la même rangée de FAB que
+  « Réorganiser » dès deux villes, et non plus dans l'AppBar. Les deux actions
+  doivent être absentes lorsqu'une seule ville est enregistrée. Vérifier la
+  navigation des deux boutons et le mode RTL.
+- Tests Compose concernés : `DailyRangeLayoutComposeTest` et
+  `CityListContentTest`. Lancer les tests complets Android :
+  `./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest :app:lintDebug`.

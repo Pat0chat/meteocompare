@@ -66,6 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -315,40 +316,43 @@ internal fun SimplifiedTimelineCard(
     }
 }
 
-/** A themed, accessible switch shared by Columns and Timeline. */
+/** Lightweight, card-free Material 3 toggle shared by Columns and Timeline. */
 @Composable
 private fun TimelineDailyRangesToggle(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    val scheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 1.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            shape = RoundedCornerShape(13.dp),
-            color = if (checked) scheme.primaryContainer.copy(alpha = 0.72f)
-                else scheme.surfaceContainerHigh.copy(alpha = 0.65f)
+        // Keep the accessible Switch role and a single click target on the
+        // complete label + thumb, but don't paint a background card.
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .testTag(TAG_TIMELINE_RANGES_TOGGLE)
+                .padding(start = 2.dp, end = 2.dp, top = 1.dp, bottom = 1.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                    .testTag(TAG_TIMELINE_RANGES_TOGGLE)
-                    .padding(start = 11.dp, end = 9.dp, top = 3.dp, bottom = 3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.timeline_show_ranges),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (checked) scheme.onPrimaryContainer else scheme.onSurfaceVariant
+            Text(
+                text = stringResource(R.string.timeline_show_ranges),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (checked) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // Visually ~36 x 23 dp. The parent Row owns the accessible hit area.
+            Box(Modifier.width(40.dp).height(30.dp), contentAlignment = Alignment.Center) {
+                Switch(
+                    checked = checked,
+                    onCheckedChange = null,
+                    modifier = Modifier.scale(0.72f)
                 )
-                // The parent is the only clickable/switch semantics target.
-                Switch(checked = checked, onCheckedChange = null)
             }
         }
     }
@@ -1250,12 +1254,16 @@ private fun TimelineMetric(
     }
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 19.dp)
-            .padding(horizontal = 8.dp).then(semanticModifier),
+            .padding(start = 7.dp, end = 5.dp).then(semanticModifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = tint,
-            modifier = Modifier.size(12.dp).then(iconTag?.let { Modifier.testTag(it) } ?: Modifier))
-        Spacer(Modifier.width(3.dp))
+        // Fixed narrow icon rail; labels (including wrapped spreads) start at
+        // one common baseline, rather than drifting across the column.
+        Box(Modifier.width(15.dp), contentAlignment = Alignment.CenterStart) {
+            Icon(icon, contentDescription = null, tint = tint,
+                modifier = Modifier.size(12.dp)
+                    .then(iconTag?.let { Modifier.testTag(it) } ?: Modifier))
+        }
         DailyRangeLabel(
             value = value,
             valueTag = valueTag,
@@ -1264,9 +1272,9 @@ private fun TimelineMetric(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.Start,
             valueStyle = MaterialTheme.typography.labelSmall,
-            valueColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            rangeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.80f),
-            valueWeight = FontWeight.Medium
+            valueColor = MaterialTheme.colorScheme.onSurface,
+            rangeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            valueWeight = FontWeight.SemiBold
         )
     }
 }
@@ -1292,7 +1300,7 @@ private fun TimelineSupportingText(
     // figures have the same starting x position even without an icon.
     Box(
         modifier = modifier.fillMaxWidth().heightIn(min = 18.dp)
-            .padding(start = 23.dp, end = 8.dp),
+            .padding(start = 22.dp, end = 5.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         DailyRangeLabel(

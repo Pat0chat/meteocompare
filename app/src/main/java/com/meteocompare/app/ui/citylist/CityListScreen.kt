@@ -453,17 +453,6 @@ internal fun CityListContent(
                         )
                         Spacer(Modifier.width(12.dp))
                     }
-                    if (uiState.items.size >= 2) {
-                        IconButton(
-                            onClick = onCompareClick,
-                            modifier = Modifier.testTag("home_compare_localities")
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.CompareArrows,
-                                contentDescription = stringResource(R.string.compare_localities_title)
-                            )
-                        }
-                    }
                     DonationHeartButton(onClick = onDonateClick)
                     IconButton(
                         onClick = onHelpClick,
@@ -486,6 +475,15 @@ internal fun CityListContent(
         floatingActionButton = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (uiState.items.size >= 2) {
+                    SmallFloatingActionButton(
+                        onClick = onCompareClick,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.testTag("home_compare_localities")
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.CompareArrows,
+                            contentDescription = stringResource(R.string.compare_localities_title))
+                    }
                     SmallFloatingActionButton(
                         onClick = onReorderClick,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,

@@ -201,28 +201,93 @@ class DailyRangeLayoutComposeTest {
             "columns_daily_rain_probability_value") in 0f..(6f * density))
     }
 
-    @Test fun chrono_icon_values_stay_together_with_ranges_enabled() {
+    @Test fun compact_toggle_is_card_free_and_keeps_accessible_hit_target() {
+        val enabled = mutableStateOf(false)
         rule.setContent {
             MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(dailyPoint()),
+                    mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                    showDailyRanges = enabled.value,
+                    onShowDailyRangesChange = { enabled.value = it }
+                )
+            }
+        }
+        val toggle = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
+        toggle.assertIsDisplayed().assertIsOff().assertHasClickAction()
+        // Height of a small unframed label+switch, not a large filled card.
+        val height = toggle.fetchSemanticsNode().boundsInRoot.height
+        assertTrue("Ranges toggle is too tall: $height", height <= 40f * rule.density.density)
+        toggle.performClick()
+        toggle.assertIsOn()
+        rule.runOnIdle { assertTrue(enabled.value) }
+    }
+
+    @Test fun chrono_rain_and_wind_use_title_icons_only_in_daily_and_hourly() {
+        val mode = mutableStateOf(DisplayMode.DAILY)
+        val ranges = mutableStateOf(false)
+        rule.setContent {
+            MeteoCompareTheme {
+                val point = if (mode.value == DisplayMode.DAILY) dailyPoint().copy(
+                    windKmh = 28.0, windMinAcrossModels = 12.0,
+                    windMaxAcrossModels = 45.0, windModelCount = 3
+                ) else SimplifiedTimelinePoint(
+                    instant = now, precipitationPercent = 65, windKmh = 28.0
+                )
                 ChronoTimelineView(
-                    points = listOf(dailyPoint().copy(windKmh = 28.0,
-                        windMinAcrossModels = 12.0, windMaxAcrossModels = 45.0,
-                        windModelCount = 3)),
+                    points = listOf(point), mode = mode.value,
+                    timezone = "UTC", now = now, showDailyRanges = ranges.value
+                )
+            }
+        }
+        for (displayMode in listOf(DisplayMode.DAILY, DisplayMode.HOURLY)) {
+            for (show in listOf(false, true)) {
+                rule.runOnIdle { mode.value = displayMode; ranges.value = show }
+                rule.waitForIdle()
+                // The fixed title rail keeps its icons; cells don't repeat them.
+                rule.onNodeWithTag("timeline_title_rain_icon", useUnmergedTree = true)
+                    .assertExists()
+                rule.onNodeWithTag("timeline_title_wind_icon", useUnmergedTree = true)
+                    .assertExists()
+                rule.onNodeWithTag("timeline_daily_rain_probability_icon", useUnmergedTree = true)
+                    .assertDoesNotExist()
+                rule.onNodeWithTag("timeline_daily_wind_icon", useUnmergedTree = true)
+                    .assertDoesNotExist()
+                rule.onNodeWithTag("timeline_daily_rain_probability_value", useUnmergedTree = true)
+                    .assertExists()
+                rule.onNodeWithTag("timeline_daily_wind_value", useUnmergedTree = true)
+                    .assertExists()
+            }
+        }
+    }
+
+    @Test fun column_daily_range_preserves_main_values_and_left_icon_rail() {
+        rule.setContent {
+            MeteoCompareTheme {
+                SimplifiedTimelineCard(
+                    points = listOf(dailyPoint()),
                     mode = DisplayMode.DAILY, timezone = "UTC", now = now,
                     showDailyRanges = true
                 )
             }
         }
-        val density = rule.density.density
-        for ((icon, value) in listOf(
-            "timeline_daily_rain_probability_icon" to "timeline_daily_rain_probability_value",
-            "timeline_daily_wind_icon" to "timeline_daily_wind_value"
+        for ((icon, value, range) in listOf(
+            Triple("columns_daily_rain_probability_icon",
+                "columns_daily_rain_probability_value", "columns_daily_rain_probability_range"),
+            Triple("columns_daily_cloud_icon",
+                "columns_daily_cloud_value", "columns_daily_cloud_range")
         )) {
-            val right = rule.onNodeWithTag(icon, useUnmergedTree = true)
-                .fetchSemanticsNode().boundsInRoot.right
-            val left = rule.onNodeWithTag(value, useUnmergedTree = true)
-                .fetchSemanticsNode().boundsInRoot.left
-            assertTrue("Icon and reading drifted apart: $icon", left - right in 0f..(7f * density))
+            // Even if a metric has no multi-model samples, its value stays put.
+            val iconBounds = rule.onNodeWithTag(icon, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            val valueBounds = rule.onNodeWithTag(value, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            assertTrue(valueBounds.left >= iconBounds.right)
+            assertTrue(valueBounds.left - iconBounds.right <= 5f * rule.density.density)
+            if (range == "columns_daily_rain_probability_range") {
+                rule.onNodeWithTag(range, useUnmergedTree = true).assertExists()
+            }
         }
     }
+
 }

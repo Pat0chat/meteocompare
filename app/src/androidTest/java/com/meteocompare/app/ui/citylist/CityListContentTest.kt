@@ -3,6 +3,7 @@ package com.meteocompare.app.ui.citylist
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -79,6 +80,52 @@ class CityListContentTest {
         }
         composeRule.onNodeWithTag("home_compare_localities").assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertTrue(opened) }
+    }
+
+    @Test
+    fun compare_is_adjacent_to_reorder_in_bottom_action_row() {
+        var compared = false
+        var reordered = false
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading),
+                        CityCardState(TestFixtures.lyon, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {},
+                    onCompareClick = { compared = true }, onReorderClick = { reordered = true }
+                )
+            }
+        }
+        val compare = composeRule.onNodeWithTag("home_compare_localities")
+        val reorder = composeRule.onNodeWithTag("home_reorder_action")
+        val compareBounds = compare.fetchSemanticsNode().boundsInRoot
+        val reorderBounds = reorder.fetchSemanticsNode().boundsInRoot
+        val density = composeRule.density.density
+        assertTrue(kotlin.math.abs(compareBounds.center.y - reorderBounds.center.y) < 2f * density)
+        assertTrue(reorderBounds.left - compareBounds.right in 0f..(12f * density))
+        compare.performClick()
+        reorder.performClick()
+        composeRule.runOnIdle { assertTrue(compared && reordered) }
+    }
+
+    @Test
+    fun compare_and_reorder_are_hidden_for_only_one_city() {
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(items = listOf(
+                        CityCardState(TestFixtures.paris, ForecastState.Loading)
+                    )),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {}, onRefresh = {}
+                )
+            }
+        }
+        composeRule.onNodeWithTag("home_compare_localities").assertDoesNotExist()
+        composeRule.onNodeWithTag("home_reorder_action").assertDoesNotExist()
     }
 
     @Test
