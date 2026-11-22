@@ -38,7 +38,8 @@ internal fun forecastVisibleMetrics(
 internal data class ForecastMetricLayout(
     val visible: List<WidgetForecastMetric>,
     val textSp: Float,
-    val iconSp: Float
+    val iconSp: Float,
+    val columns: Int = 1
 )
 
 private fun forecastCardFixedContentHeightDp(profile: ForecastCardHeightProfile): Float = when (profile) {
@@ -79,6 +80,55 @@ internal fun forecastMetricLayout(
         visible = selected,
         textSp = valueSp,
         iconSp = (valueSp + 1.1f).coerceAtMost(maximumSp + 1.1f)
+    )
+}
+
+/**
+ * Forecast cards in 4x2 and 5x2 grids frequently have only ~65-80dp of
+ * vertical room. The old four-line budget dropped SUNSHINE or CONVERGENCE,
+ * even when both values were provided. Pair the compact secondary values in
+ * two short, balanced rows *only if the real per-card width accommodates it*.
+ *
+ * This width-aware adapter deliberately leaves [forecastMetricLayout] intact
+ * for all existing single-column and regression-corpus contracts.
+ */
+internal fun forecastAdaptiveMetricLayout(
+    availableCardHeightDp: Float,
+    availableCardWidthDp: Float,
+    profile: ForecastCardHeightProfile,
+    metrics: List<WidgetForecastMetric>,
+    textScale: Float = 1f
+): ForecastMetricLayout {
+    val base = forecastMetricLayout(availableCardHeightDp, profile, metrics, textScale)
+    if (base.visible.size == metrics.size) return base
+    val scale = textScale.coerceIn(0.85f, 1.4f)
+    // Account for card padding (4-7dp per side) and glyph+value lengths.
+    val canPair = metrics.size >= 3 &&
+        availableCardWidthDp >= 70f * scale &&
+        availableCardHeightDp >= (36f + 18f) * scale
+    if (!canPair) {
+        // In one-column cards the last space is better spent on the two
+        // high-value signals than on a redundant cloud-cover percentage.
+        if (base.visible.size < metrics.size && base.visible.size >= 2) {
+            val priority = listOf(WidgetForecastMetric.RAIN,
+                WidgetForecastMetric.CONVERGENCE, WidgetForecastMetric.SUNSHINE,
+                WidgetForecastMetric.CLOUD)
+            val kept = priority.filter { it in metrics }.take(base.visible.size).toSet()
+            return base.copy(visible = metrics.filter { it in kept })
+        }
+        return base
+    }
+    // Two pairs need less vertical space than four individual lines. Scale
+    // with Android's real text percentage; do not squeeze 140%-size text into
+    // columns where it cannot fit.
+    val rows = (metrics.size + 1) / 2
+    val spaceNeeded = (36f + rows * 9f) * scale
+    if (availableCardHeightDp < spaceNeeded) return base
+    return base.copy(
+        visible = metrics,
+        columns = 2,
+        textSp = minOf(base.textSp, 8f),
+        iconSp = minOf(base.iconSp, 8.7f)
     )
 }
 
@@ -157,6 +207,31 @@ internal fun forecastTimelineGlyphSizeDp(
 /** Un petit widget peut rester sur deux niveaux si le bandeau supérieur est simplifié. */
 internal fun compactForecastHeader(widgetHeightDp: Float): Boolean = widgetHeightDp < 152f
 
+/**
+ * Keep a minimal two-line current-weather header even for the 120dp fallback.
+ * One line for city and another for min/max plus a compact confidence pill
+ * replaces the old icon + temperature only layout.
+ */
+internal const val COMPACT_FORECAST_HEADER_HEIGHT_DP = 36f
+internal const val COMPACT_TALL_FORECAST_HEADER_HEIGHT_DP = 40f
+
+/**
+ * A wide-ish widget should not lose wind/rain/cloud just because its responsive
+ * width preset is 305dp rather than the former 380dp. Put that context on a
+ * separate full-width line only when the selected height can afford it.
+ */
+internal fun shouldShowForecastContextLine(
+    widthDp: Float,
+    heightDp: Float,
+    showCurrentConditions: Boolean,
+    hasExtras: Boolean,
+    extrasAlreadyInline: Boolean
+): Boolean = showCurrentConditions && hasExtras && !extrasAlreadyInline &&
+    widthDp >= 285f && heightDp >= 190f
+
+internal const val FORECAST_CONTEXT_LINE_HEIGHT_DP = 16f
+
+
 
 /** 36 dp de contenu fixe + quatre lignes de 7 dp, au minimum. */
 internal const val MIN_FOUR_METRIC_CARD_HEIGHT_DP = 64f
@@ -194,7 +269,9 @@ internal fun compactTallHeaderLayout(
     val compact = showCurrentConditions && (
         compactForecastHeader(effective) || fullHeight < MIN_FOUR_METRIC_CARD_HEIGHT_DP
     )
-    val headerBudget = if (!showCurrentConditions) 0f else if (compact) 27f else fullHeaderBudget
+    val headerBudget = if (!showCurrentConditions) 0f else if (compact) {
+        COMPACT_TALL_FORECAST_HEADER_HEIGHT_DP
+    } else fullHeaderBudget
     val gap = if (!showCurrentConditions) 0f else if (compact) 2f else fullSectionGap
     val availableWithPanel = forecastBottomStripAvailableHeightDp(
         widgetHeightDp,

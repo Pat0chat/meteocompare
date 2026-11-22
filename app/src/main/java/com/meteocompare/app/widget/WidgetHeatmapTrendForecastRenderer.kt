@@ -62,7 +62,8 @@ internal object WidgetHeatmapTrendForecastRenderer {
         val precipBottom = precipTop + precipBandHeight
         val axisY = precipBottom + axisGap
         val slotInset = (columnWidth * 0.03f).coerceAtLeast(0.6f)
-        val anchors = WidgetHeatmapForecastRenderer.anchorIndices(profile)
+        val anchors = widgetHeatmapLabelIndices(widthPx)
+        val anchorSlotWidthPx = usableWidth / (12f / anchors.size)
 
         val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -156,12 +157,9 @@ internal object WidgetHeatmapTrendForecastRenderer {
                     isNight = nightFlags.getOrNull(index) == true
                 )
                 valuePaint.color = withAlpha(textColorArgb, 0xEC)
-                canvas.drawText(
-                    temp?.let { units.temp(it) } ?: "—",
-                    centerX,
-                    temperatureLabelBaseline,
-                    valuePaint
-                )
+                WidgetHeatmapForecastRenderer.drawFittedLabel(canvas,
+                    temp?.let { units.temp(it) } ?: "—", centerX,
+                    temperatureLabelBaseline, valuePaint, widthPx, anchorSlotWidthPx)
             }
 
             val precipProb = precipProbabilities.getOrNull(index)?.coerceIn(0, 100)
@@ -187,25 +185,19 @@ internal object WidgetHeatmapTrendForecastRenderer {
             panelPaint.shader = null
             if (index in anchors) {
                 valuePaint.color = withAlpha(textColorArgb, 0xDF)
-                canvas.drawText(
-                    precipProb?.let { "$it%" } ?: "—",
-                    centerX,
-                    precipTop + precipBandHeight * 0.62f,
-                    valuePaint
-                )
+                WidgetHeatmapForecastRenderer.drawFittedLabel(canvas,
+                    precipProb?.let { "$it%" } ?: "—", centerX,
+                    precipTop + precipBandHeight * 0.62f, valuePaint,
+                    widthPx, anchorSlotWidthPx)
                 labelPaint.color = if (isCurrent) {
                     withAlpha(textColorArgb, 0xFF)
                 } else {
                     withAlpha(textColorArgb, 0xD0)
                 }
                 val hourLabel = timelineLabels.getOrNull(index) ?: "+${index}h"
-                val naturalSize = labelPaint.textSize
-                val textWidth = labelPaint.measureText(hourLabel)
-                if (textWidth > columnWidth * 0.90f && textWidth > 0f) {
-                    labelPaint.textSize = (naturalSize * columnWidth * 0.90f / textWidth).coerceAtLeast(6f)
-                }
-                canvas.drawText(hourLabel, centerX, axisY + labelAreaHeight * 0.55f, labelPaint)
-                labelPaint.textSize = naturalSize
+                WidgetHeatmapForecastRenderer.drawFittedLabel(canvas,
+                    hourLabel, centerX, axisY + labelAreaHeight * 0.55f,
+                    labelPaint, widthPx, anchorSlotWidthPx)
             }
         }
 

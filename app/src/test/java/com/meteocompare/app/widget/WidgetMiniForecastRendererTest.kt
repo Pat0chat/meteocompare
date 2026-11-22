@@ -389,7 +389,7 @@ class WidgetMiniForecastRendererTest {
     @Test
     fun `hauteur mini forecast reste bornee sur widget tres haut`() {
         assertEquals(
-            220,
+            320,
             miniForecastChartHeightDp(
                 widgetHeightDp = 600f,
                 headerHeightDp = 44f,

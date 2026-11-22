@@ -14,7 +14,8 @@ class WidgetHeatmapTrendForecastRendererTest {
     }
 
     @Test
-    fun `shared heatmap helpers keep 12 anchors on expanded profile`() {
-        assertEquals(12, WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.EXPANDED_4X2).size)
+    fun `trend heatmap shares width-based text thinning with heatmap`() {
+        assertEquals(listOf(0, 6), widgetHeatmapLabelIndices(190))
+        assertEquals((0..11).toList(), widgetHeatmapLabelIndices(900))
     }
 }

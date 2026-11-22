@@ -109,7 +109,8 @@ internal object WidgetHeatmapForecastRenderer {
         val minTemp = tempValues.minOrNull() ?: 0.0
         val maxTemp = tempValues.maxOrNull() ?: 1.0
         val padded = paddedTemperatureRange(minTemp, maxTemp)
-        val anchorIndices = anchorIndices(profile)
+        val anchorIndices = widgetHeatmapLabelIndices(widthPx)
+        val anchorSlotWidthPx = usableWidth / (12f / anchorIndices.size)
         val slotInset = (columnWidth * 0.018f).coerceAtLeast(0.4f)
         val plotPoints = mutableListOf<Pair<Float, Float>>()
         val curveTopRatio = temperatureCurveTopRatio(profile)
@@ -170,12 +171,8 @@ internal object WidgetHeatmapForecastRenderer {
                 )
                 valuePaint.color = contentColor
                 val tempLabel = temp?.let { units.temp(it) } ?: "—"
-                canvas.drawText(
-                    tempLabel,
-                    centerX,
-                    temperatureLabelBaseline,
-                    valuePaint
-                )
+                drawFittedLabel(canvas, tempLabel, centerX, temperatureLabelBaseline,
+                    valuePaint, widthPx, anchorSlotWidthPx)
             }
 
             // Bande pluie
@@ -195,20 +192,16 @@ internal object WidgetHeatmapForecastRenderer {
                 valuePaint.color = withAlpha(textColorArgb, 0xE0)
                 val probText = precipProb?.let { "$it%" } ?: "—"
                 val baseline = precipTop + precipBandHeight * 0.62f
-                canvas.drawText(probText, centerX, baseline, valuePaint)
+                drawFittedLabel(canvas, probText, centerX, baseline,
+                    valuePaint, widthPx, anchorSlotWidthPx)
             }
 
             // Repères horaires allégés
             if (index in anchorIndices) {
                 labelPaint.color = if (isCurrent) withAlpha(textColorArgb, 0xFF) else withAlpha(textColorArgb, 0xD0)
                 val hourLabel = timelineLabels.getOrNull(index) ?: "+${index}h"
-                val naturalSize = labelPaint.textSize
-                val textWidth = labelPaint.measureText(hourLabel)
-                if (textWidth > columnWidth * 0.90f && textWidth > 0f) {
-                    labelPaint.textSize = (naturalSize * columnWidth * 0.90f / textWidth).coerceAtLeast(6f)
-                }
-                canvas.drawText(hourLabel, centerX, axisY + labelAreaHeight * 0.55f, labelPaint)
-                labelPaint.textSize = naturalSize
+                drawFittedLabel(canvas, hourLabel, centerX,
+                    axisY + labelAreaHeight * 0.55f, labelPaint, widthPx, anchorSlotWidthPx)
             }
         }
 
@@ -230,10 +223,19 @@ internal object WidgetHeatmapForecastRenderer {
         return bitmap
     }
 
-    internal fun anchorIndices(profile: MiniForecastSizeProfile): List<Int> = when (profile) {
-        MiniForecastSizeProfile.COMPACT_2X2 -> listOf(0, 3, 6, 9, 11)
-        MiniForecastSizeProfile.MEDIUM_3X2 -> listOf(0, 2, 4, 6, 8, 10, 11)
-        MiniForecastSizeProfile.EXPANDED_4X2 -> (0 until CELL_COUNT).toList()
+    // A label must fit between its neighbours and inside the bitmap edge.
+    internal fun drawFittedLabel(
+        canvas: Canvas, text: String, centerX: Float, baseline: Float,
+        paint: Paint, bitmapWidthPx: Int, slotWidthPx: Float
+    ) {
+        val natural = paint.textSize
+        val available = widgetLabelMaxWidthPx(bitmapWidthPx, centerX, slotWidthPx)
+        val fitted = widgetFittedTextSizePx(natural, paint.measureText(text), available)
+        if (fitted >= 6f) {
+            paint.textSize = fitted
+            canvas.drawText(text, centerX, baseline, paint)
+        }
+        paint.textSize = natural
     }
 
     internal fun paddedTemperatureRange(minTemp: Double, maxTemp: Double): Pair<Double, Double> {

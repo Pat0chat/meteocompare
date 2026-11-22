@@ -18,19 +18,14 @@ class WidgetHeatmapForecastRendererTest {
 
 
     @Test
-    fun `anchor indices stay readable on compact profiles`() {
-        assertEquals(
-            listOf(0, 3, 6, 9, 11),
-            WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.COMPACT_2X2)
-        )
-        assertEquals(
-            listOf(0, 2, 4, 6, 8, 10, 11),
-            WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.MEDIUM_3X2)
-        )
-        assertEquals(
-            (0..11).toList(),
-            WidgetHeatmapForecastRenderer.anchorIndices(MiniForecastSizeProfile.EXPANDED_4X2)
-        )
+    fun `rendered labels follow bitmap width instead of an obsolete fixed profile`() {
+        // Both heatmap renderers use widgetHeatmapLabelIndices(widthPx).
+        // Test the selection that production actually calls, not an unused
+        // legacy profile-to-indices mapping.
+        assertEquals(listOf(0, 6), widgetHeatmapLabelIndices(190))
+        assertEquals(listOf(0, 3, 6, 9), widgetHeatmapLabelIndices(300))
+        assertEquals(listOf(0, 2, 4, 6, 8, 10), widgetHeatmapLabelIndices(560))
+        assertEquals((0..11).toList(), widgetHeatmapLabelIndices(900))
     }
 
     @Test
