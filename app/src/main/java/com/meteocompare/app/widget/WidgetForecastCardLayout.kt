@@ -503,17 +503,3 @@ internal fun forecastBottomStripAvailableHeightDp(
             hostRoundingSafety
         ).coerceAtLeast(1f)
 }
-
-internal fun forecastBottomCardHeightProfile(
-    widgetHeightDp: Float,
-    headerHeightDp: Float,
-    sectionGapDp: Float,
-    rootVerticalPaddingDp: Float = forecastContainerVerticalPaddingDp(widgetHeightDp)
-): ForecastCardHeightProfile = forecastCardHeightProfile(
-    forecastBottomStripAvailableHeightDp(
-        widgetHeightDp = widgetHeightDp,
-        headerHeightDp = headerHeightDp,
-        sectionGapDp = sectionGapDp,
-        rootVerticalPaddingDp = rootVerticalPaddingDp
-    )
-)

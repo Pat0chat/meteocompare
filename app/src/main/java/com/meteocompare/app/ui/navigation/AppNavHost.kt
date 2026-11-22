@@ -81,13 +81,6 @@ internal fun tabletListPaneWidth(availableWidth: Dp): Dp =
         maximumValue = TABLET_LIST_PANE_MAX_WIDTH
     )
 
-internal fun resolveSelectedCityId(
-    currentCityId: String?,
-    availableCityIds: List<String>
-): String? = currentCityId
-    ?.takeIf { it in availableCityIds }
-    ?: availableCityIds.lastOrNull()
-
 /**
  * Navigation adaptative : parcours plein écran sur téléphone, maître-détail sur
  * les fenêtres expanded (tablette, grand pliable ou fenêtre redimensionnée).

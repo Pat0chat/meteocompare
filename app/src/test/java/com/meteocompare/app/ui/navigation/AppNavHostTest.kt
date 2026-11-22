@@ -38,21 +38,6 @@ class AppNavHostTest {
     }
 
     @Test
-    fun tablet_keeps_a_selection_that_is_still_available() {
-        val cityIds = listOf("paris", "lyon")
-
-        assertEquals("lyon", resolveSelectedCityId("lyon", cityIds))
-    }
-
-    @Test
-    fun tablet_selects_the_last_city_initially_or_after_removal() {
-        val cityIds = listOf("paris", "lyon")
-
-        assertEquals("lyon", resolveSelectedCityId("removed", cityIds))
-        assertEquals("lyon", resolveSelectedCityId(null, cityIds))
-    }
-
-    @Test
     fun tablet_direct_home_actions_resolve_graphic_and_radar_routes() {
         assertEquals(Destinations.graphicView("paris"), directDetailRoute(Destinations.GRAPHIC_VIEW, "paris"))
         assertEquals(Destinations.radar("paris"), directDetailRoute(Destinations.RADAR, "paris"))
@@ -90,8 +75,5 @@ class AppNavHostTest {
         )
     }
 
-    @Test
-    fun tablet_clears_the_selection_when_no_city_remains() {
-        assertNull(resolveSelectedCityId("paris", emptyList()))
-    }
+
 }

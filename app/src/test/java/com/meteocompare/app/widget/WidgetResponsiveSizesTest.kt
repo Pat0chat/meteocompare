@@ -6,7 +6,9 @@ import org.junit.Test
 
 class WidgetResponsiveSizesTest {
     @Test fun `the lightweight insight widget retains a small bounded responsive catalog`() {
-        assertTrue(widgetSizeModePresetsAreValid(insightWidgetResponsivePresets))
+        assertTrue(insightWidgetResponsivePresets.isNotEmpty())
+        assertEquals(insightWidgetResponsivePresets.size, insightWidgetResponsivePresets.distinct().size)
+        assertTrue(insightWidgetResponsivePresets.all { it.widthDp > 0 && it.heightDp > 0 })
         assertEquals(6, insightWidgetResponsivePresets.size)
     }
 

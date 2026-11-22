@@ -1,0 +1,1 @@
+Optionale Modell-Spannweiten in der Tagesansicht (Spalten und Zeitleiste), kompaktere Anzeige und Konvergenzerklärung per Tippen. Frei wählbare Einheiten je Messgröße, einschließlich Knoten für Wind. Widgets an Launcher-Raster angepasst, Heatmaps und 12-Stunden-Vorhersagen lesbarer. Startseite und Städtevergleich vereinfacht. Stabilitätskorrekturen und erweiterte Tests.

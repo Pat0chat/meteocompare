@@ -13,7 +13,6 @@ import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.model.WeatherCondition
 import java.time.Instant
 import java.time.LocalDate
-import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -379,33 +378,6 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
-    fun `daily attache la confiance globale a la date exacte`() {
-        val dates = listOf(
-            LocalDate.of(2026, 7, 17),
-            LocalDate.of(2026, 7, 18)
-        )
-        val items = buildDailyForecasts(
-            daily = DailyForecast(
-                dates = dates,
-                tempMax = listOf(24.0, 25.0),
-                tempMin = listOf(15.0, 16.0),
-                precipitationSum = listOf(0.0, 1.0),
-                windSpeedMax = listOf(10.0, 12.0),
-                precipitationProbabilityMax = listOf(10, 40)
-            ),
-            hourly = emptyHourly(),
-            zone = java.time.ZoneId.of("Europe/Paris"),
-            now = Instant.parse("2026-07-17T08:00:00Z"),
-            forecastConfidenceByDate = mapOf(
-                dates[0] to 82,
-                dates[1] to 64
-            )
-        )
-
-        assertEquals(listOf(82, 64), items.map { it.forecastConfidencePct })
-    }
-
-    @Test
     fun `daily confiance globale exige au moins deux composantes`() {
         val date = LocalDate.of(2026, 7, 17)
         val byDate = dailyForecastConfidenceByDate(
@@ -422,25 +394,6 @@ class WidgetForecastSelectionTest {
         )
 
         assertTrue(byDate.isEmpty())
-    }
-
-    @Test
-    fun `daily calcule la couverture nuageuse sur les heures diurnes`() {
-        val date = LocalDate.of(2026, 7, 17)
-        val zone = java.time.ZoneId.of("Europe/Paris")
-        val timestamps = (0L until 24L).map { hour ->
-            date.atTime(hour.toInt(), 0).atZone(zone).toInstant()
-        }
-        val cloud = (0 until 24).map { hour -> if (hour in 7..19) 60 else 10 }
-        val hourly = HourlyForecast(
-            timestamps = timestamps,
-            temperature2m = List(24) { 20.0 },
-            precipitation = List(24) { 0.0 },
-            windSpeed10m = List(24) { 8.0 },
-            cloudCover = cloud
-        )
-
-        assertEquals(60, dailyCloudCoverPct(hourly, date, zone))
     }
 
     @Test
@@ -472,21 +425,7 @@ class WidgetForecastSelectionTest {
     }
 
     @Test
-    fun `hourly ne recycle pas les premieres heures d un cache entierement passe`() {
-        val now = Instant.parse("2026-07-17T10:15:00Z")
-        val hourly = HourlyForecast(
-            timestamps = (5L downTo 1L).map { now.minusSeconds(it * 3600) },
-            temperature2m = List(5) { 15.0 },
-            precipitation = List(5) { 0.0 },
-            windSpeed10m = List(5) { 8.0 },
-            weatherCode = List(5) { 1 }
-        )
-
-        assertTrue(buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), now).isEmpty())
-    }
-
-    @Test
-    fun `both widget hourly paths read probability and inferred rain from H plus one`() {
+    fun `widget hourly consensus reads probability and inferred rain from H plus one`() {
         val h = Instant.parse("2026-07-17T12:00:00Z")
         val hourly = HourlyForecast(
             timestamps = listOf(h, h.plusSeconds(3600)),
@@ -496,86 +435,13 @@ class WidgetForecastSelectionTest {
             windSpeed10m = listOf(10.0, 10.0),
             cloudCover = listOf(10, 10)
         )
-        val legacy = buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), h).first()
         val unified = buildForecasts(
             CityForecast(city.copy(timezone = "UTC"), mapOf(
                 WeatherModel.GFS to ForecastSeries(WeatherModel.GFS, hourly, emptyDaily())
             )), ForecastMode.HOURLY, "UTC", h
         ).first()
-        assertEquals(90, legacy.precipProbabilityPct)
         assertEquals(90, unified.precipProbabilityPct)
-        assertEquals(WeatherCondition.RAIN_SHOWERS, legacy.condition)
         assertEquals(WeatherCondition.RAIN_SHOWERS, unified.condition)
-    }
-
-    @Test
-    fun `english widget hourly labels use uppercase am pm`() {
-        val now = Instant.parse("2026-07-17T00:00:00Z")
-        val hourly = HourlyForecast(
-            timestamps = listOf(now, now.plusSeconds(12 * 3600L), now.plusSeconds(23 * 3600L)),
-            temperature2m = listOf(10.0, 21.0, 13.0),
-            precipitation = List(3) { 0.0 },
-            windSpeed10m = List(3) { 8.0 }
-        )
-        val labels = buildHourlyForecasts(
-            hourly = hourly,
-            zone = java.time.ZoneId.of("UTC"),
-            now = now,
-            locale = Locale.UK
-        ).map { it.label }
-
-        assertEquals(listOf("12 AM", "12 PM", "11 PM"), labels)
-        assertEquals(
-            listOf("0h", "12h", "23h"),
-            buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), now, locale = Locale.FRANCE)
-                .map { it.label }
-        )
-    }
-
-    @Test
-    fun `hourly widget labels honor explicit clock format in all locales`() {
-        val now = Instant.parse("2026-07-17T00:00:00Z")
-        val hourly = HourlyForecast(
-            timestamps = listOf(now, now.plusSeconds(15 * 3600L)),
-            temperature2m = listOf(10.0, 21.0),
-            precipitation = listOf(0.0, 0.0),
-            windSpeed10m = listOf(8.0, 8.0)
-        )
-        assertEquals(
-            listOf("12 AM", "3 PM"),
-            buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), now,
-                locale = Locale.FRANCE,
-                clockPreference = com.meteocompare.app.domain.model.ClockFormatPreference.HOUR_12
-            ).map { it.label }
-        )
-        assertEquals(
-            listOf("0h", "15h"),
-            buildHourlyForecasts(hourly, java.time.ZoneId.of("UTC"), now,
-                locale = Locale.UK,
-                clockPreference = com.meteocompare.app.domain.model.ClockFormatPreference.HOUR_24
-            ).map { it.label }
-        )
-    }
-
-    @Test
-    fun `daily filtre les jours passes d un cache stale sans decaler les valeurs`() {
-        val zone = java.time.ZoneId.of("Europe/Paris")
-        val dates = (0L until 5L).map { LocalDate.of(2026, 7, 15).plusDays(it) }
-        val items = buildDailyForecasts(
-            daily = DailyForecast(
-                dates = dates,
-                tempMax = listOf(15.0, 16.0, 17.0, 18.0, 19.0),
-                tempMin = List(5) { 10.0 },
-                precipitationSum = listOf(1.0, 2.0, 3.0, 4.0, 5.0),
-                windSpeedMax = List(5) { 10.0 },
-                weatherCode = listOf(1, 2, 3, 61, 63)
-            ),
-            hourly = emptyHourly(),
-            zone = zone,
-            now = LocalDate.of(2026, 7, 17).atStartOfDay(zone).toInstant()
-        )
-
-        assertEquals(listOf(17.0, 18.0, 19.0), items.map { it.temp })
     }
 
     @Test

@@ -15,7 +15,6 @@ import com.meteocompare.app.R
 import com.meteocompare.app.core.locale.applyPersistedLocale
 import com.meteocompare.app.core.network.ApiResult
 import com.meteocompare.app.core.util.localDateIn
-import com.meteocompare.app.domain.util.HourlySampling
 import com.meteocompare.app.domain.util.forecastHourlyWindDirection
 import com.meteocompare.app.core.util.windCardinal
 import com.meteocompare.app.core.util.resolveZoneOrUtc
@@ -26,7 +25,6 @@ import com.meteocompare.app.domain.model.ForecastEngineContext
 import com.meteocompare.app.domain.model.HourlyConfidenceBand
 import com.meteocompare.app.domain.model.WeatherCondition
 import com.meteocompare.app.domain.util.ConditionDecision
-import com.meteocompare.app.domain.util.ConditionDecisionEngine
 import com.meteocompare.app.domain.usecase.ConfidenceCalculator
 import com.meteocompare.app.domain.usecase.ForecastConsensus
 import com.meteocompare.app.domain.util.ForecastAggregates
@@ -667,80 +665,6 @@ internal fun buildForecasts(
     }
 }
 
-internal fun buildHourlyForecasts(
-    hourly: com.meteocompare.app.domain.model.HourlyForecast,
-    zone: java.time.ZoneId,
-    now: java.time.Instant = java.time.Instant.now(),
-    forecastConfidenceByTimestamp: Map<java.time.Instant, Int> = emptyMap(),
-    locale: java.util.Locale = java.util.Locale.getDefault(),
-    clockPreference: ClockFormatPreference = ClockFormatPreference.AUTO
-): List<WidgetForecastItem> {
-    if (hourly.timestamps.isEmpty()) return emptyList()
-    val startIdx = hourly.timestamps.indexOfFirst { it >= now }
-    // Un cache dont tout l'horizon horaire est déjà passé ne doit pas afficher
-    // les cinq premières heures historiques comme si elles étaient futures.
-    if (startIdx < 0) return emptyList()
-    val formatter = WeatherTimeFormat.hour(locale, clockPreference)
-    return (startIdx until minOf(startIdx + 5, hourly.timestamps.size)).map { i ->
-        val ts = hourly.timestamps[i]
-        val label = ts.atZone(zone).format(formatter)
-        val temp = hourly.temperature2m.getOrNull(i)
-        val conditionDecision = ConditionDecisionEngine.upcomingHour(hourly, i)
-        val condition = conditionDecision.condition
-        WidgetForecastItem(
-            label = label,
-            condition = condition,
-            temp = temp,
-            conditionDecision = conditionDecision,
-            cloudCoverPct = hourly.cloudCover.getOrNull(i),
-            precipProbabilityPct = HourlySampling.precipitationForSlot(hourly, i).probabilityPercent,
-            forecastConfidencePct = forecastConfidenceByTimestamp[ts]
-        )
-    }
-}
-
-internal fun buildDailyForecasts(
-    daily: com.meteocompare.app.domain.model.DailyForecast,
-    hourly: com.meteocompare.app.domain.model.HourlyForecast,
-    zone: java.time.ZoneId,
-    now: java.time.Instant = java.time.Instant.now(),
-    forecastConfidenceByDate: Map<java.time.LocalDate, Int> = emptyMap()
-): List<WidgetForecastItem> {
-    if (daily.dates.isEmpty()) return emptyList()
-    val locale = java.util.Locale.getDefault()
-    val today = now.atZone(zone).toLocalDate()
-    // Un cache stale peut encore contenir des jours passés : préserver les
-    // indices source et ne jamais les présenter comme les prochains jours.
-    val indices = daily.dates.indices.filter { daily.dates[it] >= today }.take(5)
-    return indices.map { i ->
-        val date = daily.dates[i]
-        val label = date.dayOfWeek
-            .getDisplayName(java.time.format.TextStyle.SHORT, locale)
-            .replaceFirstChar { it.uppercase() }
-            .replace(".", "")
-        val temp = daily.tempMax.getOrNull(i)
-        // Même résolution que les tableaux, la timeline et la comparaison des
-        // moteurs : le WMO daily le plus sévère n'est pas forcément dominant.
-        val conditionDecision = ConditionDecisionEngine.period(
-            com.meteocompare.app.domain.model.ForecastSeries(
-                model = com.meteocompare.app.domain.model.WeatherModel.GFS,
-                hourly = hourly,
-                daily = daily
-            ), date, zone
-        )
-        val condition = conditionDecision.condition
-        WidgetForecastItem(
-            label = label,
-            condition = condition,
-            temp = temp,
-            conditionDecision = conditionDecision,
-            cloudCoverPct = dailyCloudCoverPct(hourly, date, zone),
-            precipProbabilityPct = daily.precipitationProbabilityMax.getOrNull(i),
-            forecastConfidencePct = forecastConfidenceByDate[date]
-        )
-    }
-}
-
 /**
  * Confiance globale pré-calculée pour les cartes 5 heures / 5 jours.
  *
@@ -845,30 +769,6 @@ private fun coverageAdjustedConfidence(
     contributingModels = contributingModels,
     totalModels = totalModels
 )
-
-/**
- * Couverture nuageuse moyenne d'une journée pour un modèle.
- *
- * On privilégie les heures 7h-19h locales, plus représentatives de ce que
- * l'utilisateur voit réellement en consultant une prévision journalière. Si
- * aucune valeur diurne n'est disponible, on retombe sur toutes les heures de
- * la journée afin de rester compatible avec les horizons partiels.
- */
-internal fun dailyCloudCoverPct(
-    hourly: com.meteocompare.app.domain.model.HourlyForecast,
-    date: java.time.LocalDate,
-    zone: java.time.ZoneId
-): Int? {
-    val valuesForDate = hourly.timestamps.indices.mapNotNull { index ->
-        val local = hourly.timestamps[index].atZone(zone)
-        if (local.toLocalDate() != date) return@mapNotNull null
-        hourly.cloudCover.getOrNull(index)?.let { local.hour to it }
-    }
-    if (valuesForDate.isEmpty()) return null
-    val daytime = valuesForDate.filter { (hour, _) -> hour in 7..19 }
-    val selected = if (daytime.isNotEmpty()) daytime else valuesForDate
-    return selected.map { it.second }.average().roundToInt().coerceIn(0, 100)
-}
 
 /**
  * Construit le snapshot de bande de confiance pour affichage widget.

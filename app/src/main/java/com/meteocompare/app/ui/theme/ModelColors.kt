@@ -57,20 +57,3 @@ private val ModelColorMap: Map<WeatherModel, Color> = mapOf(
  * encore reçu de couleur explicite.
  */
 fun WeatherModel.color(): Color = ModelColorMap[this] ?: Color(0xFF9E9E9E)
-
-// Helpers de validation utilisés par les tests unitaires.
-internal fun modelsWithoutExplicitColor(): List<WeatherModel> =
-    WeatherModel.entries.filter { it !in ModelColorMap }
-
-internal fun duplicateModelColors(): List<Pair<WeatherModel, WeatherModel>> {
-    val entries = WeatherModel.entries.toList()
-    val out = mutableListOf<Pair<WeatherModel, WeatherModel>>()
-    for (i in entries.indices) {
-        for (j in i + 1 until entries.size) {
-            if (entries[i].color() == entries[j].color()) {
-                out += entries[i] to entries[j]
-            }
-        }
-    }
-    return out
-}

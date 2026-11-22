@@ -100,11 +100,7 @@ class WidgetForecastCardLayoutTest {
             headerHeightDp = 54f,
             sectionGapDp = 7f
         )
-        val profile = forecastBottomCardHeightProfile(
-            widgetHeightDp = 175f,
-            headerHeightDp = 54f,
-            sectionGapDp = 7f
-        )
+        val profile = forecastCardHeightProfile(available)
 
         assertTrue("Le strip bas doit être plus petit que le widget complet", available < 110f)
         assertEquals(ForecastCardHeightProfile.COMPACT, profile)

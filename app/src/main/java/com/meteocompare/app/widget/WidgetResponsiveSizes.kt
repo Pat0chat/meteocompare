@@ -23,7 +23,3 @@ internal val insightWidgetResponsivePresets = listOf(
     WidgetResponsivePreset(275, 145),
     WidgetResponsivePreset(380, 170)
 )
-
-internal fun widgetSizeModePresetsAreValid(presets: List<WidgetResponsivePreset>): Boolean =
-    presets.isNotEmpty() && presets.size <= 48 && presets.distinct().size == presets.size &&
-        presets.all { it.widthDp > 0 && it.heightDp > 0 }

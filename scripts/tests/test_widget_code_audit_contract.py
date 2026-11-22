@@ -26,6 +26,12 @@ class WidgetCodeAuditContractTest(unittest.TestCase):
         self.assertIn("pending[key] === result", source)
         self.assertIn("NonCancellable", source)
 
+    def test_widget_forecast_has_no_obsolete_single_model_builders(self):
+        source = (WIDGETS / "WidgetData.kt").read_text(encoding="utf-8")
+        self.assertIn("internal fun buildForecasts(", source)
+        for dead_name in ("buildHourlyForecasts", "buildDailyForecasts", "dailyCloudCoverPct"):
+            self.assertNotIn(dead_name, source)
+
     def test_heatmap_does_not_depend_on_unused_profile_anchor_catalogue(self):
         renderer = (WIDGETS / "WidgetHeatmapForecastRenderer.kt").read_text(encoding="utf-8")
         trend = (WIDGETS / "WidgetHeatmapTrendForecastRenderer.kt").read_text(encoding="utf-8")
