@@ -27,6 +27,16 @@ CORPUS_CONSUMERS = {
 }
 
 
+# Independent numeric/format oracle. Keep this separate from the weather corpus:
+# both have their own immutable manifests and real Kotlin JUnit consumers.
+UNIT_CORPUS_CONSUMERS = {
+    'profiles.tsv': ('UnitConversionCorpusTest', 'customProfilesCoverEveryCombinationAndLegacyPresets'),
+    'conversions.tsv': ('UnitConversionCorpusTest', 'allNumericConversionsMatchIndependentRationalReference'),
+    'display.tsv': ('UnitConversionCorpusTest', 'allFormatsMatchGoldenLocalePrecisionAndUnitSuffix'),
+    'missing.tsv': ('UnitConversionCorpusTest', 'missingAndNonFiniteValuesAlwaysStayUnavailable'),
+}
+
+
 @dataclass
 class Suite:
     total: int = 0
@@ -43,6 +53,9 @@ class Suite:
 
 CORPUS_RECEIPT = re.compile(
     r'(?m)^METEOCOMPARE_CORPUS_V1 file=([a-z_]+\.tsv) cases=(\d+) elapsed_ms=(\d+)\s*$'
+)
+UNIT_CORPUS_RECEIPT = re.compile(
+    r'(?m)^METEOCOMPARE_UNIT_CORPUS_V1 file=([a-z_]+\.tsv) cases=(\d+) elapsed_ms=(\d+)\s*$'
 )
 
 def scan_junit(path: Path) -> Suite:
@@ -70,15 +83,17 @@ def scan_junit(path: Path) -> Suite:
         for node in root.iter():
             if node.tag.rsplit('}', 1)[-1] != 'system-out':
                 continue
-            for match in CORPUS_RECEIPT.finditer(node.text or ''):
-                file = match.group(1)
-                klass = CORPUS_CONSUMERS.get(file, (None, None))[0]
-                if klass not in classes_in_xml:
-                    result.warnings.append(f'{xml}: unexpected corpus receipt for {file}')
-                    continue
-                result.receipts.setdefault(file, []).append({
-                    'cases': int(match.group(2)), 'elapsed_ms': int(match.group(3))
-                })
+            for receipt_pattern, consumers in ((CORPUS_RECEIPT, CORPUS_CONSUMERS),
+                                               (UNIT_CORPUS_RECEIPT, UNIT_CORPUS_CONSUMERS)):
+                for match in receipt_pattern.finditer(node.text or ''):
+                    file = match.group(1)
+                    klass = consumers.get(file, (None, None))[0]
+                    if klass not in classes_in_xml:
+                        result.warnings.append(f'{xml}: unexpected corpus receipt for {file}')
+                        continue
+                    result.receipts.setdefault(file, []).append({
+                        'cases': int(match.group(2)), 'elapsed_ms': int(match.group(3))
+                    })
         for case in cases:
             result.total += 1
             method = case.attrib.get('name', '')
@@ -114,12 +129,23 @@ def read_corpus_manifest(path: Path) -> dict[str, int]:
     return counts
 
 
-def corpus_status(suite: Suite, counts: dict[str, int]):
+def read_unit_corpus_manifest(path: Path) -> dict[str, int]:
+    data = json.loads(path.read_text(encoding='utf-8'))
+    counts = {key: int(item['cases']) for key, item in data['files'].items()}
+    if set(counts) != set(UNIT_CORPUS_CONSUMERS):
+        raise ValueError('Unit corpus manifest files differ from JUnit consumer mapping')
+    if any(n <= 0 for n in counts.values()):
+        raise ValueError('Unit corpus case count must be positive')
+    return counts
+
+
+def corpus_status(suite: Suite, counts: dict[str, int], consumers=None):
+    consumers = CORPUS_CONSUMERS if consumers is None else consumers
     passed = 0
     failed = 0
     pending = 0
     for file, number in counts.items():
-        klass, method = CORPUS_CONSUMERS[file]
+        klass, method = consumers[file]
         state = suite.methods.get(f'{klass}.{method}')
         receipts = suite.receipts.get(file, [])
         if state == 'passed' and len(receipts) == 1 and receipts[0]['cases'] == number:
@@ -166,7 +192,7 @@ def md_cell(text):
     return str(text).replace('|', '\\|').replace('\n', ' ')[:260]
 
 
-def render(suites, corpus, python, counts=None):
+def render(suites, corpus, python, counts=None, unit_corpus=None, unit_counts=None):
     lines = [
         '## MeteoCompare — bilan des tests', '',
         '| Suite | Réussis | Échecs | Ignorés | Total | État |',
@@ -211,6 +237,26 @@ def render(suites, corpus, python, counts=None):
                 return f'{receipt[0]["cases"]:,} lignes / {receipt[0]["elapsed_ms"]} ms'.replace(',', ' ')
             return 'Non prouvé'
         lines.append(f'| `{file}` | {expected if expected is not None else "—"} | {proof_cell("debug")} | {proof_cell("release")} |')
+    if unit_corpus is not None and unit_counts is not None:
+        lines += ['', '**Corpus de conversions (références numériques et formats indépendants)**', '',
+                  '| Variante | Références validées | Affectées | Non vérifiées | Total |',
+                  '|---|---:|---:|---:|---:|']
+        for label, variant in [('Debug', 'debug'), ('Release', 'release')]:
+            status = unit_corpus[variant]
+            lines.append(f'| {label} | {status["validated"]:,} | '
+                         f'{status["affected_by_failing_test"]:,} | {status["not_verified"]:,} | '
+                         f'{status["total"]:,} |'.replace(',', ' '))
+        lines += ['', '| Fichier de référence | Cas attendus | Debug (durée) | Release (durée) |',
+                  '|---|---:|---:|---:|']
+        for file, (klass, method) in UNIT_CORPUS_CONSUMERS.items():
+            def evidence(variant):
+                suite = suites[variant]
+                receipt = suite.receipts.get(file, [])
+                if (suite.methods.get(f'{klass}.{method}') == 'passed'
+                    and len(receipt) == 1 and receipt[0]['cases'] == unit_counts[file]):
+                    return f'{receipt[0]["cases"]:,} cas / {receipt[0]["elapsed_ms"]} ms'.replace(',', ' ')
+                return 'Non prouvé'
+            lines.append(f'| `{file}` | {unit_counts[file]:,} | {evidence("debug")} | {evidence("release")} |'.replace(',', ' '))
     lines += ['', 'Le corpus est exécuté **à l’intérieur** des tests unitaires ; ne pas additionner '
               'ses scénarios aux méthodes JUnit. Les exécutions Debug et Release '
               'sont comptées séparément, même lorsque leurs méthodes sont identiques.',
@@ -234,6 +280,8 @@ def main(argv=None):
     parser.add_argument('--release', type=Path, default=Path('app/build/test-results/testReleaseUnitTest'))
     parser.add_argument('--android', type=Path, default=Path('app/build/outputs/androidTest-results/connected'))
     parser.add_argument('--manifest', type=Path, default=Path('app/src/test/resources/weather_regression/v1/manifest.json'))
+    parser.add_argument('--unit-manifest', type=Path,
+                        default=Path('app/src/test/resources/unit_conversion/v1/manifest.json'))
     parser.add_argument('--python-log', type=Path)
     parser.add_argument('--summary', type=Path)
     parser.add_argument('--markdown', type=Path)
@@ -242,11 +290,14 @@ def main(argv=None):
                         help='Fail CI unless all fixture rows have verified JVM execution receipts')
     args = parser.parse_args(argv)
     counts = read_corpus_manifest(args.manifest)
+    unit_counts = read_unit_corpus_manifest(args.unit_manifest)
     suites = {key: scan_junit(path) for key, path in
               [('debug', args.debug), ('release', args.release), ('android', args.android)]}
     corpus = {key: corpus_status(suites[key], counts) for key in ('debug', 'release')}
+    unit_corpus = {key: corpus_status(suites[key], unit_counts, UNIT_CORPUS_CONSUMERS)
+                   for key in ('debug', 'release')}
     python = python_status(args.python_log)
-    markdown = render(suites, corpus, python, counts)
+    markdown = render(suites, corpus, python, counts, unit_corpus, unit_counts)
     print(markdown)
     if args.summary:
         args.summary.parent.mkdir(parents=True, exist_ok=True)
@@ -259,15 +310,17 @@ def main(argv=None):
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps({
             'unit_debug': asdict(suites['debug']), 'unit_release': asdict(suites['release']),
-            'android': asdict(suites['android']), 'corpus': corpus, 'python': python,
+            'android': asdict(suites['android']), 'corpus': corpus,
+            'unit_corpus': unit_corpus, 'python': python,
         }, ensure_ascii=False, indent=2), encoding='utf-8')
     if args.require_corpus:
         variants = ('debug', 'release') if args.require_corpus == 'both' else (args.require_corpus,)
         for variant in variants:
-            if corpus[variant]['validated'] != corpus[variant]['total']:
-                print(f'CORPUS EXECUTION NOT PROVEN: {variant}: '
-                      f'{corpus[variant]["validated"]}/{corpus[variant]["total"]} verified')
-                return 1
+            for name, report in (('weather', corpus), ('units', unit_corpus)):
+                if report[variant]['validated'] != report[variant]['total']:
+                    print(f'{name.upper()} CORPUS EXECUTION NOT PROVEN: {variant}: '
+                          f'{report[variant]["validated"]}/{report[variant]["total"]} verified')
+                    return 1
     return 0
 
 

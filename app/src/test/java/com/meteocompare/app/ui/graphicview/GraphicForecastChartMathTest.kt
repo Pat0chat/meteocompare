@@ -77,7 +77,6 @@ class GraphicForecastChartMathTest {
         val data = buildGraphicRenderData(points, emptyMap(), ZoneId.of("UTC"))
         assertEquals(listOf(null, null, -5.0, 20.0), data.temperatures)
         assertEquals(listOf(0, 1, 2, 3), data.hours)
-        assertEquals(listOf(2, 3), seriesMarkerIndices(data.gusts))
         assertEquals(0.05, data.rainAmounts[3]!!, 0.0)
         assertTrue(points[0].temperatureC!!.isNaN())
         assertEquals(Double.MAX_VALUE, points[1].temperatureC!!, 0.0)
@@ -85,12 +84,6 @@ class GraphicForecastChartMathTest {
         assertTrue(domain.min.isFinite() && domain.max.isFinite() && domain.max > domain.min)
     }
 
-
-    @Test
-    fun line_markers_cover_every_available_hour_and_skip_missing_values() {
-        assertEquals((0 until 240).toList(), seriesMarkerIndices(List(240) { it.toDouble() }))
-        assertEquals(listOf(0, 2, 4), seriesMarkerIndices(listOf(1.0, null, 2.0, null, 3.0)))
-    }
 
     @Test
     fun heatmap_layers_are_strong_enough_to_remain_visible_behind_series() {

@@ -10,19 +10,6 @@ import org.junit.Test
 class ChronoTimelineTemperatureTest {
 
     @Test
-    fun daily_temperature_series_keep_distinct_min_and_max_curves() {
-        val points = listOf(
-            SimplifiedTimelinePoint(tempMinC = 8.0, tempMaxC = 17.0),
-            SimplifiedTimelinePoint(tempMinC = 10.0, tempMaxC = 21.0),
-            SimplifiedTimelinePoint(tempMinC = null, tempMaxC = 19.0)
-        )
-
-        val (mins, maxs) = chronoDailyTemperatureSeries(points)
-
-        assertEquals(listOf(8.0, 10.0, null), mins)
-        assertEquals(listOf(17.0, 21.0, 19.0), maxs)
-    }
-    @Test
     fun daily_temperature_labels_stay_on_opposite_sides_of_their_curves() {
         val domainMin = 8.0
         val domainMax = 20.0

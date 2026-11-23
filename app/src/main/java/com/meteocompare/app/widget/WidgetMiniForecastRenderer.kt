@@ -67,9 +67,9 @@ internal fun miniForecastChartHeightDp(
         hostRoundingSafety
 
     val maximum = when (profile) {
-        MiniForecastSizeProfile.COMPACT_2X2 -> 160f
-        MiniForecastSizeProfile.MEDIUM_3X2 -> 190f
-        MiniForecastSizeProfile.EXPANDED_4X2 -> 220f
+        MiniForecastSizeProfile.COMPACT_2X2 -> 230f
+        MiniForecastSizeProfile.MEDIUM_3X2 -> 265f
+        MiniForecastSizeProfile.EXPANDED_4X2 -> 320f
     }
 
     // Ne jamais réimposer une hauteur minimale supérieure à l'espace réel :
@@ -240,8 +240,9 @@ internal object WidgetMiniForecastRenderer {
             val naturalTimeSize = timePaint.textSize
             val labelWidth = timePaint.measureText(label)
             if (labelWidth > (right - left) * 0.88f && labelWidth > 0f) {
-                timePaint.textSize = (naturalTimeSize * (right - left) * 0.88f / labelWidth)
-                    .coerceAtLeast(6f)
+                timePaint.textSize = widgetFittedTextSizePx(
+                    naturalTimeSize, labelWidth, (right - left) * 0.88f
+                )
             }
             canvas.drawText(
                 label,
@@ -251,6 +252,10 @@ internal object WidgetMiniForecastRenderer {
             )
             timePaint.textSize = naturalTimeSize
             val temperatureText = temp?.let { units.temp(it) } ?: "—"
+            tempPaint.textSize = widgetFittedTextSizePx(
+                tempPaint.textSize, tempPaint.measureText(temperatureText),
+                (right - left) * 0.86f
+            )
             val condition = conditions.getOrNull(index)
                 ?.takeUnless { it == WeatherCondition.UNKNOWN }
             val diagnosis = conditionDiagnostics.getOrNull(index)
@@ -313,6 +318,10 @@ internal object WidgetMiniForecastRenderer {
             val precipFontMetrics = precipPaint.fontMetrics
             val precipBaseline = (precipTop + precipBottom) / 2f -
                 (precipFontMetrics.ascent + precipFontMetrics.descent) / 2f
+            precipPaint.textSize = widgetFittedTextSizePx(
+                precipPaint.textSize, precipPaint.measureText(precipText),
+                (right - left) * 0.86f
+            )
             canvas.drawText(precipText, centerX, precipBaseline, precipPaint)
 
             // Première échéance = maintenant : plus de contour dédié.

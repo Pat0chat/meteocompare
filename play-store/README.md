@@ -16,7 +16,7 @@ play-store/
 │   ├── short-es.txt / full-es.txt    ← Espagnol (traduction automatique signalée)
 │   ├── short-de.txt / full-de.txt    ← Allemand (traduction automatique signalée)
 │   └── short-it.txt / full-it.txt    ← Italien (traduction automatique signalée)
-└── screenshots-placeholders/         ← À remplir manuellement (voir ci-dessous)
+└── screenshots-placeholders/         ← Sources de captures non publiées (voir ci-dessous)
 ```
 
 
@@ -26,9 +26,9 @@ Les fiches FR et EN sont les fiches de référence. Les fiches ES, DE et IT sont
 
 Les notes de version sont stockées dans chaque langue sous `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (v1.21.0 : `53.txt`).
 
-## Screenshots — à capturer manuellement
+## Screenshots — publication et sources
 
-Play Store exige minimum 2 screenshots par form factor. Recommandations :
+Les captures de téléphone publiées sont stockées dans `fastlane/metadata/android/*/images/phoneScreenshots` ; on ne conserve pas une deuxième copie identique dans `screenshots-placeholders/`. Les sources de tablette encore non publiées restent dans ce dossier. Play Store exige minimum 2 screenshots par form factor. Recommandations :
 
 ### Téléphone (obligatoire — au moins 2)
 - Format JPG ou PNG 24 bits

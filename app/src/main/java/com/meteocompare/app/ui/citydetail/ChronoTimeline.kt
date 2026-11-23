@@ -825,9 +825,6 @@ internal fun chronoTemperatureHeatmapColors(
     value?.takeIf(Double::isFinite)?.let(::temperatureHeatmapColor) ?: fallback
 }
 
-internal fun chronoDailyTemperatureSeries(points: List<SimplifiedTimelinePoint>): Pair<List<Double?>, List<Double?>> =
-    points.map { metricPlotValue(it.tempMinC) } to points.map { metricPlotValue(it.tempMaxC) }
-
 @Composable
 private fun ChronoConditionsLane(points: List<SimplifiedTimelinePoint>, mode: DisplayMode) {
     Row(

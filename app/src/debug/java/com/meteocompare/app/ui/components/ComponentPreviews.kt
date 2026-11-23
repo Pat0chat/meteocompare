@@ -67,13 +67,6 @@ private fun ModernStateSelectorPreview() {
                 accent = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth()
             )
-            ModernInlineSelector(
-                options = PreviewChoice.entries.take(2),
-                selected = selected.takeIf { it != PreviewChoice.WEEKLY } ?: PreviewChoice.HOURLY,
-                onSelected = { selected = it },
-                label = { if (it == PreviewChoice.HOURLY) "Par heure" else "Par jour" },
-                accent = MaterialTheme.colorScheme.secondary
-            )
             ModernTextTabs(
                 options = PreviewChoice.entries,
                 selected = selected,

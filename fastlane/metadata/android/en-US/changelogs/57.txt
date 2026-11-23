@@ -1,0 +1,1 @@
+Optional forecast ranges in daily column and timeline views, with a more compact layout and a tap-to-view convergence explanation. Custom units for each metric, including knots for wind. Widgets reworked to adapt better to launcher grids, with clearer heatmaps and 12-hour forecasts. Cleaner Home actions and city comparison labels. Stability fixes and expanded regression checks.

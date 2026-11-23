@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -89,6 +90,91 @@ class ForecastEvolutionSectionTest {
         composeRule.onNodeWithTag(TAG_FORECAST_EVOLUTION_HEADER).performClick()
         composeRule.onNodeWithTag(TAG_FORECAST_EVOLUTION_DETAILS).assertDoesNotExist()
         composeRule.onNodeWithTag(TAG_FORECAST_EVOLUTION_CARD).assertIsDisplayed()
+    }
+
+    @Test
+    fun precipitation_selection_survives_navigation_between_dates() {
+        val dates = listOf(LocalDate.of(2026, 8, 22), LocalDate.of(2026, 8, 23))
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ForecastEvolutionSection(
+                    state = ForecastEvolutionState.Loaded(multiDayReport(dates), highlight = null),
+                    expanded = true,
+                    onExpandedChange = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").assertIsSelected()
+        composeRule.onNodeWithTag("forecast_evolution_date_${dates[1]}").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").assertIsSelected()
+        composeRule.onNodeWithTag("forecast_evolution_date_${dates[0]}").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").assertIsSelected()
+    }
+
+    @Test
+    fun wind_selection_survives_navigation_between_dates() {
+        val dates = listOf(LocalDate.of(2026, 8, 22), LocalDate.of(2026, 8, 23))
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ForecastEvolutionSection(
+                    state = ForecastEvolutionState.Loaded(multiDayReport(dates), highlight = null),
+                    expanded = true,
+                    onExpandedChange = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("forecast_evolution_variable_WIND").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_date_${dates[1]}").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_variable_WIND").assertIsSelected()
+    }
+
+    @Test
+    fun unavailable_variable_falls_back_only_for_that_day() {
+        val dates = listOf(LocalDate.of(2026, 8, 22), LocalDate.of(2026, 8, 23))
+        composeRule.setContent {
+            MeteoCompareTheme {
+                ForecastEvolutionSection(
+                    state = ForecastEvolutionState.Loaded(
+                        multiDayReport(dates, missingRainOnSecondDay = true),
+                        highlight = null
+                    ),
+                    expanded = true,
+                    onExpandedChange = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_date_${dates[1]}").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").assertDoesNotExist()
+        composeRule.onNodeWithTag("forecast_evolution_variable_TEMPERATURE").assertIsSelected()
+        composeRule.onNodeWithTag("forecast_evolution_date_${dates[0]}").performClick()
+        composeRule.onNodeWithTag("forecast_evolution_variable_PRECIPITATION").assertIsSelected()
+    }
+
+    private fun multiDayReport(
+        dates: List<LocalDate>,
+        missingRainOnSecondDay: Boolean = false
+    ): ForecastEvolutionReport {
+        val sample = report().days.single().variables.values.single()
+        return ForecastEvolutionReport(
+            days = dates.mapIndexed { index, date ->
+                // Reverse the map order on day 2: the selection must follow the
+                // variable identity, not the first tab in that day's ordering.
+                val order = if (index == 0) ForecastEvolutionVariable.entries
+                    else ForecastEvolutionVariable.entries.reversed()
+                DayForecastEvolution(
+                    date = date,
+                    variables = order
+                        .filterNot { index == 1 && missingRainOnSecondDay &&
+                            it == ForecastEvolutionVariable.PRECIPITATION }
+                        .associateWith { variable -> sample.copy(variable = variable, targetDate = date) }
+                )
+            }
+        )
     }
 
     private fun report(): ForecastEvolutionReport {

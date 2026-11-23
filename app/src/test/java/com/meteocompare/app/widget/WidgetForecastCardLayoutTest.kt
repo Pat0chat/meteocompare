@@ -100,11 +100,7 @@ class WidgetForecastCardLayoutTest {
             headerHeightDp = 54f,
             sectionGapDp = 7f
         )
-        val profile = forecastBottomCardHeightProfile(
-            widgetHeightDp = 175f,
-            headerHeightDp = 54f,
-            sectionGapDp = 7f
-        )
+        val profile = forecastCardHeightProfile(available)
 
         assertTrue("Le strip bas doit être plus petit que le widget complet", available < 110f)
         assertEquals(ForecastCardHeightProfile.COMPACT, profile)
@@ -171,6 +167,44 @@ class WidgetForecastCardLayoutTest {
         assertTrue(inlineForecastCardWidthDp(400f, 1) > inlineForecastCardWidthDp(420f, 2))
         assertTrue(inlineForecastCardWidthDp(420f, 2) <= 82f)
         assertTrue(inlineForecastCardWidthDp(420f, 2) >= 42f)
+    }
+
+    @Test
+    fun `fallback tall header retains city extremes and confidence within its budget`() {
+        assertEquals(36f, COMPACT_FORECAST_HEADER_HEIGHT_DP)
+        assertEquals(40f, COMPACT_TALL_FORECAST_HEADER_HEIGHT_DP)
+        val narrowCard = forecastBottomStripAvailableHeightDp(
+            widgetHeightDp = 120f,
+            headerHeightDp = COMPACT_TALL_FORECAST_HEADER_HEIGHT_DP,
+            sectionGapDp = 2f,
+            rootVerticalPaddingDp = 5f
+        )
+        assertTrue(narrowCard >= 60f)
+        val compactCard = forecastBottomStripAvailableHeightDp(
+            widgetHeightDp = 120f,
+            headerHeightDp = COMPACT_FORECAST_HEADER_HEIGHT_DP,
+            sectionGapDp = 2f,
+            rootVerticalPaddingDp = 5f
+        )
+        assertTrue("Even the compact fallback needs room for weather values", compactCard >= 60f)
+    }
+
+    @Test
+    fun `intermediate width tall widget can show wind and rain below the header`() {
+        assertTrue(shouldShowForecastContextLine(305f, 195f, true, true, false))
+        assertTrue(!shouldShowForecastContextLine(305f, 165f, true, true, false))
+        assertTrue(!shouldShowForecastContextLine(215f, 195f, true, true, false))
+        assertTrue(!shouldShowForecastContextLine(305f, 195f, false, true, false))
+        assertTrue(!shouldShowForecastContextLine(305f, 195f, true, false, false))
+        assertTrue(!shouldShowForecastContextLine(380f, 200f, true, true, true))
+        val card = forecastBottomStripAvailableHeightDp(
+            widgetHeightDp = 195f,
+            headerHeightDp = miniForecastHeaderHeightBudgetDp(compact = true, showExtras = false) +
+                FORECAST_CONTEXT_LINE_HEIGHT_DP,
+            sectionGapDp = 7f,
+            rootVerticalPaddingDp = 9f
+        )
+        assertTrue("Context must not squeeze the four forecast cells", card >= 100f)
     }
 
     @Test

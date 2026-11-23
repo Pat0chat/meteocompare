@@ -34,6 +34,51 @@ class GitHubTestSummaryTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_unit_corpus_requires_exact_jvm_receipts_for_every_reference(self):
+        unit_counts = report.read_unit_corpus_manifest(
+            Path(__file__).resolve().parents[2] /
+            'app/src/test/resources/unit_conversion/v1/manifest.json')
+        clazz = 'UnitConversionCorpusTest'
+        methods = ''.join(
+            f'<testcase classname="com.test.{klass}" name="{method}" />'
+            for klass, method in report.UNIT_CORPUS_CONSUMERS.values())
+        receipts = ''.join(
+            f'METEOCOMPARE_UNIT_CORPUS_V1 file={file} cases={unit_counts[file]} elapsed_ms=1\n'
+            for file in report.UNIT_CORPUS_CONSUMERS)
+        (self.root / 'TEST-units.xml').write_text(
+            f'<testsuite name="units">{methods}<system-out>{receipts}</system-out></testsuite>',
+            encoding='utf-8')
+        suite = report.scan_junit(self.root)
+        status = report.corpus_status(suite, unit_counts, report.UNIT_CORPUS_CONSUMERS)
+        self.assertEqual(status['validated'], 656179)
+        self.assertEqual(status['not_verified'], 0)
+        self.assertEqual(suite.passed, 4)
+        report_text = report.render(
+            {'debug': suite, 'release': suite, 'android': suite},
+            {'debug': report.corpus_status(suite, self.counts),
+             'release': report.corpus_status(suite, self.counts)},
+            None, self.counts, {'debug': status, 'release': status}, unit_counts)
+        self.assertIn('Corpus de conversions', report_text)
+        self.assertIn('656 179', report_text)
+
+    def test_unit_corpus_missing_wrong_or_duplicate_receipt_never_passes(self):
+        counts = report.read_unit_corpus_manifest(
+            Path(__file__).resolve().parents[2] /
+            'app/src/test/resources/unit_conversion/v1/manifest.json')
+        clazz, method = report.UNIT_CORPUS_CONSUMERS['display.tsv']
+        good = f'METEOCOMPARE_UNIT_CORPUS_V1 file=display.tsv cases={counts["display.tsv"]} elapsed_ms=3'
+        for receipt in (None, good.replace(str(counts['display.tsv']), '1'), good + '\n' + good):
+            with self.subTest(receipt=receipt):
+                junit(self.root, method, clazz, receipt=receipt)
+                result = report.scan_junit(self.root)
+                status = report.corpus_status(result, counts, report.UNIT_CORPUS_CONSUMERS)
+                self.assertEqual(status['validated'], 0)
+        junit(self.root, 'otherMethod', 'OtherTest', receipt=good)
+        (self.root / f'TEST-{clazz}.xml').unlink()
+        result = report.scan_junit(self.root)
+        self.assertTrue(result.warnings)
+        self.assertEqual(report.corpus_status(result, counts, report.UNIT_CORPUS_CONSUMERS)['validated'], 0)
+
     def test_missing_xml_never_claims_the_corpus_or_tests_passed(self):
         suite = report.scan_junit(self.root / 'missing')
         self.assertEqual(suite.total, 0)

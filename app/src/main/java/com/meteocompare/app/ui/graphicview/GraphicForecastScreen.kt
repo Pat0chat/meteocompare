@@ -2610,9 +2610,6 @@ private fun DrawScope.drawLineSeries(
     }
 }
 
-internal fun seriesMarkerIndices(values: List<Double?>): List<Int> =
-    values.indices.filter { metricPlotValue(values[it]) != null }
-
 private fun DrawScope.drawWindDirectionArrows(
     directions: List<Int?>,
     color: Color,

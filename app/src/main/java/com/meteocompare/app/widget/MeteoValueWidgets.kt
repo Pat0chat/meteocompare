@@ -4,6 +4,7 @@ import com.meteocompare.app.core.units.WeatherUnits
 import com.meteocompare.app.core.units.LocalWeatherUnits
 
 import android.content.Context
+import android.util.Log
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -59,8 +60,20 @@ import com.meteocompare.app.ui.citydetail.ForecastInsightLevel
  */
 internal class MeteoInsightWidget : GlanceAppWidget() {
 
-    override val sizeMode = SizeMode.Exact
+    override val sizeMode = SizeMode.Responsive(
+        responsiveGlanceSizes(insightWidgetResponsivePresets)
+    )
     override val stateDefinition = PreferencesGlanceStateDefinition
+
+    override fun onCompositionError(
+        context: Context,
+        glanceId: GlanceId,
+        appWidgetId: Int,
+        throwable: Throwable
+    ) {
+        Log.e("MeteoCompareWidget", "Insight Glance failed: id=$appWidgetId", throwable)
+        super.onCompositionError(context, glanceId, appWidgetId, throwable)
+    }
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val appContext = applyPersistedLocale(context.applicationContext)
@@ -80,7 +93,9 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
                 ?: WidgetPreferences.DEFAULT_TEXT_SIZE_PCT
             val autoTextSize = prefs[WidgetPreferences.AutoTextSizeKey]
                 ?: WidgetPreferences.DEFAULT_AUTO_TEXT_SIZE
-            var data by remember {
+            // Keep the data across refresh ticks, but never across a change
+            // of the city assigned to this individual widget.
+            var data by remember(cityId) {
                 mutableStateOf(
                     if (cityId == null) WidgetData.NotConfigured else WidgetData.Loading
                 )
@@ -88,12 +103,17 @@ internal class MeteoInsightWidget : GlanceAppWidget() {
             LaunchedEffect(cityId, refreshTick) {
                 // Le widget éditorial repose toujours sur un horizon horaire de 24 h.
                 // L'écran de configuration l'indique explicitement comme horizon fixe.
-                data = loadWidgetData(
-                    context = appContext,
-                    cityId = cityId,
-                    forecastMode = ForecastMode.HOURLY,
-                    includeValueSnapshot = true
-                )
+                data = sharedWidgetDataLoad.getOrLoad(
+                    WidgetDataRequest(cityId, ForecastMode.HOURLY, true, refreshTick,
+                        appContext.resources.configuration.locales.toLanguageTags())
+                ) {
+                    loadWidgetData(
+                        context = appContext,
+                        cityId = cityId,
+                        forecastMode = ForecastMode.HOURLY,
+                        includeValueSnapshot = true
+                    )
+                }
             }
 
             CompositionLocalProvider(LocalContext provides appContext,
