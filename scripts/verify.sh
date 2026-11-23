@@ -12,6 +12,7 @@ fi
 
 python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
 python3 scripts/generate_weather_regression_corpus.py --check
+python3 scripts/generate_unit_conversion_corpus.py --check
 python3 scripts/generate_condition_status_corpus.py --check
 python3 scripts/generate_temporal_windows_corpus.py --check
 python3 scripts/generate_civil_day_coverage_corpus.py --check
@@ -21,7 +22,8 @@ python3 scripts/test-summary-dialog-copy.py
 python3 scripts/verify_atmospheric_localizations.py
 scripts/validate-fdroid-metadata.sh
 
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest testReleaseUnitTest lintDebug assembleDebug
+python3 scripts/report_test_results.py --require-corpus both
 
 if [[ "${1:-}" == "--connected" ]]; then
     ./gradlew connectedDebugAndroidTest

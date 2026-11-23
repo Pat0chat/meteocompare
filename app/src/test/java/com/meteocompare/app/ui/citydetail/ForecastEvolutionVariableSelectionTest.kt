@@ -29,7 +29,15 @@ class ForecastEvolutionVariableSelectionTest {
     fun `missing rain uses temporary fallback and returns to rain on another date`() {
         val preferredName = precipitation.name
         assertEquals(temperature, displayedEvolutionVariable(preferredName, listOf(temperature, wind)))
+        assertEquals(temperature, displayedEvolutionVariable(preferredName, listOf(wind, temperature)))
         assertEquals(precipitation, displayedEvolutionVariable(preferredName, listOf(wind, precipitation)))
+        assertEquals(precipitation, displayedEvolutionVariable(preferredName, listOf(temperature, precipitation)))
+    }
+
+    @Test
+    fun `if temperature is missing the fallback uses the remaining variable`() {
+        assertEquals(wind, displayedEvolutionVariable(precipitation.name, listOf(wind)))
+        assertEquals(precipitation, displayedEvolutionVariable("UNKNOWN", listOf(precipitation)))
     }
 
     @Test

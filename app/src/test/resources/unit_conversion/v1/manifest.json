@@ -1,0 +1,23 @@
+{
+  "files": {
+    "conversions.tsv": {
+      "cases": 198072,
+      "sha256": "ac0cb2c300088347ad99b509ca2ceb50948a89039dc74756e58ed95a87000e27"
+    },
+    "display.tsv": {
+      "cases": 452736,
+      "sha256": "cc5ebe8f527f4ccc9591f4984bf33206240f7bb200e9f306544a4a5539564b39"
+    },
+    "missing.tsv": {
+      "cases": 5240,
+      "sha256": "5c39a732620b30e07b357ec9a2260b49da589974229374e43050103ff2ccd241"
+    },
+    "profiles.tsv": {
+      "cases": 131,
+      "sha256": "ff871d5e4fb8159e1420e6eec1de491fd94ff91f3bc4f722089414e3fa0d069a"
+    }
+  },
+  "oracle": "independent Decimal rational conversion reference; reviewed rounding/locale contracts",
+  "reference_profiles": 131,
+  "revision": 1
+}
