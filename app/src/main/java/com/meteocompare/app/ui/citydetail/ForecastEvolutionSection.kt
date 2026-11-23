@@ -127,12 +127,16 @@ internal fun ForecastEvolutionSection(
                 .map { it.variable }
             if (availableVariables.isEmpty()) return
 
-            var selectedVariableName by rememberSaveable(selectedDay.date) {
+            // Le choix de la variable appartient à la section, pas à une date.
+            // Une date sans données pour cette variable utilise un repli temporaire,
+            // sans écraser le choix de l'utilisateur pour les autres dates.
+            var selectedVariableName by rememberSaveable(report.fetchedAt) {
                 mutableStateOf(availableVariables.first().name)
             }
-            val selectedVariable = availableVariables.firstOrNull {
-                it.name == selectedVariableName
-            } ?: availableVariables.first()
+            val selectedVariable = displayedEvolutionVariable(
+                preferredName = selectedVariableName,
+                available = availableVariables
+            ) ?: return
             val evolution = selectedDay.variables.getValue(selectedVariable)
             var showModels by remember { mutableStateOf(false) }
 
@@ -185,6 +189,9 @@ internal fun ForecastEvolutionSection(
                                 onSelected = { selectedVariableName = it.name },
                                 label = { variable -> stringResource(variableLabel(variable)) },
                                 accent = evolutionAccent(selectedVariable),
+                                itemModifier = { variable ->
+                                    Modifier.testTag("forecast_evolution_variable_${variable.name}")
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 14.dp, vertical = 5.dp)
@@ -373,6 +380,7 @@ private fun EvolutionDateSelector(
             val itemShape = RoundedCornerShape(999.dp)
             Surface(
                 onClick = { onSelected(day.date) },
+                modifier = Modifier.testTag("forecast_evolution_date_${day.date}"),
                 shape = itemShape,
                 color = if (isSelected) {
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
