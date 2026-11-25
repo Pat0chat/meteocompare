@@ -805,11 +805,16 @@ private fun TimelinePointColumn(
             Box(
                 modifier = Modifier.fillMaxWidth().height(
                     if (showDailyRanges) 64.dp * LocalDensity.current.fontScale.coerceAtLeast(1f) else 34.dp
-                ).padding(horizontal = 4.dp).testTag(TAG_TIMELINE_COLUMNS_APPARENT),
+                ).then(if (showDailyRanges) Modifier else Modifier.padding(horizontal = 4.dp))
+                    .testTag(TAG_TIMELINE_COLUMNS_APPARENT),
                 contentAlignment = Alignment.Center
             ) {
                 if (showDailyRanges) {
-                    DailyApparentRangeLabels(point, units, displayLocale, "columns_daily", showTitle = true)
+                    DailyApparentRangeLabels(
+                        point, units, displayLocale, "columns_daily",
+                        modifier = Modifier.fillMaxWidth().timelineMetricReadingInset(),
+                        showTitle = true, horizontalAlignment = Alignment.Start
+                    )
                 } else {
                     Text(
                         stringResource(R.string.apparent_temperature_short, dailyApparentReading(point, units)),
@@ -1338,7 +1343,7 @@ private fun TimelineSupportingText(
     // figures have the same starting x position even without an icon.
     Box(
         modifier = modifier.fillMaxWidth().heightIn(min = 18.dp)
-            .padding(start = 22.dp, end = 5.dp),
+            .timelineMetricReadingInset(),
         contentAlignment = Alignment.CenterStart
     ) {
         DailyRangeLabel(
@@ -1354,6 +1359,9 @@ private fun TimelineSupportingText(
         )
     }
 }
+
+// Shared reading inset for iconless rows: 7 dp start padding + 15 dp icon rail.
+private fun Modifier.timelineMetricReadingInset(): Modifier = padding(start = 22.dp, end = 5.dp)
 
 private fun divergenceIconTag(reason: DivergenceReason): String = when (reason) {
     DivergenceReason.PRECIPITATION -> TAG_TIMELINE_DIVERGENCE_ICON_RAIN

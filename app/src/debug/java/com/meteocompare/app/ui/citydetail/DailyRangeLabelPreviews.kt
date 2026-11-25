@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.ui.preview.MeteoComponentPreview
@@ -45,7 +46,9 @@ private fun DailyRangeLabelPreview() {
                         apparentMinMinAcrossModels = 5.0, apparentMinMaxAcrossModels = 14.0, apparentMinModelCount = 3,
                         apparentMaxMinAcrossModels = 27.0, apparentMaxMaxAcrossModels = 36.0, apparentMaxModelCount = 3),
                     units = com.meteocompare.app.core.units.WeatherUnits(), locale = java.util.Locale.US,
-                    tagPrefix = "preview", showTitle = true)
+                    tagPrefix = "preview", showTitle = true,
+                    modifier = Modifier.padding(start = 22.dp, end = 5.dp),
+                    horizontalAlignment = Alignment.Start)
             }
 
             Text("Fixed-height heatmap cell", style = MaterialTheme.typography.labelSmall)

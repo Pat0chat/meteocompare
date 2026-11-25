@@ -43,6 +43,20 @@ class ChronologyUiContract(unittest.TestCase):
         self.assertIn('rangeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)', body)
         self.assertIn('horizontalAlignment = Alignment.Start', body)
 
+    def test_daily_apparent_ranges_share_columns_reading_inset_but_keep_chrono_centered(self):
+        labels = (ROOT / 'app/src/main/java/com/meteocompare/app/ui/citydetail/DailyRangeLabel.kt').read_text(encoding='utf-8')
+        apparent = labels.split('internal fun DailyApparentRangeLabels(', 1)[1]
+        self.assertIn('horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally', apparent)
+        self.assertEqual(apparent.count('horizontalAlignment = horizontalAlignment'), 3)
+        columns = section(COLUMNS, 'DailyApparentRangeLabels(', ')\n                } else {')
+        self.assertIn('timelineMetricReadingInset()', columns)
+        self.assertIn('horizontalAlignment = Alignment.Start', columns)
+        supporting = section(COLUMNS, 'private fun TimelineSupportingText(', 'private fun divergenceIconTag(')
+        self.assertIn('.timelineMetricReadingInset()', supporting)
+        self.assertIn('padding(start = 22.dp, end = 5.dp)', supporting)
+        chrono = CHRONO.split('DailyApparentRangeLabels(', 1)[1].split('} else {', 1)[0]
+        self.assertNotIn('Alignment.Start', chrono)
+
     def test_timeline_title_icons_are_kept_but_cell_icons_removed(self):
         title = section(CHRONO, 'private fun ChronoLabelsColumn(', 'private fun ChronoLabelGrid(')
         self.assertIn('iconTag = "timeline_title_rain_icon"', title)

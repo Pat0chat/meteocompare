@@ -149,6 +149,33 @@ class DailyRangeLayoutComposeTest {
         }
     }
 
+    @Test fun daily_columns_apparent_readings_share_the_other_metrics_start_alignment() {
+        val models = mutableStateOf(3)
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    SimplifiedTimelineCard(
+                        points = listOf(dailyPoint(models.value)), mode = DisplayMode.DAILY,
+                        timezone = "UTC", now = now, layout = TimelineLayout.COLUMNS,
+                        showDailyRanges = true
+                    )
+                }
+            }
+        }
+        fun left(tag: String): Float = rule.onNodeWithTag(tag, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot().left.value
+
+        // Compare the real value baseline in dp, not the width of its parent.
+        // It must not move when a range is unavailable for a single model.
+        for (count in listOf(3, 1)) {
+            rule.runOnIdle { models.value = count }
+            val readingStart = left("columns_daily_rain_probability_value")
+            for (tag in listOf("columns_daily_apparent_min_value", "columns_daily_apparent_max_value")) {
+                assertEquals("$tag must align with the other daily readings", readingStart, left(tag), 1f)
+            }
+        }
+    }
+
     @Test fun hourly_timeline_does_not_offer_the_daily_only_toggle() {
         rule.setContent {
             MeteoCompareTheme {
