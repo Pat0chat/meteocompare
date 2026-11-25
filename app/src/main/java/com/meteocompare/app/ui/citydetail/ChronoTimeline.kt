@@ -181,6 +181,18 @@ internal fun ChronoTimelineView(
                             mode = mode,
                             showDailyRanges = showDailyRanges
                         )
+                        if (mode == DisplayMode.DAILY) {
+                            Row(Modifier.fillMaxWidth().height(CHRONO_DAILY_APPARENT_HEIGHT)
+                                .testTag("timeline_chrono_daily_apparent_lane")) {
+                                points.forEach { point ->
+                                    ChronoCell {
+                                        Text(dailyApparentReading(point, LocalWeatherUnits.current),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
                         ChronoConditionsLane(points = points, mode = mode)
                         ChronoRainLane(points = points, mode = mode, showDailyRanges = showDailyRanges)
                         ChronoCloudLane(points = points, mode = mode, showDailyRanges = showDailyRanges)
@@ -277,6 +289,15 @@ private fun ChronoLabelsColumn(
                 height = chronoTemperatureRowHeight(mode),
                 tint = temperatureMetricAccent()
             )
+            if (mode == DisplayMode.DAILY) {
+                ChronoRowLabel(
+                    icon = Icons.Outlined.Thermostat,
+                    title = stringResource(R.string.apparent_temperature_widget_prefix),
+                    support = units.temperatureUnit,
+                    height = CHRONO_DAILY_APPARENT_HEIGHT,
+                    tint = temperatureMetricAccent()
+                )
+            }
             ChronoRowLabel(
                 icon = Icons.Outlined.Cloud,
                 title = stringResource(R.string.detail_tab_conditions),
@@ -1387,9 +1408,12 @@ private fun chronoMoistureRowHeight(mode: DisplayMode, showDailyRanges: Boolean)
 private fun chronoWindRowHeight(mode: DisplayMode, showDailyRanges: Boolean): Dp =
     if (mode == DisplayMode.DAILY) { if (showDailyRanges) 80.dp else 75.dp } else CHRONO_WIND_HEIGHT
 
+private val CHRONO_DAILY_APPARENT_HEIGHT = 50.dp
+
 internal fun chronoRowHeights(mode: DisplayMode, showDailyRanges: Boolean): List<Dp> = listOf(
     CHRONO_DATE_HEIGHT,
-    chronoTemperatureRowHeight(mode),
+    chronoTemperatureRowHeight(mode)
+) + (if (mode == DisplayMode.DAILY) listOf(CHRONO_DAILY_APPARENT_HEIGHT) else emptyList()) + listOf(
     CHRONO_CONDITIONS_HEIGHT,
     chronoRainRowHeight(mode, showDailyRanges),
     chronoCloudRowHeight(mode, showDailyRanges),

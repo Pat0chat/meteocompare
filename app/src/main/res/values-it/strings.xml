@@ -1265,4 +1265,10 @@ dato</string>
     <string name="settings_units_wind_knots">kn (nodi)</string>
     <string name="unit_knots">nodi</string>
     <string name="unit_metres_per_second">metri al secondo</string>
+    <string name="sunshine_actual_sources">Metodi utilizzati dai modelli inclusi nel calcolo:\n%1$s\nLe durate sono limitate alle ore di luce e aggregate tramite mediana. Non è una osservazione.</string>
+    <string name="sunshine_source_model">Durata del soleggiamento del modello (radiazione diretta superiore a 120 W/m²).</string>
+    <string name="sunshine_source_radiation">Stima dalla irradianza diretta normale media (DNI).</string>
+    <string name="sunshine_source_layers">Stima dagli strati di nubi basse, medie e alte.</string>
+    <string name="sunshine_source_total">Stima dalla nuvolosità totale (frazione di cielo sereno).</string>
+    <string name="sunshine_extrapolated">Per alcuni modelli la frazione soleggiata delle ore disponibili è estrapolata alla durata del giorno.</string>
 </resources>

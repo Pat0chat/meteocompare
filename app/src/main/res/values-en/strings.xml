@@ -1276,4 +1276,10 @@
     <string name="settings_units_wind_knots">kn (knots)</string>
     <string name="unit_knots">knots</string>
     <string name="unit_metres_per_second">metres per second</string>
+    <string name="sunshine_actual_sources">Methods used by the models included in this calculation:\n%1$s\nDurations are limited to daylight and aggregated by median. This is not an observation.</string>
+    <string name="sunshine_source_model">Model sunshine duration (direct radiation above 120 W/m²).</string>
+    <string name="sunshine_source_radiation">Estimate from mean direct normal irradiance (DNI).</string>
+    <string name="sunshine_source_layers">Estimate from low, middle and high cloud layers.</string>
+    <string name="sunshine_source_total">Estimate from total cloud cover (clear-sky fraction).</string>
+    <string name="sunshine_extrapolated">For some models, the sunny fraction of available hours is extrapolated to the daylight duration.</string>
 </resources>

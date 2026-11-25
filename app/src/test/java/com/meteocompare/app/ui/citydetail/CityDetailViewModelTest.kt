@@ -131,6 +131,7 @@ class CityDetailViewModelTest {
         coEvery { getNormalsForCity(any()) } returns
                 ApiResult.Error(RuntimeException(), "normals unavailable")
     }
+    private val dailyRangesFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
     private val prefs: UserPreferencesRepository = mockk(relaxed = true) {
         coEvery { observeEnabledModels() } returns modelsFlow
         // observeRefreshInterval() est appelé par loadInitial() via .first().
@@ -143,6 +144,7 @@ class CityDetailViewModelTest {
         every { observeCollapsedCityDetailSections(any()) } returns collapsedSectionsFlow
         every { observeCityDetailViewMode(any()) } returns detailViewModeFlow
         every { observeCityDetailContentTab(any()) } returns detailContentTabFlow
+        every { observeDailyRangesEnabled() } returns dailyRangesFlow
     }
 
     // Context : on stub getString pour retourner des strings prévisibles.
@@ -453,6 +455,18 @@ class CityDetailViewModelTest {
                 prefs.setCityDetailContentTab("1", CityDetailContentTab.PRECIPITATION)
             }
         }
+
+    @Test
+    fun `daily ranges preference is observed and persisted by the detail view model`() = runViewModelTest {
+        val vm = buildViewModel()
+        vm.dailyRangesEnabled.test {
+            assertEquals(false, awaitItem())
+            dailyRangesFlow.value = true
+            assertEquals(true, awaitItem())
+        }
+        vm.setDailyRangesEnabled(false)
+        coVerify { prefs.setDailyRangesEnabled(false) }
+    }
 
     // ──────────────── Chargement initial ────────────────
 

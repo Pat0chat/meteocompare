@@ -1273,4 +1273,10 @@
     <string name="settings_units_wind_knots">kn (deniz mili/saat)</string>
     <string name="unit_knots">deniz mili/saat</string>
     <string name="unit_metres_per_second">metre/saniye</string>
+    <string name="sunshine_actual_sources">Bu hesaplamaya dahil edilen modellerin kullandığı yöntemler:\n%1$s\nSüreler gündüz saatleriyle sınırlıdır ve medyan ile birleştirilir. Bu bir gözlem değildir.</string>
+    <string name="sunshine_source_model">Modelin güneşlenme süresi (120 W/m² üzerindeki doğrudan ışınım).</string>
+    <string name="sunshine_source_radiation">Ortalama doğrudan normal ışınımdan (DNI) tahmin.</string>
+    <string name="sunshine_source_layers">Alçak, orta ve yüksek bulut katmanlarından tahmin.</string>
+    <string name="sunshine_source_total">Toplam bulutluluk oranından tahmin (açık gökyüzü oranı).</string>
+    <string name="sunshine_extrapolated">Bazı modellerde mevcut saatlerin güneşli kısmı gündüz süresine uyarlanır.</string>
 </resources>

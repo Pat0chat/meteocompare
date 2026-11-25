@@ -39,6 +39,33 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `daily apparent extrema use valid local hourly data and preserve missing values`() {
+        val start = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val hours = List(24) { start.plusSeconds(it * 3600L) }
+        fun point(count: Int): SimplifiedTimelinePoint {
+            val series = ForecastSeries(WeatherModel.GFS,
+                HourlyForecast(timestamps = hours, temperature2m = List(24) { 20.0 },
+                    apparentTemperature = List(24) { if (it < count) 8.0 + it else null },
+                    precipitation = emptyList(), windSpeed10m = emptyList()),
+                DailyForecast(dates = listOf(today), tempMax = listOf(20.0),
+                    tempMin = listOf(20.0), precipitationSum = listOf(0.0), windSpeedMax = listOf(10.0)))
+            return buildSimplifiedTimeline(CityForecast(paris.copy(timezone = "UTC"),
+                mapOf(WeatherModel.GFS to series)), DisplayMode.DAILY, start).single()
+        }
+        val complete = point(24)
+        assertEquals(8.0, complete.apparentMinC!!, 0.001)
+        assertEquals(31.0, complete.apparentMaxC!!, 0.001)
+        assertEquals(null, complete.apparentTemperatureC)
+        assertEquals(null, point(11).apparentMinC)
+        assertEquals(null, point(11).apparentMaxC)
+        assertEquals("8° / 31°", dailyApparentReading(complete,
+            com.meteocompare.app.core.units.WeatherUnits()))
+        assertEquals("46°F / 88°F", dailyApparentReading(complete,
+            com.meteocompare.app.core.units.WeatherUnits(com.meteocompare.app.domain.model.UnitSystem.IMPERIAL)))
+        assertEquals("—", dailyApparentReading(point(11), com.meteocompare.app.core.units.WeatherUnits()))
+    }
+
+    @Test
     fun `daily model ranges keep maximum minimum and rainfall independent`() {
         val values = listOf(
             WeatherModel.GFS to Triple(25.0, 12.0, 2.0),

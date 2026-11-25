@@ -75,7 +75,9 @@ class TodaySummaryCardTest {
             series.copy(
                 hourly = series.hourly.copy(
                     timestamps = List(hourCount) { start.plusSeconds(it * 3600L) },
-                    cloudCover = List(hourCount) { 50 }
+                    cloudCover = List(hourCount) { 50 },
+                    cloudCoverLow = emptyList(), cloudCoverMid = emptyList(), cloudCoverHigh = emptyList(),
+                    sunshineDuration = emptyList(), directNormalIrradiance = emptyList()
                 ),
                 daily = series.daily.copy(sunrise = listOf(sunrise), sunset = listOf(sunset))
             )
@@ -332,8 +334,10 @@ class TodaySummaryCardTest {
 
         sunshine.performClick()
         explanation.assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.compare_sunshine_disclaimer), useUnmergedTree = true)
-            .assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.sunshine_source_total),
+            substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.sunshine_source_model),
+            substring = true, useUnmergedTree = true).assertDoesNotExist()
 
         sunshine.performClick()
         explanation.assertDoesNotExist()

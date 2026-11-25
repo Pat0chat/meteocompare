@@ -9,7 +9,7 @@ import com.meteocompare.app.core.locale.LocalClockFormatPreference
 import com.meteocompare.app.core.locale.WeatherTimeFormat
 
 import com.meteocompare.app.domain.model.UvForecast
-import com.meteocompare.app.domain.usecase.estimatedSunshineHours
+import com.meteocompare.app.domain.usecase.estimatedSunshineDetails
 import com.meteocompare.app.ui.components.formatSunshineDuration
 import com.meteocompare.app.ui.components.localizedSunshineDurationFormats
 import com.meteocompare.app.ui.components.UvIndexGauge
@@ -258,6 +258,7 @@ private fun CityDetailLoadedStateBridge(
     val collapsedSections by viewModel.collapsedSections.collectAsStateWithLifecycle()
     val detailViewMode by viewModel.detailViewMode.collectAsStateWithLifecycle()
     val detailContentTab by viewModel.detailContentTab.collectAsStateWithLifecycle()
+    val dailyRangesEnabled by viewModel.dailyRangesEnabled.collectAsStateWithLifecycle()
 
     LoadedView(
         forecast = loaded.forecast,
@@ -285,6 +286,8 @@ private fun CityDetailLoadedStateBridge(
         collapsedSections = collapsedSections,
         detailViewMode = detailViewMode,
         detailContentTab = detailContentTab,
+        showDailyRanges = dailyRangesEnabled,
+        onShowDailyRangesChange = viewModel::setDailyRangesEnabled,
         padding = padding,
         onSectionExpandedChange = viewModel::setSectionExpanded,
         onDetailViewModeChange = viewModel::setDetailViewMode,
@@ -326,7 +329,9 @@ internal fun CityDetailContent(
     onMeteogramClick: () -> Unit = {},
     onRadarClick: () -> Unit = {},
     onRequestBiasHistory: () -> Unit = {},
-    showBackButton: Boolean = true
+    showBackButton: Boolean = true,
+    showDailyRanges: Boolean = false,
+    onShowDailyRangesChange: (Boolean) -> Unit = {}
 ) {
     CityDetailScaffold(
         state = state,
@@ -365,6 +370,8 @@ internal fun CityDetailContent(
             collapsedSections = collapsedSections,
             detailViewMode = detailViewMode,
             detailContentTab = detailContentTab,
+            showDailyRanges = showDailyRanges,
+            onShowDailyRangesChange = onShowDailyRangesChange,
             padding = padding,
             onSectionExpandedChange = onSectionExpandedChange,
             onDetailViewModeChange = onDetailViewModeChange,
@@ -644,6 +651,8 @@ private fun LoadedView(
     collapsedSections: Set<CityDetailSection>,
     detailViewMode: CityDetailViewMode,
     detailContentTab: CityDetailContentTab,
+    showDailyRanges: Boolean,
+    onShowDailyRangesChange: (Boolean) -> Unit,
     padding: PaddingValues,
     onSectionExpandedChange: (CityDetailSection, Boolean) -> Unit,
     onDetailViewModeChange: (CityDetailViewMode) -> Unit,
@@ -715,8 +724,6 @@ private fun LoadedView(
     var timelineLayoutName by rememberSaveable(forecast.city.id) {
         mutableStateOf(TimelineLayout.COLUMNS.name)
     }
-    // Shared by the daily column and chronological views; disabled by default.
-    var showDailyRanges by rememberSaveable(forecast.city.id) { mutableStateOf(false) }
     val timelineLayout = remember(timelineLayoutName) {
         TimelineLayout.entries.firstOrNull { it.name == timelineLayoutName } ?: TimelineLayout.COLUMNS
     }
@@ -931,7 +938,7 @@ private fun LoadedView(
                     availableRanges = timelineAvailableRanges,
                     layout = timelineLayout,
                     showDailyRanges = showDailyRanges,
-                    onShowDailyRangesChange = { showDailyRanges = it },
+                    onShowDailyRangesChange = onShowDailyRangesChange,
                     onLayoutChange = { newLayout ->
                         timelineLayoutName = newLayout.name
                     },
@@ -1707,9 +1714,10 @@ internal fun TodaySummaryCard(
     val solarWindow = remember(forecast, today.date) {
         forecast?.let { detailSolarWindow(it, today.date) }
     }
-    val sunshineHours = remember(forecast, today.date) {
-        forecast?.let { estimatedSunshineHours(it, today.date) }
+    val sunshineEstimate = remember(forecast, today.date) {
+        forecast?.let { estimatedSunshineDetails(it, today.date) }
     }
+    val sunshineHours = sunshineEstimate?.hours
     val sunshineText = formatSunshineDuration(
         sunshineHours, hourly = false, units, LocalConfiguration.current.locales[0], localizedSunshineDurationFormats()
     )
@@ -1918,6 +1926,7 @@ internal fun TodaySummaryCard(
                             now = now,
                             uvIndex = uvIndex,
                             sunshineText = sunshineText.takeIf { sunshineHours != null },
+                            sunshineEstimate = sunshineEstimate,
                             sunshineExplanationExpanded = sunshineExplanationExpanded,
                             onSunshineExplanationToggle = { sunshineExplanationExpanded = !sunshineExplanationExpanded }
                         )
@@ -1934,6 +1943,7 @@ internal fun TodaySummaryCard(
                         if (sunshineHours != null) {
                             EstimatedSunshineSolarPill(
                                 text = sunshineText,
+                                sunshineEstimate = sunshineEstimate,
                                 expanded = sunshineExplanationExpanded,
                                 onToggle = { sunshineExplanationExpanded = !sunshineExplanationExpanded },
                                 accent = MaterialTheme.colorScheme.primary

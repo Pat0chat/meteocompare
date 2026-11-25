@@ -260,6 +260,13 @@ class CityDetailViewModel @Inject constructor(
                 initialValue = CityDetailContentTab.DEFAULT
             )
 
+    val dailyRangesEnabled: StateFlow<Boolean> = userPreferences.observeDailyRangesEnabled()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setDailyRangesEnabled(enabled: Boolean) = persistDetailSetting {
+        userPreferences.setDailyRangesEnabled(enabled)
+    }
+
     init {
         observeConnectivity()
         observeExternalForecastUpdates()

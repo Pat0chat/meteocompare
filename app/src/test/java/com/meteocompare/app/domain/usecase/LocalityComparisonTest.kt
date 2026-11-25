@@ -21,6 +21,39 @@ class LocalityComparisonTest {
     private val rise = Instant.parse("2026-06-20T06:00:00Z")
     private val set = Instant.parse("2026-06-20T18:00:00Z")
 
+    @Test fun sunshineProvenanceUsesOnlyTheActualSelectedMethodPerHour() {
+        val hours = (0L..12L).map { rise.plusSeconds(it * 3600) }
+        val details = requireNotNull(estimateCloudAdjustedDaylightDetails(
+            rise, set, hours, List(13) { 50 },
+            sunshineDuration = List(13) { 1800.0 },
+            directNormalIrradiance = List(13) { 370.0 }
+        ))
+        assertEquals(6.0, details.hours, 0.001)
+        assertEquals(setOf(SunshineSource.MODEL_DURATION), details.sources)
+        assertEquals(false, details.extrapolated)
+    }
+
+    @Test fun sunshineProvenanceTracksMixedInputsAndExtrapolation() {
+        val hours = (0L..7L).map { rise.plusSeconds(it * 3600) }
+        val details = requireNotNull(estimateCloudAdjustedDaylightDetails(
+            rise, set, hours, List(8) { 50 },
+            cloudCoverLow = List(8) { if (it == 2) 20 else null },
+            cloudCoverMid = List(8) { if (it == 2) 20 else null },
+            cloudCoverHigh = List(8) { if (it == 2) 20 else null },
+            sunshineDuration = List(8) { if (it == 1) 1800.0 else null },
+            directNormalIrradiance = List(8) { if (it == 2) 245.0 else null }
+        ))
+        assertEquals(SunshineSource.entries.toSet(), details.sources)
+        assertEquals(true, details.extrapolated)
+        assertEquals(12.0 * (3.5 + 0.81 * 0.84 * 0.92) / 8.0, details.hours, 0.001)
+    }
+
+    @Test fun sunshineProvenanceIsAbsentWhenOvercastHasNoSolarEvidence() {
+        val hours = (0L..12L).map { rise.plusSeconds(it * 3600) }
+        assertNull(estimateCloudAdjustedDaylightDetails(rise, set, hours, List(13) { 98 },
+            directNormalIrradiance = List(13) { 500.0 }))
+    }
+
     @Test fun cloudAdjustedSunshine_usesOnlyOverlappingDaylight() {
         val hours = (0L until 24).map { Instant.parse("2026-06-20T00:00:00Z").plusSeconds(it * 3600) }
         val clouds = hours.mapIndexed { i, _ -> if (i in 6..17) 25 else 100 }

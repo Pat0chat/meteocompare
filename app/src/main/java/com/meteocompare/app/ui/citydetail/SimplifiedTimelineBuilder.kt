@@ -97,6 +97,8 @@ internal data class SimplifiedTimelinePoint(
     val temperatureC: Double? = null,
     /** Model median of the estimated apparent temperature, hourly only. */
     val apparentTemperatureC: Double? = null,
+    val apparentMinC: Double? = null,
+    val apparentMaxC: Double? = null,
     /** Sea-level atmospheric pressure (hPa), hourly or daily mean. */
     val pressureHpa: Double? = null,
     val pressureMinAcrossModels: Double? = null,
@@ -361,6 +363,8 @@ private data class TimelineSnapshot(
     val model: WeatherModel,
     val temperature: Double?,
     val apparentTemperature: Double? = null,
+    val apparentMin: Double? = null,
+    val apparentMax: Double? = null,
     val pressure: Double? = null,
     val humidity: Double? = null,
     val dewPoint: Double? = null,
@@ -377,7 +381,7 @@ private data class TimelineSnapshot(
     val conditionDecision: ConditionDecision? = null
 ) {
     val hasAnyValue: Boolean
-        get() = temperature != null || apparentTemperature?.isFinite() == true || pressure?.isFinite() == true ||
+        get() = temperature != null || apparentTemperature?.isFinite() == true || apparentMin != null || apparentMax != null || pressure?.isFinite() == true ||
             humidity?.isFinite() == true || dewPoint?.isFinite() == true || tempMin != null || tempMax != null ||
             precipitation != null || precipitationProbability != null || cloudCover != null ||
             wind != null || windGust != null ||
@@ -445,7 +449,8 @@ private fun indexDailySnapshots(
         val precipitation = index.takeIf { it >= 0 }?.let { series.daily.precipitationSum.getOrNull(it) }
         val probability = index.takeIf { it >= 0 }?.let { series.daily.precipitationProbabilityMax.getOrNull(it) }
         val cloudCover = series.dailyCloudCoverMean(date, zone)
-        val pressure = series.dailyAtmosphericMetrics(date, zone).meanPressureHpa
+        val atmospheric = series.dailyAtmosphericMetrics(date, zone)
+        val pressure = atmospheric.meanPressureHpa
         val moisture = series.dailyMoisture(date, zone)
         val wind = index.takeIf { it >= 0 }?.let { series.daily.windSpeedMax.getOrNull(it) }
         val windGust = index.takeIf { it >= 0 }?.let { series.daily.windGustsMax.getOrNull(it) }
@@ -459,6 +464,8 @@ private fun indexDailySnapshots(
         val snapshot = TimelineSnapshot(
             model = model,
             temperature = null,
+            apparentMin = atmospheric.apparentMinC,
+            apparentMax = atmospheric.apparentMaxC,
             tempMin = min,
             tempMax = max,
             pressure = pressure,
@@ -536,6 +543,12 @@ private fun timelinePoint(
     val apparent = if (hourly) continuous(
         { it.apparentTemperature }, ForecastEngineVariable.TEMPERATURE,
         0.5, 3.0, allowCalibration = false
+    ) else null
+    val apparentMin = if (!hourly) continuous(
+        { it.apparentMin }, ForecastEngineVariable.TEMPERATURE, 0.5, 3.0, allowCalibration = false
+    ) else null
+    val apparentMax = if (!hourly) continuous(
+        { it.apparentMax }, ForecastEngineVariable.TEMPERATURE, 0.5, 3.0, allowCalibration = false
     ) else null
     // Independent family-balanced medians for moisture. They are informative
     // forecasts, not extra inputs to the app's temperature/weather convergence.
@@ -744,6 +757,8 @@ private fun timelinePoint(
         date = date,
         temperatureC = if (hourly) temp.forecastValue.central else null,
         apparentTemperatureC = apparent?.forecastValue?.central,
+        apparentMinC = apparentMin?.forecastValue?.central,
+        apparentMaxC = apparentMax?.forecastValue?.central,
         pressureHpa = pressure.forecastValue.central,
         pressureMinAcrossModels = pressureValues.takeIf { it.size >= 2 }?.minOrNull(),
         pressureMaxAcrossModels = pressureValues.takeIf { it.size >= 2 }?.maxOrNull(),

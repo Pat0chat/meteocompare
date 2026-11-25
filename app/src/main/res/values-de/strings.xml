@@ -1259,4 +1259,10 @@ Daten</string>
     <string name="settings_units_wind_knots">kn (Knoten)</string>
     <string name="unit_knots">Knoten</string>
     <string name="unit_metres_per_second">Meter pro Sekunde</string>
+    <string name="sunshine_actual_sources">Methoden der in diese Berechnung einbezogenen Modelle:\n%1$s\nDie Dauer ist auf Tageslicht begrenzt; die Werte werden per Median zusammengefasst. Keine Beobachtung.</string>
+    <string name="sunshine_source_model">Sonnenscheindauer des Modells (Direktstrahlung über 120 W/m²).</string>
+    <string name="sunshine_source_radiation">Schätzung aus der mittleren direkten Normalstrahlung (DNI).</string>
+    <string name="sunshine_source_layers">Schätzung aus tiefen, mittleren und hohen Wolkenschichten.</string>
+    <string name="sunshine_source_total">Schätzung aus der Gesamtbewölkung (Anteil klaren Himmels).</string>
+    <string name="sunshine_extrapolated">Bei einigen Modellen wird der Sonnenanteil der verfügbaren Stunden auf die Tageslichtdauer hochgerechnet.</string>
 </resources>

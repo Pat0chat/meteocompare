@@ -80,6 +80,7 @@ internal fun DetailSolarCard(
     modifier: Modifier = Modifier,
     uvIndex: Double? = null,
     sunshineText: String? = null,
+    sunshineEstimate: com.meteocompare.app.domain.usecase.SunshineEstimate? = null,
     sunshineExplanationExpanded: Boolean = false,
     onSunshineExplanationToggle: () -> Unit = {}
 ) {
@@ -119,7 +120,7 @@ internal fun DetailSolarCard(
                 }
             } else null
         )
-        SunshineExplanation(expanded = sunshineExplanationExpanded && sunshineText != null)
+        SunshineExplanation(expanded = sunshineExplanationExpanded && sunshineText != null, estimate = sunshineEstimate)
 
         Spacer(Modifier.height(3.dp))
         Canvas(modifier = Modifier.fillMaxWidth().height(40.dp).testTag(TAG_DETAIL_SOLAR_CURVE)) {
@@ -244,10 +245,21 @@ private fun EstimatedSunshineValuePill(
 }
 
 @Composable
-private fun SunshineExplanation(expanded: Boolean) {
+private fun SunshineExplanation(expanded: Boolean, estimate: com.meteocompare.app.domain.usecase.SunshineEstimate?) {
     if (expanded) {
         Text(
-            text = stringResource(R.string.compare_sunshine_disclaimer),
+            text = if (estimate == null) stringResource(R.string.compare_sunshine_disclaimer) else {
+                val methods = estimate.sources.sortedBy { it.ordinal }.map { source ->
+                    stringResource(when (source) {
+                        com.meteocompare.app.domain.usecase.SunshineSource.MODEL_DURATION -> R.string.sunshine_source_model
+                        com.meteocompare.app.domain.usecase.SunshineSource.DIRECT_RADIATION -> R.string.sunshine_source_radiation
+                        com.meteocompare.app.domain.usecase.SunshineSource.CLOUD_LAYERS -> R.string.sunshine_source_layers
+                        com.meteocompare.app.domain.usecase.SunshineSource.TOTAL_CLOUD -> R.string.sunshine_source_total
+                    })
+                }.joinToString("\n• ", prefix = "• ")
+                stringResource(R.string.sunshine_actual_sources, methods) +
+                    if (estimate.extrapolated) "\n" + stringResource(R.string.sunshine_extrapolated) else ""
+            },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 3.dp)
@@ -262,12 +274,13 @@ internal fun EstimatedSunshineSolarPill(
     text: String,
     expanded: Boolean,
     onToggle: () -> Unit,
-    accent: androidx.compose.ui.graphics.Color
+    accent: androidx.compose.ui.graphics.Color,
+    sunshineEstimate: com.meteocompare.app.domain.usecase.SunshineEstimate? = null
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         EstimatedSunshineValuePill(text, expanded, onToggle, accent)
     }
-    SunshineExplanation(expanded)
+    SunshineExplanation(expanded, sunshineEstimate)
 }
 
 @Composable

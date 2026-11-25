@@ -34,6 +34,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setRefreshInterval(RefreshInterval.DEFAULT)
             repository.setForecastEngine(ForecastEngine.DEFAULT)
             repository.setHomeExpandedCityId(null)
+            repository.setDailyRangesEnabled(false)
             listOf("paris", "lyon").forEach { cityId ->
                 CityDetailSection.entries.forEach { section ->
                     repository.setCityDetailSectionCollapsed(cityId, section, collapsed = false)
@@ -42,6 +43,16 @@ class UserPreferencesRepositoryImplTest {
                 repository.setCityDetailContentTab(cityId, CityDetailContentTab.DEFAULT)
             }
         }
+    }
+
+    @Test
+    fun daily_ranges_survive_repository_recreation_and_can_be_disabled() = runTest {
+        assertEquals(false, repository.observeDailyRangesEnabled().first())
+        repository.setDailyRangesEnabled(true)
+        val recreated = UserPreferencesRepositoryImpl(context, Dispatchers.IO)
+        assertEquals(true, recreated.observeDailyRangesEnabled().first())
+        recreated.setDailyRangesEnabled(false)
+        assertEquals(false, repository.observeDailyRangesEnabled().first())
     }
 
     @Test

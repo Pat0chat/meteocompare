@@ -78,6 +78,10 @@ interface UserPreferencesRepository {
     fun observeCityDetailContentTab(cityId: String): Flow<CityDetailContentTab>
     suspend fun setCityDetailContentTab(cityId: String, tab: CityDetailContentTab)
 
+    /** Global display preference shared by both daily chronology layouts. */
+    fun observeDailyRangesEnabled(): Flow<Boolean>
+    suspend fun setDailyRangesEnabled(enabled: Boolean)
+
     /** Notifications météo locales (résumé quotidien, divergence, changement). */
     fun observeNotificationSettings(): Flow<NotificationSettings>
 

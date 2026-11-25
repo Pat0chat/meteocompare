@@ -801,6 +801,19 @@ private fun TimelinePointColumn(
                 } ?: "",
                 modifier = Modifier.testTag(TAG_TIMELINE_COLUMNS_APPARENT)
             )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(34.dp).padding(horizontal = 4.dp)
+                    .testTag(TAG_TIMELINE_COLUMNS_APPARENT),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    stringResource(R.string.apparent_temperature_short, dailyApparentReading(point, units)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         PrecipitationHeatIndicator(

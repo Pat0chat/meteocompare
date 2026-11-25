@@ -1265,4 +1265,10 @@ datos</string>
     <string name="settings_units_wind_knots">kn (nudos)</string>
     <string name="unit_knots">nudos</string>
     <string name="unit_metres_per_second">metros por segundo</string>
+    <string name="sunshine_actual_sources">Métodos utilizados por los modelos incluidos en este cálculo:\n%1$s\nLas duraciones se limitan a las horas de luz y se agregan por mediana. No es una observación.</string>
+    <string name="sunshine_source_model">Duración de insolación del modelo (radiación directa superior a 120 W/m²).</string>
+    <string name="sunshine_source_radiation">Estimación a partir de la irradiancia directa normal media (DNI).</string>
+    <string name="sunshine_source_layers">Estimación a partir de las capas de nubes bajas, medias y altas.</string>
+    <string name="sunshine_source_total">Estimación a partir de la nubosidad total (fracción de cielo despejado).</string>
+    <string name="sunshine_extrapolated">En algunos modelos se extrapola la fracción soleada de las horas disponibles a la duración del día.</string>
 </resources>

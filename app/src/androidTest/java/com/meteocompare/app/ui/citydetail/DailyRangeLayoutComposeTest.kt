@@ -36,6 +36,7 @@ class DailyRangeLayoutComposeTest {
     private fun dailyPoint(models: Int = 3) = SimplifiedTimelinePoint(
         date = LocalDate.of(2026, 9, 16),
         tempMaxC = 30.0, tempMinC = 12.0,
+        apparentMinC = 9.0, apparentMaxC = 33.0,
         temperatureMinAcrossModels = 24.0, temperatureMaxAcrossModels = 34.0,
         temperatureModelCount = models,
         tempMinMinAcrossModels = 9.0, tempMinMaxAcrossModels = 16.0,
@@ -92,6 +93,24 @@ class DailyRangeLayoutComposeTest {
             .performScrollTo().performClick()
         rule.onNodeWithTag("columns_daily_temp_max_range", useUnmergedTree = true).assertDoesNotExist()
         rule.runOnIdle { assertEquals(false, enabled.value) }
+    }
+
+    @Test fun apparent_daily_extrema_are_rendered_in_both_layouts_without_ranges() {
+        val layout = mutableStateOf(TimelineLayout.COLUMNS)
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    SimplifiedTimelineCard(points = listOf(dailyPoint()), mode = DisplayMode.DAILY,
+                        timezone = "UTC", now = now, layout = layout.value,
+                        showDailyRanges = false)
+                }
+            }
+        }
+        rule.onNodeWithTag(TAG_TIMELINE_COLUMNS_APPARENT, useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("9° / 33°", substring = true, useUnmergedTree = true).assertExists()
+        rule.runOnIdle { layout.value = TimelineLayout.CHRONO }
+        rule.onNodeWithTag("timeline_chrono_daily_apparent_lane", useUnmergedTree = true).assertExists()
+        rule.onNodeWithText("9° / 33°", useUnmergedTree = true).assertExists()
     }
 
     @Test fun hourly_timeline_does_not_offer_the_daily_only_toggle() {

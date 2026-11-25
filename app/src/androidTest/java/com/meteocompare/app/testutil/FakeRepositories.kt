@@ -308,6 +308,10 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
         contentTabByCity.getOrPut(cityId) { MutableStateFlow(CityDetailContentTab.DEFAULT) }.value = tab
     }
 
+    private val dailyRangesEnabled = MutableStateFlow(false)
+    override fun observeDailyRangesEnabled(): Flow<Boolean> = dailyRangesEnabled
+    override suspend fun setDailyRangesEnabled(enabled: Boolean) { dailyRangesEnabled.value = enabled }
+
     override fun observeNotificationSettings(): Flow<NotificationSettings> = notificationSettings
 
     override suspend fun updateNotificationSettings(
@@ -327,6 +331,7 @@ class FakeUserPreferencesRepository @Inject constructor() : UserPreferencesRepos
         collapsedSectionsByCity.clear()
         viewModeByCity.clear()
         contentTabByCity.clear()
+        dailyRangesEnabled.value = false
     }
 }
 

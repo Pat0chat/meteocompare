@@ -130,7 +130,7 @@ class SimplifiedTimelineCardTest {
     }
 
     @Test
-    fun columns_omit_estimated_felt_temperature_in_daily_mode() {
+    fun columns_daily_do_not_reuse_an_hourly_felt_temperature() {
         val point = SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 7, 26),
             tempMinC = 11.0, tempMaxC = 22.0, apparentTemperatureC = 17.0)
         setContentWith24HourClock {
@@ -139,11 +139,16 @@ class SimplifiedTimelineCardTest {
                     timezone = "UTC", now = Instant.parse("2026-07-26T12:00:00Z"))
             }
         }
-        composeRule.onNodeWithTag(TAG_TIMELINE_COLUMNS_APPARENT, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithTag(TAG_TIMELINE_COLUMNS_APPARENT, useUnmergedTree = true).assertExists()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        composeRule.onNodeWithText(context.getString(R.string.apparent_temperature_short, "—"),
+            useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.apparent_temperature_short, "17°"),
+            useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
-    fun chrono_view_shows_felt_value_but_not_on_daily_timeline() {
+    fun chrono_view_shows_hourly_felt_value_above_heatmap_edge() {
         val hourly = SimplifiedTimelinePoint(instant = Instant.parse("2026-07-26T16:00:00Z"),
             temperatureC = 22.0, apparentTemperatureC = 15.0)
         setContentWith24HourClock {

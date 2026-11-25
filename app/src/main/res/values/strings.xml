@@ -1277,4 +1277,10 @@
     <string name="settings_units_wind_knots">kn (nœuds)</string>
     <string name="unit_knots">nœuds</string>
     <string name="unit_metres_per_second">mètres par seconde</string>
+    <string name="sunshine_actual_sources">Méthodes utilisées par les modèles retenus dans ce calcul :\n%1$s\nLes durées sont limitées aux heures de jour, puis agrégées par médiane. Ce n’est pas une mesure observée.</string>
+    <string name="sunshine_source_model">Durée d’ensoleillement fournie par le modèle (rayonnement direct supérieur à 120 W/m²).</string>
+    <string name="sunshine_source_radiation">Estimation à partir du rayonnement solaire direct moyen (DNI).</string>
+    <string name="sunshine_source_layers">Estimation à partir des couches nuageuses basses, moyennes et hautes.</string>
+    <string name="sunshine_source_total">Estimation à partir de la nébulosité totale (fraction de ciel dégagé).</string>
+    <string name="sunshine_extrapolated">Pour certains modèles, la fraction ensoleillée des heures disponibles est extrapolée à la durée du jour.</string>
 </resources>

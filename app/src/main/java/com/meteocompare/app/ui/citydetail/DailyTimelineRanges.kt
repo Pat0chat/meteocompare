@@ -71,3 +71,11 @@ internal fun dailyMetricRange(
     val formatted = dailyTimelineRange(low, high, units, unit, digits, locale) ?: return null
     return if (unit == WeatherUnit.PERCENT) formatted.dropLast(1) + "%)" else formatted
 }
+
+/** Daily extrema, not a model-disagreement range. */
+internal fun dailyApparentReading(point: SimplifiedTimelinePoint, units: WeatherUnits): String {
+    val low = point.apparentMinC?.takeIf(Double::isFinite)
+    val high = point.apparentMaxC?.takeIf(Double::isFinite)
+    if (low == null && high == null) return "—"
+    return "${units.temp(low)} / ${units.temp(high)}"
+}
