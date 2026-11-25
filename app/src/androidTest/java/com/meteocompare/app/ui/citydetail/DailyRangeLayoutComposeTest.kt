@@ -2,6 +2,8 @@ package com.meteocompare.app.ui.citydetail
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -239,29 +241,59 @@ class DailyRangeLayoutComposeTest {
 
     @Test fun switch_is_below_both_visualizations_without_persistent_convergence_explanation() {
         val layout = mutableStateOf(TimelineLayout.COLUMNS)
+        val enabled = mutableStateOf(false)
+        val point = dailyPoint().copy(divergenceReasons = setOf(DivergenceReason.WIND))
         rule.setContent {
             MeteoCompareTheme {
-                SimplifiedTimelineCard(
-                    points = listOf(dailyPoint().copy(divergenceReasons = setOf(DivergenceReason.WIND))),
-                    mode = DisplayMode.DAILY, timezone = "UTC", now = now,
-                    layout = layout.value, onLayoutChange = { layout.value = it },
-                    onShowDailyRangesChange = {}
-                )
+                Surface {
+                    // Deliberately use a short viewport: the real city detail page
+                    // scrolls vertically, and the daily lanes exceed this height.
+                    Column(Modifier.fillMaxWidth().height(360.dp).verticalScroll(rememberScrollState())) {
+                        SimplifiedTimelineCard(
+                            points = listOf(point),
+                            mode = DisplayMode.DAILY, timezone = "UTC", now = now,
+                            layout = layout.value, onLayoutChange = { layout.value = it },
+                            showDailyRanges = enabled.value,
+                            onShowDailyRangesChange = { enabled.value = it }
+                        )
+                    }
+                }
             }
         }
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val hint = context.getString(R.string.timeline_disagreement_hint)
-        val switch = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
-        val columnsY = rule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND, useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot.bottom
-        assertTrue(switch.fetchSemanticsNode().boundsInRoot.top > columnsY)
-        rule.onNodeWithText(hint).assertDoesNotExist()
+        val toggle = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
 
-        rule.onNodeWithText(context.getString(R.string.timeline_layout_chrono)).performClick()
-        val chronoBottom = rule.onNodeWithTag(TAG_TIMELINE_CHRONO_VIEW)
-            .fetchSemanticsNode().boundsInRoot.bottom
-        assertTrue(switch.fetchSemanticsNode().boundsInRoot.top >= chronoBottom)
-        rule.onNodeWithText(hint).assertDoesNotExist()
+        fun assertToggleBelow(visualizationTag: String, rangesEnabled: Boolean) {
+            // Scroll first, then measure both nodes in the same root coordinates.
+            // boundsInRoot clips offscreen content and is not a layout measurement.
+            toggle.performScrollTo().assertIsDisplayed().assertHasClickAction()
+            if (rangesEnabled) toggle.assertIsOn() else toggle.assertIsOff()
+            val visualization = rule.onNodeWithTag(visualizationTag, useUnmergedTree = true)
+                .getUnclippedBoundsInRoot()
+            val switchBounds = toggle.getUnclippedBoundsInRoot()
+            assertTrue("$visualizationTag must have a positive height: $visualization",
+                visualization.bottom.value > visualization.top.value)
+            assertTrue("Toggle must have a positive height: $switchBounds",
+                switchBounds.bottom.value > switchBounds.top.value)
+            assertTrue("Toggle must be below $visualizationTag (ranges=$rangesEnabled): " +
+                "$switchBounds vs $visualization", switchBounds.top.value >= visualization.bottom.value)
+            rule.onNodeWithText(hint, useUnmergedTree = true).assertDoesNotExist()
+            rule.onNodeWithTag(TAG_TIMELINE_CONVERGENCE_INFO_DIALOG).assertDoesNotExist()
+        }
+
+        // One point fills the Columns visualization vertically. Check the entire
+        // column, including the convergence area, not just its temperature band.
+        val columnTag = "timeline_point_${timelinePointKey(point)}"
+        assertToggleBelow(columnTag, rangesEnabled = false)
+        toggle.performClick()
+        assertToggleBelow(columnTag, rangesEnabled = true)
+
+        rule.onNodeWithText(context.getString(R.string.timeline_layout_chrono))
+            .performScrollTo().performClick()
+        assertToggleBelow(TAG_TIMELINE_CHRONO_VIEW, rangesEnabled = true)
+        toggle.performClick()
+        assertToggleBelow(TAG_TIMELINE_CHRONO_VIEW, rangesEnabled = false)
     }
 
     @Test fun tapping_convergence_in_daily_columns_opens_and_dismisses_explanation() {
