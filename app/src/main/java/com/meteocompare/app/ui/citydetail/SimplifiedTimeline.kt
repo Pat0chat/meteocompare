@@ -803,16 +803,21 @@ private fun TimelinePointColumn(
             )
         } else {
             Box(
-                modifier = Modifier.fillMaxWidth().height(34.dp).padding(horizontal = 4.dp)
-                    .testTag(TAG_TIMELINE_COLUMNS_APPARENT),
+                modifier = Modifier.fillMaxWidth().height(
+                    if (showDailyRanges) 64.dp * LocalDensity.current.fontScale.coerceAtLeast(1f) else 34.dp
+                ).padding(horizontal = 4.dp).testTag(TAG_TIMELINE_COLUMNS_APPARENT),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    stringResource(R.string.apparent_temperature_short, dailyApparentReading(point, units)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis
-                )
+                if (showDailyRanges) {
+                    DailyApparentRangeLabels(point, units, displayLocale, "columns_daily", showTitle = true)
+                } else {
+                    Text(
+                        stringResource(R.string.apparent_temperature_short, dailyApparentReading(point, units)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
 

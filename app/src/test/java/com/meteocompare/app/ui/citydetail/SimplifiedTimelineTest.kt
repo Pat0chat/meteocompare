@@ -66,6 +66,42 @@ class SimplifiedTimelineTest {
     }
 
     @Test
+    fun `daily apparent ranges compare valid model extrema independently`() {
+        val start = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+        val hours = List(24) { start.plusSeconds(it * 3600L) }
+        fun series(model: WeatherModel, low: Double, high: Double, count: Int) = ForecastSeries(
+            model, HourlyForecast(timestamps = hours, temperature2m = List(24) { 20.0 },
+                apparentTemperature = List(24) { index -> when {
+                    index >= count -> Double.NaN
+                    index == 0 -> low
+                    else -> high
+                } }, precipitation = emptyList(), windSpeed10m = emptyList()),
+            DailyForecast(dates = listOf(today), tempMax = listOf(20.0), tempMin = listOf(10.0),
+                precipitationSum = listOf(0.0), windSpeedMax = listOf(10.0)))
+        val a = series(WeatherModel.GFS, -5.0, 29.0, 24)
+        val b = series(WeatherModel.ICON_EU, 12.0, 40.0, 24)
+        val c = series(WeatherModel.ECMWF, -20.0, 50.0, 11)
+        fun point(vararg series: ForecastSeries) = buildSimplifiedTimeline(
+            CityForecast(paris.copy(timezone = "UTC"), series.associateBy { it.model }),
+            DisplayMode.DAILY, start).single()
+        val daily = point(a, b, c)
+        assertEquals(2, daily.apparentMinModelCount)
+        assertEquals(2, daily.apparentMaxModelCount)
+        assertEquals(-5.0, daily.apparentMinMinAcrossModels!!, 0.0)
+        assertEquals(12.0, daily.apparentMinMaxAcrossModels!!, 0.0)
+        assertEquals(29.0, daily.apparentMaxMinAcrossModels!!, 0.0)
+        assertEquals(40.0, daily.apparentMaxMaxAcrossModels!!, 0.0)
+        val units = com.meteocompare.app.core.units.WeatherUnits()
+        assertEquals("(-5–12)", dailyMetricRange(daily, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, units, java.util.Locale.US))
+        assertEquals("(29–40)", dailyMetricRange(daily, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, units, java.util.Locale.US))
+        val single = point(a, c)
+        assertEquals(1, single.apparentMinModelCount)
+        assertEquals(1, single.apparentMaxModelCount)
+        assertEquals(null, dailyMetricRange(single, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, units))
+        assertEquals(null, dailyMetricRange(single, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, units))
+    }
+
+    @Test
     fun `daily model ranges keep maximum minimum and rainfall independent`() {
         val values = listOf(
             WeatherModel.GFS to Triple(25.0, 12.0, 2.0),

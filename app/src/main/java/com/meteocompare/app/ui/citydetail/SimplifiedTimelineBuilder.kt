@@ -99,6 +99,12 @@ internal data class SimplifiedTimelinePoint(
     val apparentTemperatureC: Double? = null,
     val apparentMinC: Double? = null,
     val apparentMaxC: Double? = null,
+    val apparentMinMinAcrossModels: Double? = null,
+    val apparentMinMaxAcrossModels: Double? = null,
+    val apparentMinModelCount: Int = 0,
+    val apparentMaxMinAcrossModels: Double? = null,
+    val apparentMaxMaxAcrossModels: Double? = null,
+    val apparentMaxModelCount: Int = 0,
     /** Sea-level atmospheric pressure (hPa), hourly or daily mean. */
     val pressureHpa: Double? = null,
     val pressureMinAcrossModels: Double? = null,
@@ -735,6 +741,10 @@ private fun timelinePoint(
     }
     val temperatures = meaningful.mapNotNull { if (hourly) it.temperature else it.tempMax }
     val minimumTemperatures = if (hourly) emptyList() else meaningful.mapNotNull { it.tempMin?.takeIf(Double::isFinite) }
+    // Compare the already validated daily extrema of each model, not hourly samples
+    // across all models or the central daily minimum against the central maximum.
+    val apparentMinimums = if (hourly) emptyList() else meaningful.mapNotNull { it.apparentMin?.takeIf(Double::isFinite) }
+    val apparentMaximums = if (hourly) emptyList() else meaningful.mapNotNull { it.apparentMax?.takeIf(Double::isFinite) }
     // Preserve only physically valid, finite endpoints; invalid feeds cannot turn into UI ranges.
     val pressureValues = meaningful.mapNotNull { it.pressure?.takeIf { v -> v.isFinite() && v in 800.0..1100.0 } }
     val humidityValues = meaningful.mapNotNull { it.humidity?.takeIf { v -> v.isFinite() && v in 0.0..100.0 } }
@@ -759,6 +769,12 @@ private fun timelinePoint(
         apparentTemperatureC = apparent?.forecastValue?.central,
         apparentMinC = apparentMin?.forecastValue?.central,
         apparentMaxC = apparentMax?.forecastValue?.central,
+        apparentMinMinAcrossModels = apparentMinimums.takeIf { it.size >= 2 }?.minOrNull(),
+        apparentMinMaxAcrossModels = apparentMinimums.takeIf { it.size >= 2 }?.maxOrNull(),
+        apparentMinModelCount = apparentMinimums.size,
+        apparentMaxMinAcrossModels = apparentMaximums.takeIf { it.size >= 2 }?.minOrNull(),
+        apparentMaxMaxAcrossModels = apparentMaximums.takeIf { it.size >= 2 }?.maxOrNull(),
+        apparentMaxModelCount = apparentMaximums.size,
         pressureHpa = pressure.forecastValue.central,
         pressureMinAcrossModels = pressureValues.takeIf { it.size >= 2 }?.minOrNull(),
         pressureMaxAcrossModels = pressureValues.takeIf { it.size >= 2 }?.maxOrNull(),

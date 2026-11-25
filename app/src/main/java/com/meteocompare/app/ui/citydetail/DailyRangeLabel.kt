@@ -20,6 +20,10 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.meteocompare.app.R
+import com.meteocompare.app.core.units.WeatherUnits
+import com.meteocompare.app.core.units.weatherStringResource as stringResource
+import java.util.Locale
 
 @Composable
 internal fun DailyRangeLabel(
@@ -106,5 +110,38 @@ internal fun DailyRangeLabel(
                 }
             }
         }
+    }
+}
+
+/** Two independent model spreads, in the same order as the usual min/max reading. */
+@Composable
+internal fun DailyApparentRangeLabels(
+    point: SimplifiedTimelinePoint,
+    units: WeatherUnits,
+    locale: Locale,
+    tagPrefix: String,
+    modifier: Modifier = Modifier,
+    showTitle: Boolean = false
+) {
+    val style = MaterialTheme.typography.labelSmall.copy(lineHeight = 12.sp)
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center) {
+        if (showTitle) {
+            Text(stringResource(R.string.apparent_temperature_widget_prefix),
+                style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        DailyRangeLabel(
+            value = stringResource(R.string.today_summary_temp_min_short) + " " + units.temp(point.apparentMinC, locale = locale),
+            range = dailyMetricRange(point, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, units, locale),
+            rangeTag = "${tagPrefix}_apparent_min_range", valueTag = "${tagPrefix}_apparent_min_value",
+            modifier = Modifier.fillMaxWidth(), valueStyle = style, valueColor = color
+        )
+        DailyRangeLabel(
+            value = stringResource(R.string.today_summary_temp_max_short) + " " + units.temp(point.apparentMaxC, locale = locale),
+            range = dailyMetricRange(point, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, units, locale),
+            rangeTag = "${tagPrefix}_apparent_max_range", valueTag = "${tagPrefix}_apparent_max_value",
+            modifier = Modifier.fillMaxWidth(), valueStyle = style, valueColor = color
+        )
     }
 }

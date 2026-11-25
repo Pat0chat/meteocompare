@@ -20,7 +20,7 @@ internal fun dailyTimelineRange(
  * All endpoints remain canonical metric numbers until WeatherUnits formats them.
  */
 internal enum class DailyRangeMetric {
-    HIGH_TEMPERATURE, LOW_TEMPERATURE, RAIN_AMOUNT, RAIN_PROBABILITY,
+    HIGH_TEMPERATURE, LOW_TEMPERATURE, LOW_APPARENT_TEMPERATURE, HIGH_APPARENT_TEMPERATURE, RAIN_AMOUNT, RAIN_PROBABILITY,
     CLOUD_COVER, PRESSURE, HUMIDITY, DEW_POINT, WIND, WIND_GUST
 }
 
@@ -36,6 +36,10 @@ internal fun dailyMetricRange(
             point.temperatureMinAcrossModels, point.temperatureMaxAcrossModels, point.temperatureModelCount)
         DailyRangeMetric.LOW_TEMPERATURE -> Triple(
             point.tempMinMinAcrossModels, point.tempMinMaxAcrossModels, point.tempMinModelCount)
+        DailyRangeMetric.LOW_APPARENT_TEMPERATURE -> Triple(
+            point.apparentMinMinAcrossModels, point.apparentMinMaxAcrossModels, point.apparentMinModelCount)
+        DailyRangeMetric.HIGH_APPARENT_TEMPERATURE -> Triple(
+            point.apparentMaxMinAcrossModels, point.apparentMaxMaxAcrossModels, point.apparentMaxModelCount)
         DailyRangeMetric.RAIN_AMOUNT -> Triple(
             point.precipitationMinAcrossModelsMm, point.precipitationMaxAcrossModelsMm, point.precipitationAmountModelCount)
         DailyRangeMetric.RAIN_PROBABILITY -> Triple(
@@ -56,6 +60,7 @@ internal fun dailyMetricRange(
     if (modelCount < 2) return null
     val unit = when (metric) {
         DailyRangeMetric.HIGH_TEMPERATURE, DailyRangeMetric.LOW_TEMPERATURE,
+        DailyRangeMetric.LOW_APPARENT_TEMPERATURE, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE,
         DailyRangeMetric.DEW_POINT -> WeatherUnit.TEMPERATURE_COMPACT
         DailyRangeMetric.RAIN_AMOUNT -> WeatherUnit.PRECIPITATION
         DailyRangeMetric.RAIN_PROBABILITY, DailyRangeMetric.CLOUD_COVER,

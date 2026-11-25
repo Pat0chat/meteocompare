@@ -37,6 +37,17 @@ private fun DailyRangeLabelPreview() {
                 DailyRangeLabel(value = "24°", range = "(18–29°)", rangeTag = "preview-wrapped")
             }
 
+            Text("Apparent temperature: independent min/max ranges", style = MaterialTheme.typography.labelSmall)
+            Box(Modifier.width(136.dp)) {
+                DailyApparentRangeLabels(
+                    point = SimplifiedTimelinePoint(date = java.time.LocalDate.of(2026, 11, 25),
+                        apparentMinC = 9.0, apparentMaxC = 33.0,
+                        apparentMinMinAcrossModels = 5.0, apparentMinMaxAcrossModels = 14.0, apparentMinModelCount = 3,
+                        apparentMaxMinAcrossModels = 27.0, apparentMaxMaxAcrossModels = 36.0, apparentMaxModelCount = 3),
+                    units = com.meteocompare.app.core.units.WeatherUnits(), locale = java.util.Locale.US,
+                    tagPrefix = "preview", showTitle = true)
+            }
+
             Text("Fixed-height heatmap cell", style = MaterialTheme.typography.labelSmall)
             Box(Modifier.width(92.dp)) {
                 DailyRangeLabel(

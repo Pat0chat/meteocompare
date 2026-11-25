@@ -37,6 +37,8 @@ class DailyRangeLayoutComposeTest {
         date = LocalDate.of(2026, 9, 16),
         tempMaxC = 30.0, tempMinC = 12.0,
         apparentMinC = 9.0, apparentMaxC = 33.0,
+        apparentMinMinAcrossModels = 5.0, apparentMinMaxAcrossModels = 14.0, apparentMinModelCount = models,
+        apparentMaxMinAcrossModels = 27.0, apparentMaxMaxAcrossModels = 36.0, apparentMaxModelCount = models,
         temperatureMinAcrossModels = 24.0, temperatureMaxAcrossModels = 34.0,
         temperatureModelCount = models,
         tempMinMinAcrossModels = 9.0, tempMinMaxAcrossModels = 16.0,
@@ -111,6 +113,40 @@ class DailyRangeLayoutComposeTest {
         rule.runOnIdle { layout.value = TimelineLayout.CHRONO }
         rule.onNodeWithTag("timeline_chrono_daily_apparent_lane", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("9° / 33°", useUnmergedTree = true).assertExists()
+    }
+
+    @Test fun apparent_ranges_follow_toggle_layout_mode_and_model_availability() {
+        val layout = mutableStateOf(TimelineLayout.COLUMNS)
+        val enabled = mutableStateOf(false)
+        val mode = mutableStateOf(DisplayMode.DAILY)
+        val models = mutableStateOf(3)
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    SimplifiedTimelineCard(
+                        points = listOf(if (mode.value == DisplayMode.DAILY) dailyPoint(models.value)
+                            else SimplifiedTimelinePoint(instant = now, apparentTemperatureC = 9.0)),
+                        mode = mode.value, timezone = "UTC", now = now, layout = layout.value,
+                        showDailyRanges = enabled.value)
+                }
+            }
+        }
+        for ((view, prefix) in listOf(TimelineLayout.COLUMNS to "columns_daily", TimelineLayout.CHRONO to "timeline_daily")) {
+            rule.runOnIdle { layout.value = view; enabled.value = false; models.value = 3; mode.value = DisplayMode.DAILY }
+            val min = rule.onNodeWithTag("${prefix}_apparent_min_range", useUnmergedTree = true)
+            val max = rule.onNodeWithTag("${prefix}_apparent_max_range", useUnmergedTree = true)
+            min.assertDoesNotExist(); max.assertDoesNotExist()
+            rule.runOnIdle { enabled.value = true }
+            min.assertExists(); max.assertExists()
+            rule.onNodeWithText("(5–14)", useUnmergedTree = true).assertExists()
+            rule.onNodeWithText("(27–36)", useUnmergedTree = true).assertExists()
+            rule.runOnIdle { models.value = 1 }
+            min.assertDoesNotExist(); max.assertDoesNotExist()
+            rule.onNodeWithTag("${prefix}_apparent_min_value", useUnmergedTree = true).assertExists()
+            rule.onNodeWithTag("${prefix}_apparent_max_value", useUnmergedTree = true).assertExists()
+            rule.runOnIdle { models.value = 3; mode.value = DisplayMode.HOURLY }
+            min.assertDoesNotExist(); max.assertDoesNotExist()
+        }
     }
 
     @Test fun hourly_timeline_does_not_offer_the_daily_only_toggle() {

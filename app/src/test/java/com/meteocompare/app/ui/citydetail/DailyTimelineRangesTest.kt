@@ -34,6 +34,9 @@ class DailyTimelineRangesTest {
     private fun allRanges() = SimplifiedTimelinePoint(
         date = date,
         tempMaxC = 30.0, tempMinC = 15.0,
+        apparentMinC = 8.0, apparentMaxC = 33.0,
+        apparentMinMinAcrossModels = -5.0, apparentMinMaxAcrossModels = 12.0, apparentMinModelCount = 3,
+        apparentMaxMinAcrossModels = 29.0, apparentMaxMaxAcrossModels = 40.0, apparentMaxModelCount = 3,
         temperatureMinAcrossModels = 25.0, temperatureMaxAcrossModels = 34.0,
         temperatureModelCount = 3,
         tempMinMinAcrossModels = 12.0, tempMinMaxAcrossModels = 19.0,
@@ -56,6 +59,8 @@ class DailyTimelineRangesTest {
         val expected = mapOf(
             DailyRangeMetric.HIGH_TEMPERATURE to "(25–34)",
             DailyRangeMetric.LOW_TEMPERATURE to "(12–19)",
+            DailyRangeMetric.LOW_APPARENT_TEMPERATURE to "(-5–12)",
+            DailyRangeMetric.HIGH_APPARENT_TEMPERATURE to "(29–40)",
             DailyRangeMetric.RAIN_AMOUNT to "(2.0–32.0)",
             DailyRangeMetric.RAIN_PROBABILITY to "(20–90%)",
             DailyRangeMetric.CLOUD_COVER to "(15–80%)",
@@ -80,6 +85,8 @@ class DailyTimelineRangesTest {
         ))
         assertEquals("(77–93)", dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, custom, Locale.US))
         assertEquals("(54–66)", dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE, custom, Locale.US))
+        assertEquals("(23–54)", dailyMetricRange(point, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, custom, Locale.US))
+        assertEquals("(84–104)", dailyMetricRange(point, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, custom, Locale.US))
         assertEquals("(48–63)", dailyMetricRange(point, DailyRangeMetric.DEW_POINT, custom, Locale.US))
         assertEquals("(10–20)", dailyMetricRange(point, DailyRangeMetric.WIND, custom, Locale.US))
         assertEquals("(25–50)", dailyMetricRange(point, DailyRangeMetric.WIND_GUST, custom, Locale.US))
@@ -96,6 +103,10 @@ class DailyTimelineRangesTest {
         val point = allRanges()
         val metric = WeatherUnits()
         assertNull(dailyMetricRange(point.copy(date = null), DailyRangeMetric.WIND, metric))
+        assertNull(dailyMetricRange(point.copy(date = null), DailyRangeMetric.LOW_APPARENT_TEMPERATURE, metric))
+        assertNull(dailyMetricRange(point.copy(apparentMinModelCount = 1), DailyRangeMetric.LOW_APPARENT_TEMPERATURE, metric))
+        assertNull(dailyMetricRange(point.copy(apparentMaxMaxAcrossModels = Double.NaN), DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, metric))
+        assertEquals("(29–40)", dailyMetricRange(point.copy(apparentMinModelCount = 1), DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, metric, Locale.US))
         assertNull(dailyMetricRange(point.copy(windModelCount = 1), DailyRangeMetric.WIND, metric))
         assertNull(dailyMetricRange(point.copy(precipitationAmountModelCount = 1), DailyRangeMetric.RAIN_AMOUNT, metric))
         assertNull(dailyMetricRange(point.copy(tempMinModelCount = 1), DailyRangeMetric.LOW_TEMPERATURE, metric))

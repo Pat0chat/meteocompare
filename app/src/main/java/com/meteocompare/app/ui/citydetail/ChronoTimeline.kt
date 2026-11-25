@@ -182,13 +182,18 @@ internal fun ChronoTimelineView(
                             showDailyRanges = showDailyRanges
                         )
                         if (mode == DisplayMode.DAILY) {
-                            Row(Modifier.fillMaxWidth().height(CHRONO_DAILY_APPARENT_HEIGHT)
+                            Row(Modifier.fillMaxWidth().height(chronoDailyApparentHeight(showDailyRanges, LocalDensity.current.fontScale))
                                 .testTag("timeline_chrono_daily_apparent_lane")) {
                                 points.forEach { point ->
                                     ChronoCell {
-                                        Text(dailyApparentReading(point, LocalWeatherUnits.current),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (showDailyRanges) {
+                                            DailyApparentRangeLabels(point, LocalWeatherUnits.current, locale,
+                                                "timeline_daily", modifier = Modifier.padding(horizontal = 4.dp))
+                                        } else {
+                                            Text(dailyApparentReading(point, LocalWeatherUnits.current),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
                             }
@@ -220,7 +225,7 @@ private fun ChronoGridBackdrop(
     val scheme = MaterialTheme.colorScheme
     val rowDivider = scheme.outlineVariant.copy(alpha = 0.12f)
     val highlight = scheme.primaryContainer.copy(alpha = 0.16f)
-    val rowHeights = chronoRowHeights(mode, showDailyRanges)
+    val rowHeights = chronoRowHeights(mode, showDailyRanges, LocalDensity.current.fontScale)
 
     Canvas(modifier = modifier) {
         if (pointCount <= 0) return@Canvas
@@ -294,7 +299,7 @@ private fun ChronoLabelsColumn(
                     icon = Icons.Outlined.Thermostat,
                     title = stringResource(R.string.apparent_temperature_widget_prefix),
                     support = units.temperatureUnit,
-                    height = CHRONO_DAILY_APPARENT_HEIGHT,
+                    height = chronoDailyApparentHeight(showDailyRanges, LocalDensity.current.fontScale),
                     tint = temperatureMetricAccent()
                 )
             }
@@ -379,7 +384,7 @@ private fun ChronoLabelsColumn(
 private fun ChronoLabelGrid(mode: DisplayMode, showDailyRanges: Boolean, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val divider = scheme.outlineVariant.copy(alpha = 0.10f)
-    val rowHeights = chronoRowHeights(mode, showDailyRanges)
+    val rowHeights = chronoRowHeights(mode, showDailyRanges, LocalDensity.current.fontScale)
 
     Canvas(modifier = modifier) {
         var y = 0f
@@ -1410,10 +1415,13 @@ private fun chronoWindRowHeight(mode: DisplayMode, showDailyRanges: Boolean): Dp
 
 private val CHRONO_DAILY_APPARENT_HEIGHT = 50.dp
 
-internal fun chronoRowHeights(mode: DisplayMode, showDailyRanges: Boolean): List<Dp> = listOf(
+internal fun chronoDailyApparentHeight(showDailyRanges: Boolean, fontScale: Float = 1f): Dp =
+    CHRONO_DAILY_APPARENT_HEIGHT * if (showDailyRanges) fontScale.coerceAtLeast(1f) else 1f
+
+internal fun chronoRowHeights(mode: DisplayMode, showDailyRanges: Boolean, fontScale: Float = 1f): List<Dp> = listOf(
     CHRONO_DATE_HEIGHT,
     chronoTemperatureRowHeight(mode)
-) + (if (mode == DisplayMode.DAILY) listOf(CHRONO_DAILY_APPARENT_HEIGHT) else emptyList()) + listOf(
+) + (if (mode == DisplayMode.DAILY) listOf(chronoDailyApparentHeight(showDailyRanges, fontScale)) else emptyList()) + listOf(
     CHRONO_CONDITIONS_HEIGHT,
     chronoRainRowHeight(mode, showDailyRanges),
     chronoCloudRowHeight(mode, showDailyRanges),

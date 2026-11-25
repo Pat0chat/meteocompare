@@ -41,6 +41,10 @@ class ChronoTimelineTemperatureTest {
         val base = chronoRowHeights(DisplayMode.DAILY, false).sumOf { it.value.toDouble() }
         val expanded = chronoRowHeights(DisplayMode.DAILY, true).sumOf { it.value.toDouble() }
         assertTrue("Ranges should add less than 25 dp in total", expanded - base < 25.0)
+        assertEquals(50.dp, chronoDailyApparentHeight(false))
+        assertEquals(50.dp, chronoDailyApparentHeight(true))
+        assertEquals(75.dp, chronoDailyApparentHeight(true, 1.5f))
+        assertEquals(75.dp, chronoRowHeights(DisplayMode.DAILY, true, 1.5f)[2])
         assertEquals(
             chronoRowHeights(DisplayMode.HOURLY, false),
             chronoRowHeights(DisplayMode.HOURLY, true)
