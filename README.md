@@ -386,7 +386,8 @@ Fait :
 - ✅ v1.22.0 — Conditions quotidiennes représentatives et vues jour/nuit (#40) ; explications pluie/température/vent (#38) ; widgets adaptatifs et marges étendues (#39) ; double axe Chart View, lisibilité et tests de non-régression.
 - ✅ v1.22.1 — Popup nuages moderne sur 9 h, corpus de 74 537 scénarios avec preuves d’exécution et bilans CI ; traduction turque.
 - ✅ v1.23.0 — Moteur de conditions unifié et diagnostics accessibles dans les vues, légendes harmonisées, corpus renforcés.
-- 🔧 v1.24.0 (préparation release) — Plages optionnelles en chronologie quotidienne, unités personnalisées (dont nœuds), widgets plus robustes et lisibles, interface de comparaison simplifiée et tests renforcés.
+- ✅ v1.24.0 — Plages optionnelles en chronologie quotidienne, unités personnalisées (dont nœuds), widgets plus robustes et lisibles, interface de comparaison simplifiée et tests renforcés.
+- ✅ v1.24.1 — Mémorisation des plages quotidiennes, températures ressenties min/max et leurs plages (#54), provenance réelle de l’ensoleillement estimé (#58), repli de sélection dans Évolution des prévisions (#57), corpus de 656 179 références de conversion d’unités.
 
 ## Licence
 

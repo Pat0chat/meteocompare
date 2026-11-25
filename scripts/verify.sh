@@ -20,7 +20,7 @@ python3 scripts/validate-compose-previews.py
 python3 scripts/check_android_strings.py
 python3 scripts/test-summary-dialog-copy.py
 python3 scripts/verify_atmospheric_localizations.py
-scripts/validate-fdroid-metadata.sh
+bash scripts/validate-fdroid-metadata.sh
 
 ./gradlew testDebugUnitTest testReleaseUnitTest lintDebug assembleDebug
 python3 scripts/report_test_results.py --require-corpus both
