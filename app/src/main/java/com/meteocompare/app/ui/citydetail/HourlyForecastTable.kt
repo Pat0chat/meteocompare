@@ -303,7 +303,7 @@ private fun valueAt(
     extractor: (HourlyForecast, Int) -> Double?
 ): Double? {
     val series = forecast.seriesByModel[model] ?: return null
-    val idx = series.hourly.timestamps.indexOf(timestamp)
+    val idx = series.hourly.indexOfTimestamp(timestamp)
     if (idx < 0) return null
     return extractor(series.hourly, idx)
 }
@@ -316,7 +316,7 @@ private fun directionAt(
     extractor: (HourlyForecast, Int) -> Int?
 ): Int? {
     val series = forecast.seriesByModel[model] ?: return null
-    val idx = series.hourly.timestamps.indexOf(timestamp)
+    val idx = series.hourly.indexOfTimestamp(timestamp)
     if (idx < 0) return null
     return extractor(series.hourly, idx)
 }

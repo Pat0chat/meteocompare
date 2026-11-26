@@ -123,13 +123,15 @@ internal object ConditionDecisionEngine {
         val code = hourly.weatherCode.getOrNull(index)
         val native = WeatherCondition.fromWmoCode(code)?.takeUnless { it == WeatherCondition.UNKNOWN }
         if (native != null) {
-            val cloud = hourly.effectiveCloudCover(index)
-            val next = hourly.timestamps.indexOf(hourly.timestamps[index].plusSeconds(HOUR_SECONDS))
-            val veil = native == WeatherCondition.OVERCAST && SolarSkyInterpretation.isVeiledSky(
-                cloud, hourly.cloudCoverLow.getOrNull(index), hourly.cloudCoverMid.getOrNull(index),
-                hourly.cloudCoverHigh.getOrNull(index), hourly.sunshineDuration.getOrNull(next),
-                hourly.directNormalIrradiance.getOrNull(next)
-            )
+            // Only an overcast native code can be refined to veiled sky.
+            val veil = if (native == WeatherCondition.OVERCAST) {
+                val next = hourly.indexOfTimestamp(hourly.timestamps[index].plusSeconds(HOUR_SECONDS))
+                SolarSkyInterpretation.isVeiledSky(
+                    hourly.effectiveCloudCover(index), hourly.cloudCoverLow.getOrNull(index), hourly.cloudCoverMid.getOrNull(index),
+                    hourly.cloudCoverHigh.getOrNull(index), hourly.sunshineDuration.getOrNull(next),
+                    hourly.directNormalIrradiance.getOrNull(next)
+                )
+            } else false
             return ConditionDecision(
                 if (veil) WeatherCondition.VEILED else native,
                 ConditionStatus.RELIABLE, ConditionOrigin.HOURLY_WMO, coverage = 1.0
@@ -187,7 +189,7 @@ internal object ConditionDecisionEngine {
             } else null
         }
         if (sky != null) {
-            val next = hourly.timestamps.indexOf(hourly.timestamps[index].plusSeconds(HOUR_SECONDS))
+            val next = hourly.indexOfTimestamp(hourly.timestamps[index].plusSeconds(HOUR_SECONDS))
             val veiled = SolarSkyInterpretation.isVeiledSky(
                 cloud, hourly.cloudCoverLow.getOrNull(index), hourly.cloudCoverMid.getOrNull(index),
                 hourly.cloudCoverHigh.getOrNull(index), hourly.sunshineDuration.getOrNull(next),

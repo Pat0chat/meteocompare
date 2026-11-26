@@ -672,7 +672,7 @@ private fun LoadedView(
     // Même instant que celui utilisé par le ViewModel pour les agrégats
     // « maintenant » : résumé, chronologie et tableaux restent cohérents.
     val presentationNow = calculatedAt
-    val engineCacheSignature = engineContext.cacheSignature
+    val engineCacheSignature = remember(engineContext) { engineContext.cacheSignature }
     // Keep expensive consensus/event analysis independent of asynchronous UV arrival.
     val baseHourlyTimeline = remember(forecast, presentationNow, engineCacheSignature) {
         buildSimplifiedTimeline(
@@ -1744,11 +1744,11 @@ internal fun TodaySummaryCard(
         val hour = computeHourlyHorizon(forecast?.city?.timezone, now).first
         val series = forecast?.seriesByModel.orEmpty()
         val humidity = series.mapNotNull { (model, values) ->
-            val index = values.hourly.timestamps.indexOf(hour)
+            val index = values.hourly.indexOfTimestamp(hour)
             values.hourly.relativeHumidity2m.getOrNull(index)?.let { ForecastConsensus.Entry(model, it.toDouble()) }
         }
         val dewPoint = series.mapNotNull { (model, values) ->
-            val index = values.hourly.timestamps.indexOf(hour)
+            val index = values.hourly.indexOfTimestamp(hour)
             values.hourly.dewPoint2m.getOrNull(index)?.let { ForecastConsensus.Entry(model, it) }
         }
         ForecastConsensus.continuous(humidity, tightStdDev = 5.0, wideStdDev = 25.0).central
@@ -1759,11 +1759,11 @@ internal fun TodaySummaryCard(
         val hour = computeHourlyHorizon(forecast?.city?.timezone, now).first
         val series = forecast?.seriesByModel.orEmpty()
         val humidity = series.mapNotNull { (model, values) ->
-            val index = values.hourly.timestamps.indexOf(hour)
+            val index = values.hourly.indexOfTimestamp(hour)
             values.hourly.relativeHumidity2m.getOrNull(index)?.let { model.displayName to it }
         }.sortedBy { it.first }
         val dewPoint = series.mapNotNull { (model, values) ->
-            val index = values.hourly.timestamps.indexOf(hour)
+            val index = values.hourly.indexOfTimestamp(hour)
             values.hourly.dewPoint2m.getOrNull(index)?.let { model.displayName to it }
         }.sortedBy { it.first }
         humidity to dewPoint

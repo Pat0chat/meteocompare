@@ -72,6 +72,30 @@ data class HourlyForecast(
     val dewPoint2m: List<Double?> = emptyList()
 ) {
     val size: Int get() = timestamps.size
+
+    // Forecast lists are read-only snapshots. Validate ordering once, lazily:
+    // cached/imported series can contain gaps, duplicates or out-of-order rows.
+    // The derived flag is not part of the data-class equality or copy contract.
+    private val orderedRandomAccess by lazy {
+        timestamps is java.util.RandomAccess &&
+            (1 until timestamps.size).all { timestamps[it - 1] <= timestamps[it] }
+    }
+
+    /** Same first-match semantics as List.indexOf, without scanning ordered series. */
+    internal fun indexOfTimestamp(target: Instant): Int {
+        if (!orderedRandomAccess) return timestamps.indexOf(target)
+        var low = 0
+        var high = timestamps.size
+        // Lower bound, not binarySearch: duplicates must retain the first row.
+        while (low < high) {
+            val mid = low + (high - low) / 2
+            if (timestamps[mid] < target) low = mid + 1 else high = mid
+        }
+        return if (low < timestamps.size && timestamps[low] == target) low else -1
+    }
+
+    internal fun exactIndex(target: Instant): Int? =
+        indexOfTimestamp(target).takeIf { it >= 0 }
 }
 
 data class DailyForecast(

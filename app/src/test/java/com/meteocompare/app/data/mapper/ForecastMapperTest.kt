@@ -178,6 +178,37 @@ class ForecastMapperTest {
     }
 
     @Test
+    fun `shared valid row mapping preserves short and missing columns in both horizons`() {
+        val dto = ForecastResponseDto(
+            timezone = "UTC",
+            hourly = HourlyDto(
+                time = listOf("2026-07-23T12:00", "invalid", "2026-07-23T14:00"),
+                temperature2m = listOf(12.0, 99.0),
+                weatherCode = listOf(0, 3, 61),
+                sunshineDuration = listOf(600.0, 1200.0, 4000.0)
+            ),
+            daily = DailyDto(
+                time = listOf("2026-07-23", "invalid", "2026-07-25"),
+                temperature2mMax = listOf(20.0, 35.0, 23.0),
+                temperature2mMin = listOf(10.0, 15.0),
+                precipitationSum = listOf(0.0, 1.0, 3.5),
+                sunrise = listOf("2026-07-23T06:00", "invalid", "2026-07-25T06:02")
+            )
+        )
+        val series = mapper.toSeries(WeatherModel.GFS, dto)
+        assertEquals(listOf(12.0, null), series.hourly.temperature2m)
+        assertEquals(listOf(0, 61), series.hourly.weatherCode)
+        assertEquals(listOf(null, null), series.hourly.windSpeed10m)
+        assertEquals(listOf(600.0, null), series.hourly.sunshineDuration)
+        assertEquals(listOf(20.0, 23.0), series.daily.tempMax)
+        assertEquals(listOf(10.0, null), series.daily.tempMin)
+        assertEquals(listOf(0.0, 3.5), series.daily.precipitationSum)
+        assertEquals(listOf(Instant.parse("2026-07-23T06:00:00Z"),
+            Instant.parse("2026-07-25T06:02:00Z")), series.daily.sunrise)
+        assertEquals(listOf(null, null), series.daily.sunset)
+    }
+
+    @Test
     fun `mapper preserve les deux occurrences de 02h au passage hiver`() {
         val dto = ForecastResponseDto(
             latitude = 48.85,

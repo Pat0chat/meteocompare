@@ -36,10 +36,10 @@ internal class PixelBudgetCache(
 
     @Synchronized
     fun put(key: String, image: RadarImage): CacheWriteStats {
-        entries.remove(key)?.let { retainedBytes -= it.pixelBytes() }
         val bytes = image.pixelBytes()
         // Never evict useful images just to hold an oversized response.
         if (bytes > maxBytes) return CacheWriteStats(0, entries.size, retainedBytes, false)
+        entries.remove(key)?.let { retainedBytes -= it.pixelBytes() }
         entries[key] = image
         retainedBytes += bytes
         var evicted = 0

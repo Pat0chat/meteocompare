@@ -40,13 +40,15 @@ class OsmCacheDiagnosticsInterceptor : Interceptor {
     }
 }
 
+private val radarFrameTokenPattern = Regex("[A-Za-z0-9_-]+")
+
 /** RainViewer frame identifier for debug logging; excludes geographic coordinates. */
 internal fun radarFrameIdForDiagnostics(host: String, segments: List<String>): String? =
     segments.getOrNull(2)?.takeIf { frame ->
         host.endsWith(".rainviewer.com", ignoreCase = true) &&
             segments.getOrNull(0) == "v2" && segments.getOrNull(1) == "radar" &&
             segments.lastOrNull()?.endsWith(".png") == true &&
-            frame.matches(Regex("[A-Za-z0-9_-]+"))
+            frame.matches(radarFrameTokenPattern)
     }
 
 /** Séparé du réseau Android pour tester sans serveur ni disque. */

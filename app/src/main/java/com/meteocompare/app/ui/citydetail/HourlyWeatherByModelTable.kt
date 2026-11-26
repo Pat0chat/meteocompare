@@ -68,7 +68,7 @@ fun HourlyWeatherByModelTable(
         remember(forecast, timestamps) {
             timestamps.associateWith { ts ->
                 forecast.seriesByModel.mapNotNull { (model, series) ->
-                    val idx = series.hourly.timestamps.indexOf(ts)
+                    val idx = series.hourly.indexOfTimestamp(ts)
                     if (idx < 0) return@mapNotNull null
 
                     val diagnosis = ConditionDecisionEngine.upcomingHour(series.hourly, idx).inZone(zone)

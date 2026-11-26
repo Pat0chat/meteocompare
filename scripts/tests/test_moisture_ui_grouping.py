@@ -19,7 +19,7 @@ class MoisturePresentationTests(unittest.TestCase):
         self.assertIn('supportingIcon = if (dewPointC != null) DewPointMetricIcon', screen)
         self.assertIn('currentDewPointC: Double? = null', state)
         self.assertIn('currentDewPointC = ForecastConsensus.continuous(', viewmodel)
-        self.assertIn('series.hourly.timestamps.indexOf(hour)', viewmodel)
+        self.assertIn('series.hourly.indexOfTimestamp(hour)', viewmodel)
 
     def test_icons_are_distinct_from_rain_and_temperature(self):
         icons = source('ui/components/MoistureMetricIcons.kt')

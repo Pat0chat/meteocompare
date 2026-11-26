@@ -20,7 +20,7 @@ fun forecastDailyWindDirection(forecast: CityForecast, date: LocalDate): Int? =
 
 fun forecastHourlyWindDirection(forecast: CityForecast, timestamp: Instant): Int? =
     meanWindDirection(forecast.seriesByModel.values.mapNotNull { series ->
-        val index = series.hourly.timestamps.indexOf(timestamp)
+        val index = series.hourly.indexOfTimestamp(timestamp)
         val speed = series.hourly.windSpeed10m.getOrNull(index)
         if (speed == null || !speed.isFinite() || speed <= 0.0) null
         else series.hourly.windDirection10m.getOrNull(index)

@@ -1295,7 +1295,7 @@ class CityListViewModel @Inject constructor(
                     currentDewPointC = ForecastConsensus.continuous(
                         result.data.seriesByModel.mapNotNull { (model, series) ->
                             val hour = miniForecast.startInstant
-                            val index = series.hourly.timestamps.indexOf(hour)
+                            val index = series.hourly.indexOfTimestamp(hour)
                             series.hourly.dewPoint2m.getOrNull(index)?.takeIf(Double::isFinite)?.let {
                                 ForecastConsensus.Entry(model, it)
                             }

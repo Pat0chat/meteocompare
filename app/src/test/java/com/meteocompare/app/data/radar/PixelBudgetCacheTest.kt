@@ -41,6 +41,18 @@ class PixelBudgetCacheTest {
         assertEquals(8L, cache.sizeBytes())
     }
 
+    @Test fun `oversized replacement preserves the previous cached image and accounting`() {
+        val cache = PixelBudgetCache(maxEntries = 3, maxBytes = 12)
+        val previous = image(2)
+        cache.put("frame", previous)
+        val stats = cache.put("frame", image(4))
+        assertTrue(!stats.stored)
+        assertEquals(0, stats.evicted)
+        assertEquals(1, stats.entries)
+        assertEquals(8L, stats.bytes)
+        assertSame(previous, cache["frame"])
+    }
+
     @Test fun `entry bound still applies for small images`() {
         val cache = PixelBudgetCache(maxEntries = 2, maxBytes = 100)
         cache.put("a", image(1))

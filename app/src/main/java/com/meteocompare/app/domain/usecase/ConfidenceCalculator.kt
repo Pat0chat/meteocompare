@@ -310,7 +310,7 @@ class ConfidenceCalculator @Inject constructor(
      * si un modèle est absent à [target], il est exclu du consensus courant.
      */
     private fun exactCurrentIndex(series: ForecastSeries, target: Instant): Int? =
-        with(HourlySampling) { series.hourly.timestamps.exactIndex(target) }
+        series.hourly.exactIndex(target)
 
     /**
      * Tableau Jour × Modèle des conditions météo journalières.
@@ -436,7 +436,7 @@ class ConfidenceCalculator @Inject constructor(
      * family weights as the timeline, without calculating the whole horizon. */
     fun hourlyTemperatureAgreementAt(forecast: CityForecast, instant: Instant): Int? {
         val samples = forecast.seriesByModel.mapNotNull { (model, series) ->
-            val index = series.hourly.timestamps.indexOf(instant)
+            val index = series.hourly.indexOfTimestamp(instant)
             if (index < 0) null else series.hourly.temperature2m.getOrNull(index)
                 ?.takeIf(Double::isFinite)?.let { model to it }
         }

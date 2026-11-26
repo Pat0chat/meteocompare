@@ -12,8 +12,6 @@ import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.HourlyForecast
 import com.meteocompare.app.domain.model.WeatherModel
 import com.meteocompare.app.domain.util.FranceDepartmentResolver
-import java.time.Instant
-import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,8 +22,8 @@ class ForecastMapper @Inject constructor() {
      * Transforme la réponse brute en domain model, pour le modèle [model] donné.
      *
      * Stratégie d'alignement :
-     * - Si un timestamp est non parsable, on conserve une valeur null à la place
-     *   plutôt que de tout décaler — la longueur des listes reste cohérente.
+     * - Un timestamp non parsable est retiré avec toutes les mesures de sa ligne,
+     *   sans décaler les valeurs des lignes suivantes.
      * - Si une variable est absente du modèle, on remplit avec une liste de nulls
      *   de la bonne longueur, ce qui garantit `temperature.size == timestamps.size`.
      */
@@ -34,45 +32,31 @@ class ForecastMapper @Inject constructor() {
 
         val hourly = dto.hourly?.let { h ->
             val times = parseOpenMeteoTimeline(h.time, tz)
+            val validRows = times.indices.filter { times[it] != null }
             HourlyForecast(
                 // On filtre les timestamps null tout en gardant l'alignement avec les valeurs
                 timestamps = times.filterNotNull(),
-                temperature2m = alignNonNullTimes(times, h.temperature2m)
-                    .map(ForecastPhysicalLimits::temperature),
-                apparentTemperature = alignNonNullTimes(times, h.apparentTemperature)
-                    .map(ForecastPhysicalLimits::temperature),
-                relativeHumidity2m = alignNonNullTimesInt(times, h.relativeHumidity2m)
-                    .map(ForecastPhysicalLimits::percentage),
-                dewPoint2m = alignNonNullTimes(times, h.dewPoint2m)
-                    .map(ForecastPhysicalLimits::dewPoint),
-                pressureMsl = alignNonNullTimes(times, h.pressureMsl)
-                    .map(ForecastPhysicalLimits::pressure),
-                precipitation = alignNonNullTimes(times, h.precipitation)
-                    .map(ForecastPhysicalLimits::precipitation),
-                windSpeed10m = alignNonNullTimes(times, h.windSpeed10m)
-                    .map(ForecastPhysicalLimits::wind),
-                weatherCode = alignNonNullTimesInt(times, h.weatherCode)
-                    .map(ForecastPhysicalLimits::weatherCode),
-                windDirection10m = alignNonNullTimesInt(times, h.windDirection10m)
-                    .map(ForecastPhysicalLimits::direction),
-                precipitationProbability = alignNonNullTimesInt(
-                    times,
-                    h.precipitationProbability
-                ).map(ForecastPhysicalLimits::percentage),
-                cloudCover = alignNonNullTimesInt(times, h.cloudCover)
-                    .map(ForecastPhysicalLimits::percentage),
-                cloudCoverLow = alignNonNullTimesInt(times, h.cloudCoverLow)
-                    .map(ForecastPhysicalLimits::percentage),
-                cloudCoverMid = alignNonNullTimesInt(times, h.cloudCoverMid)
-                    .map(ForecastPhysicalLimits::percentage),
-                cloudCoverHigh = alignNonNullTimesInt(times, h.cloudCoverHigh)
-                    .map(ForecastPhysicalLimits::percentage),
-                sunshineDuration = alignNonNullTimes(times, h.sunshineDuration)
-                    .map { it?.takeIf { seconds -> seconds.isFinite() && seconds in 0.0..3600.0 } },
-                directNormalIrradiance = alignNonNullTimes(times, h.directNormalIrradiance)
-                    .map { it?.takeIf { watts -> watts.isFinite() && watts in 0.0..1500.0 } },
-                windGusts10m = alignNonNullTimes(times, h.windGusts10m)
-                    .map(ForecastPhysicalLimits::gust)
+                temperature2m = alignValues(validRows, h.temperature2m, ForecastPhysicalLimits::temperature),
+                apparentTemperature = alignValues(validRows, h.apparentTemperature, ForecastPhysicalLimits::temperature),
+                relativeHumidity2m = alignValues(validRows, h.relativeHumidity2m, ForecastPhysicalLimits::percentage),
+                dewPoint2m = alignValues(validRows, h.dewPoint2m, ForecastPhysicalLimits::dewPoint),
+                pressureMsl = alignValues(validRows, h.pressureMsl, ForecastPhysicalLimits::pressure),
+                precipitation = alignValues(validRows, h.precipitation, ForecastPhysicalLimits::precipitation),
+                windSpeed10m = alignValues(validRows, h.windSpeed10m, ForecastPhysicalLimits::wind),
+                weatherCode = alignValues(validRows, h.weatherCode, ForecastPhysicalLimits::weatherCode),
+                windDirection10m = alignValues(validRows, h.windDirection10m, ForecastPhysicalLimits::direction),
+                precipitationProbability = alignValues(validRows, h.precipitationProbability, ForecastPhysicalLimits::percentage),
+                cloudCover = alignValues(validRows, h.cloudCover, ForecastPhysicalLimits::percentage),
+                cloudCoverLow = alignValues(validRows, h.cloudCoverLow, ForecastPhysicalLimits::percentage),
+                cloudCoverMid = alignValues(validRows, h.cloudCoverMid, ForecastPhysicalLimits::percentage),
+                cloudCoverHigh = alignValues(validRows, h.cloudCoverHigh, ForecastPhysicalLimits::percentage),
+                sunshineDuration = alignValues(validRows, h.sunshineDuration) {
+                    it?.takeIf { seconds -> seconds.isFinite() && seconds in 0.0..3600.0 }
+                },
+                directNormalIrradiance = alignValues(validRows, h.directNormalIrradiance) {
+                    it?.takeIf { watts -> watts.isFinite() && watts in 0.0..1500.0 }
+                },
+                windGusts10m = alignValues(validRows, h.windGusts10m, ForecastPhysicalLimits::gust)
             )
         } ?: HourlyForecast(
             timestamps = emptyList(),
@@ -91,8 +75,9 @@ class ForecastMapper @Inject constructor() {
 
         val daily = dto.daily?.let { d ->
             val dates = d.time.map { parseOpenMeteoDate(it) }
-            val alignedMax = alignNonNullDates(dates, d.temperature2mMax)
-            val alignedMin = alignNonNullDates(dates, d.temperature2mMin)
+            val validRows = dates.indices.filter { dates[it] != null }
+            val alignedMax = alignValues(validRows, d.temperature2mMax) { it }
+            val alignedMin = alignValues(validRows, d.temperature2mMin) { it }
             val safePairs = alignedMax.indices.map { index ->
                 ForecastPhysicalLimits.dailyTemperaturePair(
                     max = alignedMax.getOrNull(index),
@@ -103,22 +88,14 @@ class ForecastMapper @Inject constructor() {
                 dates = dates.filterNotNull(),
                 tempMax = safePairs.map { it.first },
                 tempMin = safePairs.map { it.second },
-                precipitationSum = alignNonNullDates(dates, d.precipitationSum)
-                    .map(ForecastPhysicalLimits::precipitation),
-                windSpeedMax = alignNonNullDates(dates, d.windSpeed10mMax)
-                    .map(ForecastPhysicalLimits::wind),
-                weatherCode = alignNonNullDatesInt(dates, d.weatherCode)
-                    .map(ForecastPhysicalLimits::weatherCode),
-                windDirection10mDominant = alignNonNullDatesInt(dates, d.windDirection10mDominant)
-                    .map(ForecastPhysicalLimits::direction),
-                precipitationProbabilityMax = alignNonNullDatesInt(
-                    dates,
-                    d.precipitationProbabilityMax
-                ).map(ForecastPhysicalLimits::percentage),
-                windGustsMax = alignNonNullDates(dates, d.windGusts10mMax)
-                    .map(ForecastPhysicalLimits::gust),
-                sunrise = alignNonNullDatesInstants(dates, d.sunrise, tz),
-                sunset = alignNonNullDatesInstants(dates, d.sunset, tz)
+                precipitationSum = alignValues(validRows, d.precipitationSum, ForecastPhysicalLimits::precipitation),
+                windSpeedMax = alignValues(validRows, d.windSpeed10mMax, ForecastPhysicalLimits::wind),
+                weatherCode = alignValues(validRows, d.weatherCode, ForecastPhysicalLimits::weatherCode),
+                windDirection10mDominant = alignValues(validRows, d.windDirection10mDominant, ForecastPhysicalLimits::direction),
+                precipitationProbabilityMax = alignValues(validRows, d.precipitationProbabilityMax, ForecastPhysicalLimits::percentage),
+                windGustsMax = alignValues(validRows, d.windGusts10mMax, ForecastPhysicalLimits::gust),
+                sunrise = alignValues(validRows, d.sunrise) { it?.let { time -> parseOpenMeteoTime(time, tz) } },
+                sunset = alignValues(validRows, d.sunset) { it?.let { time -> parseOpenMeteoTime(time, tz) } }
             )
         } ?: DailyForecast(
             dates = emptyList(),
@@ -137,76 +114,17 @@ class ForecastMapper @Inject constructor() {
         return ForecastSeries(model = model, hourly = hourly, daily = daily)
     }
 
-    /**
-     * Garde uniquement les valeurs dont le timestamp correspondant est non null.
-     * Si [values] est null, retourne une liste de nulls de la même taille que les
-     * timestamps valides.
+    /** Reuse the same source rows for every column; validate while copying.
+     * Missing or shorter columns retain null placeholders, never shifted values.
      */
-    private fun alignNonNullTimes(
-        times: List<Instant?>,
-        values: List<Double?>?
-    ): List<Double?> {
-        if (values == null) {
-            return List(times.count { it != null }) { null }
-        }
-        return times.indices
-            .filter { index -> times[index] != null }
-            .map { index -> values.getOrNull(index) }
-    }
-
-    private fun alignNonNullDates(
-        dates: List<LocalDate?>,
-        values: List<Double?>?
-    ): List<Double?> {
-        if (values == null) {
-            return List(dates.count { it != null }) { null }
-        }
-        return dates.indices
-            .filter { index -> dates[index] != null }
-            .map { index -> values.getOrNull(index) }
-    }
-
-    // Variantes Int? : les codes WMO sont des entiers, pas des doubles. On
-    // duplique le squelette plutôt que d'introduire un generic <T> sur les
-    // helpers — la sur-abstraction génère plus de bruit que les 2 lignes
-    // qu'elle économise, et brouille l'intent à la lecture.
-    private fun alignNonNullTimesInt(
-        times: List<Instant?>,
-        values: List<Int?>?
-    ): List<Int?> {
-        if (values == null) {
-            return List(times.count { it != null }) { null }
-        }
-        return times.indices
-            .filter { index -> times[index] != null }
-            .map { index -> values.getOrNull(index) }
-    }
-
-    private fun alignNonNullDatesInt(
-        dates: List<LocalDate?>,
-        values: List<Int?>?
-    ): List<Int?> {
-        if (values == null) {
-            return List(dates.count { it != null }) { null }
-        }
-        return dates.indices
-            .filter { index -> dates[index] != null }
-            .map { index -> values.getOrNull(index) }
-    }
-
-    private fun alignNonNullDatesInstants(
-        dates: List<LocalDate?>,
-        values: List<String?>?,
-        timezone: String
-    ): List<Instant?> {
-        if (values == null) {
-            return List(dates.count { it != null }) { null }
-        }
-        return dates.indices
-            .filter { index -> dates[index] != null }
-            .map { index ->
-                values.getOrNull(index)?.let { parseOpenMeteoTime(it, timezone) }
-            }
+    private inline fun <T, R> alignValues(
+        validRows: List<Int>,
+        values: List<T?>?,
+        transform: (T?) -> R?
+    ): List<R?> = if (values == null) {
+        List(validRows.size) { null }
+    } else {
+        validRows.map { index -> transform(values.getOrNull(index)) }
     }
 }
 

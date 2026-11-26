@@ -78,13 +78,16 @@ fun parseOpenMeteoTimeline(times: List<String>, timezone: String): List<Instant?
         val offsets = zone.rules.getValidOffsets(local)
         if (offsets.isEmpty()) return@map null
 
-        val candidates = offsets
-            .map { offset -> local.atOffset(offset).toInstant() }
-            .sorted()
-        val chosen = previous
-            ?.let { last -> candidates.firstOrNull { it > last } }
-            ?: candidates.firstOrNull()
-        if (chosen != null) previous = chosen
+        // Almost every timestamp has exactly one offset; no temporary list or
+        // sort is needed. Keep the original selection for repeated DST hours.
+        val chosen = if (offsets.size == 1) {
+            local.toInstant(offsets[0])
+        } else {
+            val candidates = offsets.map { local.toInstant(it) }.sorted()
+            previous?.let { last -> candidates.firstOrNull { it > last } }
+                ?: candidates.first()
+        }
+        previous = chosen
         chosen
     }
 }

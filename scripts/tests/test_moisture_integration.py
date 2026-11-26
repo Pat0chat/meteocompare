@@ -25,7 +25,8 @@ class MoistureIntegrationTests(unittest.TestCase):
         for name in ['relativeHumidity2m', 'dewPoint2m']:
             self.assertIn('val ' + name + ': List', dto)
             self.assertIn('val ' + name + ': List', hourly)
-            self.assertIn('alignNonNullTimes', mapper)
+            self.assertIn('alignValues(validRows, h.' + name, mapper)
+        self.assertIn('val validRows = times.indices.filter { times[it] != null }', mapper)
         self.assertIn('ForecastPhysicalLimits::percentage', mapper)
         self.assertIn('ForecastPhysicalLimits::dewPoint', mapper)
         self.assertIn('emptyList()', hourly)

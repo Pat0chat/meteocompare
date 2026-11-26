@@ -103,7 +103,7 @@ class ConditionWiringV4Contract(unittest.TestCase):
         self.assertIn("ConditionDecisionEngine.upcomingHour(series.hourly, index)", scenario)
         self.assertIn("HourlySampling.precipitationForSlot(series.hourly, index)", scenario)
         self.assertIn("HourlySampling.gustForSlot(series.hourly, index)", scenario)
-        self.assertIn("series.hourly.timestamps.exactIndex(target)", scenario)
+        self.assertIn("series.hourly.exactIndex(target)", scenario)
         self.assertIn("ConditionDecisionEngine.hourly(this, index).condition", code("domain/util/ForecastSeriesDaily.kt"))
 
     def test_diagnostics_have_one_explanation_and_visual_vocabulary(self):

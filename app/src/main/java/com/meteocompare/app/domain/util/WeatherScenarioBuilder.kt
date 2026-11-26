@@ -82,7 +82,7 @@ object WeatherScenarioBuilder {
         val samples = buildList {
             repeat(HOUR_COUNT) { offset ->
                 val target = startInstant.plusSeconds(offset * 3_600L)
-                val index = with(HourlySampling) { series.hourly.timestamps.exactIndex(target) } ?: return@repeat
+                val index = series.hourly.exactIndex(target) ?: return@repeat
 
                 add(
                     Sample(

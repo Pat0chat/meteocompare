@@ -74,6 +74,33 @@ internal object ForecastAggregates {
         val startInstant = HourlySampling.anchor(forecast, now)
         val cityZone = forecast.city.timezone?.let { runCatching { ZoneId.of(it) }.getOrNull() }
 
+        val temperatureOptions = ForecastEngineV3.ContinuousOptions(
+            engine = engineContext.engine,
+            localWeights = engineContext.localWeights(ForecastEngineVariable.TEMPERATURE),
+            calibration = emptyMap(), // historique J+1 ≠ prévision horaire
+            tight = 0.5,
+            wide = 3.0
+        )
+
+        val precipitationOptions = ForecastEngineV3.PrecipitationOptions(
+            engine = engineContext.engine,
+            threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
+            localWeights = engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
+            calibration = emptyMap(), // historique J+1 ≠ prévision horaire
+            amountTight = 0.5,
+            amountWide = 4.0
+        )
+
+        val cloudOptions = ForecastEngineV3.ContinuousOptions(
+            engine = engineContext.engine,
+            localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD),
+            calibration = emptyMap(), // historique J+1 ≠ nébulosité horaire
+            tight = 10.0,
+            wide = 50.0,
+            min = 0.0,
+            max = 100.0
+        )
+
         repeat(hourCount) { hourOffset ->
             val target = startInstant.plusSeconds(hourOffset * 3_600L)
             val tempRows = mutableListOf<ForecastConsensus.Entry<Double>>()
@@ -83,8 +110,7 @@ internal object ForecastAggregates {
             val cloudRows = mutableListOf<ForecastConsensus.Entry<Double>>()
 
             forecast.seriesByModel.forEach { (model, series) ->
-                val timestamps = series.hourly.timestamps
-                val index = with(HourlySampling) { timestamps.exactIndex(target) } ?: return@forEach
+                val index = series.hourly.exactIndex(target) ?: return@forEach
 
                 series.hourly.temperature2m.getOrNull(index)?.let {
                     tempRows += ForecastConsensus.Entry(model, it)
@@ -114,40 +140,19 @@ internal object ForecastAggregates {
 
             val temperatureCentral = ForecastEngineV3.continuous(
                 tempRows,
-                ForecastEngineV3.ContinuousOptions(
-                    engine = engineContext.engine,
-                    localWeights = engineContext.localWeights(ForecastEngineVariable.TEMPERATURE),
-                    calibration = emptyMap(), // historique J+1 ≠ prévision horaire
-                    tight = 0.5,
-                    wide = 3.0
-                )
+                temperatureOptions
             ).central
             temperatures += temperatureCentral
             val precipitation = ForecastEngineV3.precipitation(
                 precipRows,
-                ForecastEngineV3.PrecipitationOptions(
-                    engine = engineContext.engine,
-                    threshold = PrecipitationThresholds.HOURLY_OCCURRENCE_MM,
-                    localWeights = engineContext.localWeights(ForecastEngineVariable.PRECIPITATION),
-                    calibration = emptyMap(), // historique J+1 ≠ prévision horaire
-                    amountTight = 0.5,
-                    amountWide = 4.0
-                )
+                precipitationOptions
             )
             probabilities += precipitation.probabilityPercent
             amounts += precipitation.centralAmountMm
             if (conditions != null) {
                 val cloudCentral = ForecastEngineV3.continuous(
                     cloudRows,
-                    ForecastEngineV3.ContinuousOptions(
-                        engine = engineContext.engine,
-                        localWeights = engineContext.localWeights(ForecastEngineVariable.CLOUD),
-                        calibration = emptyMap(), // historique J+1 ≠ nébulosité horaire
-                        tight = 10.0,
-                        wide = 50.0,
-                        min = 0.0,
-                        max = 100.0
-                    )
+                    cloudOptions
                 ).central
                 clouds?.add(cloudCentral?.takeIf(Double::isFinite)?.roundToInt()?.coerceIn(0, 100))
                 val supportModels = buildSet {

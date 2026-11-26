@@ -28,7 +28,14 @@ internal fun ForecastSeries.hasCompleteCivilDayHourlyCoverage(
     val hours = duration.toHours()
     if (hours !in 23L..25L || duration != Duration.ofHours(hours)) return false
 
+    val first = if (variable == ForecastEvolutionVariable.PRECIPITATION)
+        start.plusSeconds(3_600L) else start
+    val last = first.plusSeconds((hours - 1L) * 3_600L)
+    // Keep only this day's physical instants, not all days of every model.
+    // Invalid duplicates are still ignored rather than masking valid rows.
     val validInstants = hourly.timestamps.indices.asSequence().filter { index ->
+        val instant = hourly.timestamps[index]
+        if (instant < first || instant > last) return@filter false
         when (variable) {
             ForecastEvolutionVariable.TEMPERATURE ->
                 ForecastPhysicalLimits.temperature(hourly.temperature2m.getOrNull(index)) != null
@@ -39,8 +46,6 @@ internal fun ForecastSeries.hasCompleteCivilDayHourlyCoverage(
         }
     }.map { hourly.timestamps[it] }.toSet()
 
-    val first = if (variable == ForecastEvolutionVariable.PRECIPITATION)
-        start.plusSeconds(3_600L) else start
     return (0L until hours).all { offset ->
         first.plusSeconds(offset * 3_600L) in validInstants
     }

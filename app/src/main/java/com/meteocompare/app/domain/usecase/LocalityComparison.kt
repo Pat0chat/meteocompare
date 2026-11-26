@@ -395,9 +395,9 @@ fun estimatedHourlySunshineFromModels(
 
     val hours = forecast.seriesByModel.mapNotNull { (model, series) ->
         val hourly = series.hourly
-        val index = hourly.timestamps.indexOf(instant)
+        val index = hourly.indexOfTimestamp(instant)
         if (index < 0) return@mapNotNull null
-        val nextIndex = hourly.timestamps.indexOf(instant.plusSeconds(3600))
+        val nextIndex = hourly.indexOfTimestamp(instant.plusSeconds(3600))
         val cloud = hourly.cloudCover.getOrNull(index)?.takeIf { it in 0..100 }
         val explicitSunshine = nextIndex.takeIf { it >= 0 }
             ?.let { hourly.sunshineDuration.getOrNull(it) }
@@ -514,7 +514,7 @@ fun buildLocalityHourMetrics(
     val zone = resolveZoneOrUtc(forecast.city.timezone)
     val instant = localityHourInstant(date, hour, zone) ?: return null
     val samples = forecast.seriesByModel.values.mapNotNull { series ->
-        val index = series.hourly.timestamps.indexOf(instant)
+        val index = series.hourly.indexOfTimestamp(instant)
         if (index < 0) null else series.hourly to index
     }
     if (samples.isEmpty()) return null

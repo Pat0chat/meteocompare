@@ -11,6 +11,10 @@ import com.meteocompare.app.domain.model.DistanceChoice
 import java.util.Locale
 import kotlin.math.abs
 
+// Fixed precision domain; avoid rebuilding patterns and powers for every label.
+private val decimalScales = DoubleArray(7) { Math.pow(10.0, it.toDouble()) }
+private val decimalPatterns = Array(7) { "%.${it}f" }
+
 /** Presentation boundary: every input is metric, every output is display-only. */
 data class WeatherUnits(
     val system: UnitSystem = UnitSystem.METRIC,
@@ -89,12 +93,12 @@ data class WeatherUnits(
     fun number(value: Double?, digits: Int = 0, locale: Locale = Locale.getDefault()): String {
         if (value == null || !value.isFinite()) return "—"
         val precision = digits.coerceIn(0, 6)
-        val scale = Math.pow(10.0, precision.toDouble())
+        val scale = decimalScales[precision]
         val safe = if (abs(value) < 0.5 / scale) 0.0 else value
         // Match the app's historical roundToInt convention without overflowing an Int.
         return if (abs(safe) >= 1e9) String.format(locale, "%.3g", safe)
         else if (precision == 0) String.format(locale, "%.0f", kotlin.math.floor(safe + 0.5))
-        else String.format(locale, "%.${precision}f", safe)
+        else String.format(locale, decimalPatterns[precision], safe)
     }
 
     fun value(value: Double?, metricUnit: WeatherUnit, digits: Int = 0,
@@ -102,12 +106,13 @@ data class WeatherUnits(
         if (value == null || !value.isFinite()) return "—"
         val precision = precision(metricUnit, digits)
         val converted = convert(value, metricUnit, delta)
-        val text = number(converted, precision, locale)
         // Keep a nonzero trace visible instead of presenting rain as a dry value.
-        val limit = 1.0 / Math.pow(10.0, precision.toDouble())
-        return if (metricUnit.isPrecipitation && !delta && value > 0.0 && converted < limit / 2.0) {
-            "<${number(limit, precision, locale)}"
-        } else text
+        // Only precipitation traces need the threshold (and a different format).
+        if (metricUnit.isPrecipitation && !delta && value > 0.0) {
+            val limit = 1.0 / decimalScales[precision]
+            if (converted < limit / 2.0) return "<${number(limit, precision, locale)}"
+        }
+        return number(converted, precision, locale)
     }
 
     fun format(value: Double?, metricUnit: WeatherUnit, digits: Int = 0,

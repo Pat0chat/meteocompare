@@ -50,7 +50,7 @@ class HourlySlotCrossViewContract(unittest.TestCase):
 
     def test_solar_accumulations_use_forward_endpoint_and_keep_missing_unknown(self):
         solar = source('domain/usecase/LocalityComparison.kt')
-        self.assertIn('val nextIndex = hourly.timestamps.indexOf(instant.plusSeconds(3600))', solar)
+        self.assertIn('val nextIndex = hourly.indexOfTimestamp(instant.plusSeconds(3600))', solar)
         self.assertIn('sunshineDuration.getOrNull(it)', solar)
         self.assertIn('directNormalIrradiance.getOrNull(it)', solar)
         self.assertIn('if (centralCloud != null && centralCloud >= 90)', solar)

@@ -39,7 +39,7 @@ internal object HourlySampling {
      */
     fun nextHourIndex(hourly: HourlyForecast, atIndex: Int): Int? {
         val start = hourly.timestamps.getOrNull(atIndex) ?: return null
-        return with(this) { hourly.timestamps.exactIndex(start.plusSeconds(3_600L)) }
+        return hourly.exactIndex(start.plusSeconds(3_600L))
     }
 
     data class SlotPrecipitation(val amountMm: Double?, val probabilityPercent: Int?)
@@ -60,17 +60,5 @@ internal object HourlySampling {
      */
     fun gustForSlot(hourly: HourlyForecast, atIndex: Int): Double? =
         nextHourIndex(hourly, atIndex)?.let { hourly.windGusts10m.getOrNull(it) }
-
-    /**
-     * Retourne uniquement l'échéance exactement demandée.
-     *
-     * Une heure voisine n'est jamais utilisée comme substitut : un modèle sans
-     * valeur au timestamp cible est simplement absent du consensus de ce slot.
-     */
-    fun List<Instant>.exactIndex(target: Instant): Int? {
-        if (isEmpty()) return null
-        val index = indexOf(target)
-        return index.takeIf { it >= 0 }
-    }
 
 }

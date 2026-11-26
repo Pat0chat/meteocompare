@@ -7,6 +7,7 @@ import android.system.Os
 import android.system.OsConstants
 import android.util.Log
 import com.meteocompare.app.core.locale.initializePersistedLocaleCache
+import com.meteocompare.app.core.util.runSuspendCatching
 import com.meteocompare.app.data.worker.BiasRefreshScheduler
 import com.meteocompare.app.notification.WeatherNotificationEntryPoint
 import com.meteocompare.app.notification.WeatherNotificationScheduler
@@ -104,7 +105,7 @@ class MeteoCompareApplication : Application() {
             // Notifications météo : garantit la présence des travaux attendus
             // (KEEP) sans décaler une planification valide. Rien n'est planifié
             // tant que l'utilisateur n'a activé aucune notification.
-            runCatching {
+            runSuspendCatching {
                 val entry = EntryPointAccessors
                     .fromApplication(this@MeteoCompareApplication, WeatherNotificationEntryPoint::class.java)
                 val prefs = entry.userPreferencesRepository()

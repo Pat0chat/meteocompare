@@ -2,6 +2,7 @@ package com.meteocompare.app.domain.util
 
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.HourlyForecast
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -60,7 +61,7 @@ class HourlySamplingTest {
             target.plusSeconds(3_600L)
         )
 
-        assertEquals(null, with(HourlySampling) { timestamps.exactIndex(target) })
+        assertEquals(null, HourlyForecast(timestamps, emptyList(), emptyList(), emptyList()).exactIndex(target))
     }
 
     @Test
@@ -68,7 +69,7 @@ class HourlySamplingTest {
         val target = Instant.parse("2026-07-15T12:00:00Z")
         val timestamps = listOf(target.minusSeconds(3_600L), target, target.plusSeconds(3_600L))
 
-        assertEquals(1, with(HourlySampling) { timestamps.exactIndex(target) })
+        assertEquals(1, HourlyForecast(timestamps, emptyList(), emptyList(), emptyList()).exactIndex(target))
     }
 
     private fun forecast(timezone: String) = CityForecast(
