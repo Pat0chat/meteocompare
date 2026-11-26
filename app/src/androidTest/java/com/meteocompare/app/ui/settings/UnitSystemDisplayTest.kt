@@ -18,8 +18,8 @@ import com.meteocompare.app.ui.citydetail.SimplifiedTimelinePoint
 import com.meteocompare.app.ui.citydetail.DisplayMode
 import com.meteocompare.app.ui.citydetail.SimplifiedTimelineCard
 import com.meteocompare.app.ui.citydetail.TimelineLayout
-import com.meteocompare.app.ui.citydetail.DailyRangeMetric
-import com.meteocompare.app.ui.citydetail.dailyMetricRange
+import com.meteocompare.app.ui.citydetail.TimelineRangeMetric
+import com.meteocompare.app.ui.citydetail.timelineMetricRange
 import java.time.Instant
 import java.util.Locale
 import androidx.compose.ui.test.performClick
@@ -111,7 +111,7 @@ class UnitSystemDisplayTest {
         composeRule.onNodeWithTag("timeline_daily_rain_amount", useUnmergedTree = true)
             .assertTextEquals(WeatherUnits().rain(21.0, displayLocale))
         composeRule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true)
-            .assertTextEquals(dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT,
+            .assertTextEquals(timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT,
                 WeatherUnits(selection.value, choices), displayLocale)!!)
         composeRule.runOnIdle { selection.value = UnitSystem.CUSTOM }
         composeRule.onNodeWithTag("timeline_daily_temp_max_range", useUnmergedTree = true)
@@ -121,7 +121,7 @@ class UnitSystemDisplayTest {
         composeRule.onNodeWithTag("timeline_daily_rain_amount", useUnmergedTree = true)
             .assertTextEquals(WeatherUnits().rain(21.0, displayLocale))
         composeRule.onNodeWithTag("timeline_daily_rain_range", useUnmergedTree = true)
-            .assertTextEquals(dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT,
+            .assertTextEquals(timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT,
                 WeatherUnits(selection.value, choices), displayLocale)!!)
     }
 
@@ -234,22 +234,22 @@ class UnitSystemDisplayTest {
             }
         }
         val rangeTags = mapOf(
-            DailyRangeMetric.HIGH_TEMPERATURE to "columns_daily_temp_max_range",
-            DailyRangeMetric.LOW_TEMPERATURE to "columns_daily_temp_min_range",
-            DailyRangeMetric.RAIN_PROBABILITY to "columns_daily_rain_probability_range",
-            DailyRangeMetric.RAIN_AMOUNT to "columns_daily_rain_amount_range",
-            DailyRangeMetric.CLOUD_COVER to "columns_daily_cloud_range",
-            DailyRangeMetric.PRESSURE to "columns_daily_pressure_range",
-            DailyRangeMetric.HUMIDITY to "columns_daily_humidity_range",
-            DailyRangeMetric.DEW_POINT to "columns_daily_dew_point_range",
-            DailyRangeMetric.WIND to "columns_daily_wind_range",
-            DailyRangeMetric.WIND_GUST to "columns_daily_gust_range"
+            TimelineRangeMetric.HIGH_TEMPERATURE to "columns_daily_temp_max_range",
+            TimelineRangeMetric.LOW_TEMPERATURE to "columns_daily_temp_min_range",
+            TimelineRangeMetric.RAIN_PROBABILITY to "columns_daily_rain_probability_range",
+            TimelineRangeMetric.RAIN_AMOUNT to "columns_daily_rain_amount_range",
+            TimelineRangeMetric.CLOUD_COVER to "columns_daily_cloud_range",
+            TimelineRangeMetric.PRESSURE to "columns_daily_pressure_range",
+            TimelineRangeMetric.HUMIDITY to "columns_daily_humidity_range",
+            TimelineRangeMetric.DEW_POINT to "columns_daily_dew_point_range",
+            TimelineRangeMetric.WIND to "columns_daily_wind_range",
+            TimelineRangeMetric.WIND_GUST to "columns_daily_gust_range"
         )
         fun check(systemToCheck: UnitSystem) {
             val units = WeatherUnits(systemToCheck, custom)
             rangeTags.forEach { (metric, tag) ->
                 composeRule.onNodeWithTag(tag, useUnmergedTree = true)
-                    .assertTextEquals(dailyMetricRange(point, metric, units, locale)!!)
+                    .assertTextEquals(timelineMetricRange(point, metric, units, locale)!!)
             }
         }
         check(UnitSystem.METRIC)
@@ -257,6 +257,42 @@ class UnitSystemDisplayTest {
         check(UnitSystem.CUSTOM)
         composeRule.runOnIdle { system.value = UnitSystem.UK_MIXED }
         check(UnitSystem.UK_MIXED)
+    }
+
+    @Test fun hourly_columns_and_timeline_update_range_units_without_changing_source_values() {
+        val system = mutableStateOf(UnitSystem.METRIC)
+        val layout = mutableStateOf(TimelineLayout.COLUMNS)
+        val custom = CustomUnitPreferences(temperature = TemperatureChoice.FAHRENHEIT,
+            wind = WindChoice.KNOTS, pressure = com.meteocompare.app.domain.model.PressureChoice.INHG)
+        val now = Instant.parse("2026-09-16T06:00:00Z")
+        val point = dailyPoint().copy(date = null, instant = now, temperatureC = 30.0,
+            apparentTemperatureC = 33.0, apparentTemperatureMinAcrossModels = 27.0,
+            apparentTemperatureMaxAcrossModels = 36.0, apparentTemperatureModelCount = 3)
+        var locale = Locale.US
+        composeRule.setContent {
+            locale = LocalLocale.current.platformLocale
+            CompositionLocalProvider(LocalWeatherUnits provides WeatherUnits(system.value, custom)) {
+                MeteoCompareTheme {
+                    SimplifiedTimelineCard(points = listOf(point), mode = DisplayMode.HOURLY, timezone = "UTC",
+                        layout = layout.value, now = now, showDailyRanges = true)
+                }
+            }
+        }
+        for (view in TimelineLayout.entries) {
+            val prefix = if (view == TimelineLayout.COLUMNS) "columns_hourly" else "timeline_hourly"
+            composeRule.runOnIdle { layout.value = view; system.value = UnitSystem.METRIC }
+            composeRule.onNodeWithTag("${prefix}_temperature_range", useUnmergedTree = true).assertTextEquals("(25–34)")
+            composeRule.onNodeWithTag("${prefix}_apparent_range", useUnmergedTree = true).assertTextEquals("(27–36)")
+            composeRule.onNodeWithTag("${prefix}_wind_range", useUnmergedTree = true).assertTextEquals("(19–37)")
+            composeRule.runOnIdle { system.value = UnitSystem.CUSTOM }
+            composeRule.onNodeWithTag("${prefix}_temperature_range", useUnmergedTree = true).assertTextEquals("(77–93)")
+            composeRule.onNodeWithTag("${prefix}_apparent_range", useUnmergedTree = true).assertTextEquals("(81–97)")
+            composeRule.onNodeWithTag("${prefix}_wind_range", useUnmergedTree = true).assertTextEquals("(10–20)")
+            composeRule.onNodeWithTag("${prefix}_pressure_range", useUnmergedTree = true).assertTextEquals(
+                timelineMetricRange(point, TimelineRangeMetric.PRESSURE, WeatherUnits(UnitSystem.CUSTOM, custom), locale)!!)
+        }
+        assertEquals(37.04, point.windMaxAcrossModels!!, 0.0)
+        assertEquals(27.0, point.apparentTemperatureMinAcrossModels!!, 0.0)
     }
 
     @Test fun daily_chrono_displays_all_available_spreads_without_hourly_leak() {
@@ -269,7 +305,7 @@ class UnitSystemDisplayTest {
         }
         val ranges = mapOf(
             "timeline_daily_rain_probability_range" to "(20–90%)",
-            "timeline_daily_rain_range" to dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT,
+            "timeline_daily_rain_range" to timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT,
                 WeatherUnits(), displayLocale)!!,
             "timeline_daily_cloud_range" to "(15–80%)",
             "timeline_daily_pressure_range" to "(1000–1030)",

@@ -422,7 +422,8 @@ class SimplifiedTimelineCardTest {
                     SimplifiedTimelineCard(
                         points = listOf(point),
                         mode = DisplayMode.HOURLY,
-                        timezone = "UTC"
+                        timezone = "UTC",
+                        showDailyRanges = true
                     )
                 }
             }
@@ -431,7 +432,7 @@ class SimplifiedTimelineCardTest {
         composeRule.onNodeWithTag(TAG_TIMELINE_HEATMAP_BAND).assertIsDisplayed()
         composeRule.onNodeWithTag(TAG_TIMELINE_PRECIP_HEAT_DOT).assertIsDisplayed()
         composeRule.onNodeWithText("28°").assertIsDisplayed()
-        composeRule.onNodeWithText("26–30°").assertIsDisplayed()
+        composeRule.onNodeWithText("(26–30)").assertIsDisplayed()
     }
 
     @Test

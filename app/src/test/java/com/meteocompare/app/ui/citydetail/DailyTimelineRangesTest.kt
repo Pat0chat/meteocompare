@@ -57,22 +57,54 @@ class DailyTimelineRangesTest {
         val units = WeatherUnits()
         val point = allRanges()
         val expected = mapOf(
-            DailyRangeMetric.HIGH_TEMPERATURE to "(25–34)",
-            DailyRangeMetric.LOW_TEMPERATURE to "(12–19)",
-            DailyRangeMetric.LOW_APPARENT_TEMPERATURE to "(-5–12)",
-            DailyRangeMetric.HIGH_APPARENT_TEMPERATURE to "(29–40)",
-            DailyRangeMetric.RAIN_AMOUNT to "(2.0–32.0)",
-            DailyRangeMetric.RAIN_PROBABILITY to "(20–90%)",
-            DailyRangeMetric.CLOUD_COVER to "(15–80%)",
-            DailyRangeMetric.PRESSURE to "(1000–1030)",
-            DailyRangeMetric.HUMIDITY to "(40–70%)",
-            DailyRangeMetric.DEW_POINT to "(9–17)",
-            DailyRangeMetric.WIND to "(19–37)",
-            DailyRangeMetric.WIND_GUST to "(46–93)"
+            TimelineRangeMetric.HIGH_TEMPERATURE to "(25–34)",
+            TimelineRangeMetric.LOW_TEMPERATURE to "(12–19)",
+            TimelineRangeMetric.LOW_APPARENT_TEMPERATURE to "(-5–12)",
+            TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE to "(29–40)",
+            TimelineRangeMetric.RAIN_AMOUNT to "(2.0–32.0)",
+            TimelineRangeMetric.RAIN_PROBABILITY to "(20–90%)",
+            TimelineRangeMetric.CLOUD_COVER to "(15–80%)",
+            TimelineRangeMetric.PRESSURE to "(1000–1030)",
+            TimelineRangeMetric.HUMIDITY to "(40–70%)",
+            TimelineRangeMetric.DEW_POINT to "(9–17)",
+            TimelineRangeMetric.WIND to "(19–37)",
+            TimelineRangeMetric.WIND_GUST to "(46–93)"
         )
-        DailyRangeMetric.entries.forEach { metric ->
-            assertEquals(metric.name, expected[metric], dailyMetricRange(point, metric, units, Locale.US))
+        TimelineRangeMetric.entries.forEach { metric ->
+            assertEquals(metric.name, expected[metric], timelineMetricRange(point, metric, units, Locale.US))
         }
+    }
+
+    @Test fun `hourly range formatting covers all shared metrics and independent apparent temperature`() {
+        val point = allRanges().copy(date = null, instant = java.time.Instant.parse("2026-07-23T10:00:00Z"),
+            apparentTemperatureC = 27.0, apparentTemperatureMinAcrossModels = -5.0,
+            apparentTemperatureMaxAcrossModels = 12.0, apparentTemperatureModelCount = 2)
+        val expected = mapOf(
+            TimelineRangeMetric.HOURLY_TEMPERATURE to "(25–34)",
+            TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE to "(-5–12)",
+            TimelineRangeMetric.RAIN_AMOUNT to "(2.0–32.0)",
+            TimelineRangeMetric.RAIN_PROBABILITY to "(20–90%)",
+            TimelineRangeMetric.CLOUD_COVER to "(15–80%)",
+            TimelineRangeMetric.PRESSURE to "(1000–1030)",
+            TimelineRangeMetric.HUMIDITY to "(40–70%)",
+            TimelineRangeMetric.DEW_POINT to "(9–17)",
+            TimelineRangeMetric.WIND to "(19–37)",
+            TimelineRangeMetric.WIND_GUST to "(46–93)"
+        )
+        for (metric in TimelineRangeMetric.entries) {
+            assertEquals(metric.name, expected[metric], timelineMetricRange(point, metric, WeatherUnits(), Locale.US))
+        }
+        val custom = WeatherUnits(UnitSystem.CUSTOM, CustomUnitPreferences(
+            temperature = TemperatureChoice.FAHRENHEIT, wind = WindChoice.KNOTS,
+            precipitation = PrecipitationChoice.INCHES, pressure = PressureChoice.INHG))
+        assertEquals("(77–93)", timelineMetricRange(point, TimelineRangeMetric.HOURLY_TEMPERATURE, custom, Locale.US))
+        assertEquals("(23–54)", timelineMetricRange(point, TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE, custom, Locale.US))
+        assertEquals("(10–20)", timelineMetricRange(point, TimelineRangeMetric.WIND, custom, Locale.US))
+        assertEquals("(0,08–1,26)", timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT, custom, Locale.FRANCE))
+        assertEquals("(29.53–30.42)", timelineMetricRange(point, TimelineRangeMetric.PRESSURE, custom, Locale.US))
+        assertNull(timelineMetricRange(point.copy(apparentTemperatureModelCount = 1), TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE, custom))
+        assertNull(timelineMetricRange(point.copy(apparentTemperatureMaxAcrossModels = Double.NaN), TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE, custom))
+        assertNull(timelineMetricRange(point.copy(date = date), TimelineRangeMetric.HOURLY_TEMPERATURE, custom))
     }
 
     @Test fun `custom and UK unit systems convert all endpoints exactly once`() {
@@ -83,43 +115,43 @@ class DailyTimelineRangesTest {
             precipitation = PrecipitationChoice.INCHES,
             pressure = PressureChoice.INHG
         ))
-        assertEquals("(77–93)", dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, custom, Locale.US))
-        assertEquals("(54–66)", dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE, custom, Locale.US))
-        assertEquals("(23–54)", dailyMetricRange(point, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, custom, Locale.US))
-        assertEquals("(84–104)", dailyMetricRange(point, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, custom, Locale.US))
-        assertEquals("(48–63)", dailyMetricRange(point, DailyRangeMetric.DEW_POINT, custom, Locale.US))
-        assertEquals("(10–20)", dailyMetricRange(point, DailyRangeMetric.WIND, custom, Locale.US))
-        assertEquals("(25–50)", dailyMetricRange(point, DailyRangeMetric.WIND_GUST, custom, Locale.US))
-        assertEquals("(0.08–1.26)", dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT, custom, Locale.US))
-        assertEquals("(29.53–30.42)", dailyMetricRange(point, DailyRangeMetric.PRESSURE, custom, Locale.US))
-        assertEquals("(20–90%)", dailyMetricRange(point, DailyRangeMetric.RAIN_PROBABILITY, custom, Locale.US))
+        assertEquals("(77–93)", timelineMetricRange(point, TimelineRangeMetric.HIGH_TEMPERATURE, custom, Locale.US))
+        assertEquals("(54–66)", timelineMetricRange(point, TimelineRangeMetric.LOW_TEMPERATURE, custom, Locale.US))
+        assertEquals("(23–54)", timelineMetricRange(point, TimelineRangeMetric.LOW_APPARENT_TEMPERATURE, custom, Locale.US))
+        assertEquals("(84–104)", timelineMetricRange(point, TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE, custom, Locale.US))
+        assertEquals("(48–63)", timelineMetricRange(point, TimelineRangeMetric.DEW_POINT, custom, Locale.US))
+        assertEquals("(10–20)", timelineMetricRange(point, TimelineRangeMetric.WIND, custom, Locale.US))
+        assertEquals("(25–50)", timelineMetricRange(point, TimelineRangeMetric.WIND_GUST, custom, Locale.US))
+        assertEquals("(0.08–1.26)", timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT, custom, Locale.US))
+        assertEquals("(29.53–30.42)", timelineMetricRange(point, TimelineRangeMetric.PRESSURE, custom, Locale.US))
+        assertEquals("(20–90%)", timelineMetricRange(point, TimelineRangeMetric.RAIN_PROBABILITY, custom, Locale.US))
         val uk = WeatherUnits(UnitSystem.UK_MIXED, custom.custom)
-        assertEquals("(25–34)", dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, uk, Locale.US))
-        assertEquals("(12–23)", dailyMetricRange(point, DailyRangeMetric.WIND, uk, Locale.US))
-        assertEquals("(2.0–32.0)", dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT, uk, Locale.US))
+        assertEquals("(25–34)", timelineMetricRange(point, TimelineRangeMetric.HIGH_TEMPERATURE, uk, Locale.US))
+        assertEquals("(12–23)", timelineMetricRange(point, TimelineRangeMetric.WIND, uk, Locale.US))
+        assertEquals("(2.0–32.0)", timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT, uk, Locale.US))
     }
 
     @Test fun `missing one model and invalid model values never create fake ranges`() {
         val point = allRanges()
         val metric = WeatherUnits()
-        assertNull(dailyMetricRange(point.copy(date = null), DailyRangeMetric.WIND, metric))
-        assertNull(dailyMetricRange(point.copy(date = null), DailyRangeMetric.LOW_APPARENT_TEMPERATURE, metric))
-        assertNull(dailyMetricRange(point.copy(apparentMinModelCount = 1), DailyRangeMetric.LOW_APPARENT_TEMPERATURE, metric))
-        assertNull(dailyMetricRange(point.copy(apparentMaxMaxAcrossModels = Double.NaN), DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, metric))
-        assertEquals("(29–40)", dailyMetricRange(point.copy(apparentMinModelCount = 1), DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, metric, Locale.US))
-        assertNull(dailyMetricRange(point.copy(windModelCount = 1), DailyRangeMetric.WIND, metric))
-        assertNull(dailyMetricRange(point.copy(precipitationAmountModelCount = 1), DailyRangeMetric.RAIN_AMOUNT, metric))
-        assertNull(dailyMetricRange(point.copy(tempMinModelCount = 1), DailyRangeMetric.LOW_TEMPERATURE, metric))
-        assertNull(dailyMetricRange(point.copy(pressureMinAcrossModels = Double.NaN), DailyRangeMetric.PRESSURE, metric))
-        assertNull(dailyMetricRange(point.copy(humidityMinAcrossModels = 80, humidityMaxAcrossModels = 40),
-            DailyRangeMetric.HUMIDITY, metric))
+        assertNull(timelineMetricRange(point.copy(date = null), TimelineRangeMetric.WIND, metric))
+        assertNull(timelineMetricRange(point.copy(date = null), TimelineRangeMetric.LOW_APPARENT_TEMPERATURE, metric))
+        assertNull(timelineMetricRange(point.copy(apparentMinModelCount = 1), TimelineRangeMetric.LOW_APPARENT_TEMPERATURE, metric))
+        assertNull(timelineMetricRange(point.copy(apparentMaxMaxAcrossModels = Double.NaN), TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE, metric))
+        assertEquals("(29–40)", timelineMetricRange(point.copy(apparentMinModelCount = 1), TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE, metric, Locale.US))
+        assertNull(timelineMetricRange(point.copy(windModelCount = 1), TimelineRangeMetric.WIND, metric))
+        assertNull(timelineMetricRange(point.copy(precipitationAmountModelCount = 1), TimelineRangeMetric.RAIN_AMOUNT, metric))
+        assertNull(timelineMetricRange(point.copy(tempMinModelCount = 1), TimelineRangeMetric.LOW_TEMPERATURE, metric))
+        assertNull(timelineMetricRange(point.copy(pressureMinAcrossModels = Double.NaN), TimelineRangeMetric.PRESSURE, metric))
+        assertNull(timelineMetricRange(point.copy(humidityMinAcrossModels = 80, humidityMaxAcrossModels = 40),
+            TimelineRangeMetric.HUMIDITY, metric))
     }
 
     @Test fun `changing custom presets cannot alter canonical source values`() {
         val point = allRanges()
         for (system in UnitSystem.entries) {
             val units = WeatherUnits(system, CustomUnitPreferences(wind = WindChoice.MS))
-            for (metric in DailyRangeMetric.entries) dailyMetricRange(point, metric, units, Locale.FRANCE)
+            for (metric in TimelineRangeMetric.entries) timelineMetricRange(point, metric, units, Locale.FRANCE)
         }
         assertEquals(37.04, point.windMaxAcrossModels!!, 0.0)
         assertEquals(32.0, point.precipitationMaxAcrossModelsMm!!, 0.0)

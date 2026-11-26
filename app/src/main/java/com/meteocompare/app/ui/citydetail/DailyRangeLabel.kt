@@ -42,8 +42,8 @@ internal fun DailyRangeLabel(
     singleLine: Boolean = false,
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally
 ) {
-    // This fast path is shared by the hourly timeline and the default daily view.
-    // No text measurement or layout negotiation is needed when ranges are hidden.
+    // Fast path for either time scale when a range is unavailable or hidden.
+    // No text measurement or layout negotiation is needed.
     if (range.isNullOrBlank()) {
         Row(modifier = modifier,
             horizontalArrangement = if (horizontalAlignment == Alignment.Start) Arrangement.Start else Arrangement.Center,
@@ -134,14 +134,14 @@ internal fun DailyApparentRangeLabels(
         }
         DailyRangeLabel(
             value = stringResource(R.string.today_summary_temp_min_short) + " " + units.temp(point.apparentMinC, locale = locale),
-            range = dailyMetricRange(point, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, units, locale),
+            range = timelineMetricRange(point, TimelineRangeMetric.LOW_APPARENT_TEMPERATURE, units, locale),
             rangeTag = "${tagPrefix}_apparent_min_range", valueTag = "${tagPrefix}_apparent_min_value",
             modifier = Modifier.fillMaxWidth(), valueStyle = style, valueColor = color,
             horizontalAlignment = horizontalAlignment
         )
         DailyRangeLabel(
             value = stringResource(R.string.today_summary_temp_max_short) + " " + units.temp(point.apparentMaxC, locale = locale),
-            range = dailyMetricRange(point, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, units, locale),
+            range = timelineMetricRange(point, TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE, units, locale),
             rangeTag = "${tagPrefix}_apparent_max_range", valueTag = "${tagPrefix}_apparent_max_value",
             modifier = Modifier.fillMaxWidth(), valueStyle = style, valueColor = color,
             horizontalAlignment = horizontalAlignment

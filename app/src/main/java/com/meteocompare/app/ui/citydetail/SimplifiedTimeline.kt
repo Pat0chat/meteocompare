@@ -292,7 +292,7 @@ internal fun SimplifiedTimelineCard(
                 // Keep this control immediately below either visualization and
                 // never in the mode/layout selector row. Convergence information
                 // is now available by tapping the score instead of taking screen space.
-                if (mode == DisplayMode.DAILY && onShowDailyRangesChange != null) {
+                if (onShowDailyRangesChange != null) {
                     TimelineDailyRangesToggle(
                         checked = showDailyRanges,
                         onCheckedChange = onShowDailyRangesChange
@@ -691,6 +691,7 @@ private fun TimelinePointColumn(
     units: WeatherUnits = LocalWeatherUnits.current
 ) {
     val displayLocale = LocalConfiguration.current.locales[0]
+    val rangePrefix = if (mode == DisplayMode.DAILY) "columns_daily" else "columns_hourly"
     val separatorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f)
     val focusColor = MaterialTheme.colorScheme.primary
     val focusShape = RoundedCornerShape(14.dp)
@@ -795,11 +796,19 @@ private fun TimelinePointColumn(
             showDailyRanges = showDailyRanges
         )
         if (mode == DisplayMode.HOURLY) {
-            TimelineSupportingText(
-                text = point.apparentTemperatureC?.takeIf(Double::isFinite)?.let {
-                    stringResource(R.string.apparent_temperature_short, units.temp(it))
-                } ?: "",
-                modifier = Modifier.testTag(TAG_TIMELINE_COLUMNS_APPARENT)
+            TimelineMetric(
+                icon = Icons.Outlined.Thermostat,
+                value = stringResource(R.string.apparent_temperature_short,
+                    units.temp(point.apparentTemperatureC, locale = displayLocale)),
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.testTag(TAG_TIMELINE_COLUMNS_APPARENT),
+                compact = showDailyRanges,
+                range = if (showDailyRanges) timelineMetricRange(
+                    point, TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE, units, displayLocale
+                ) else null,
+                rangeTag = "columns_hourly_apparent_range",
+                iconTag = "columns_hourly_apparent_icon",
+                valueTag = "columns_hourly_apparent_value"
             )
         } else {
             Box(
@@ -810,18 +819,37 @@ private fun TimelinePointColumn(
                 contentAlignment = Alignment.Center
             ) {
                 if (showDailyRanges) {
+                    // Use the same icon rail as TimelineMetric without moving the readings.
+                    Icon(
+                        Icons.Outlined.Thermostat, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 7.dp)
+                            .size(12.dp).testTag("columns_daily_apparent_icon")
+                    )
                     DailyApparentRangeLabels(
                         point, units, displayLocale, "columns_daily",
                         modifier = Modifier.fillMaxWidth().timelineMetricReadingInset(),
                         showTitle = true, horizontalAlignment = Alignment.Start
                     )
                 } else {
-                    Text(
-                        stringResource(R.string.apparent_temperature_short, dailyApparentReading(point, units)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Outlined.Thermostat, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(12.dp).testTag("columns_daily_apparent_icon")
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            stringResource(R.string.apparent_temperature_short, dailyApparentReading(point, units)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
                 }
             }
         }
@@ -831,36 +859,36 @@ private fun TimelinePointColumn(
             accent = precipitationAccent
         )
 
-        // Daily readings are paired with their ranges rather than inserting ten
+        // Readings are paired with their ranges rather than inserting ten
         // additional empty rows. Every range obeys the same visibility switch.
         TimelineMetric(
             icon = Icons.Outlined.WaterDrop,
             value = point.precipitationPercent?.let { "$it%" } ?: "—",
             tint = precipitationAccent,
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.RAIN_PROBABILITY, units, displayLocale) else null,
-            rangeTag = "columns_daily_rain_probability_range",
-            iconTag = "columns_daily_rain_probability_icon",
-            valueTag = "columns_daily_rain_probability_value"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.RAIN_PROBABILITY, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_rain_probability_range",
+            iconTag = "${rangePrefix}_rain_probability_icon",
+            valueTag = "${rangePrefix}_rain_probability_value"
         )
         TimelineSupportingText(
             text = timelinePrecipitationAmountLabel(point),
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.RAIN_AMOUNT, units, displayLocale) else null,
-            rangeTag = "columns_daily_rain_amount_range"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.RAIN_AMOUNT, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_rain_amount_range"
         )
         TimelineMetric(
             icon = Icons.Outlined.Cloud,
             value = point.cloudCoverPercent?.let { "$it%" } ?: "—",
             tint = MaterialTheme.colorScheme.secondary,
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.CLOUD_COVER, units, displayLocale) else null,
-            rangeTag = "columns_daily_cloud_range",
-            iconTag = "columns_daily_cloud_icon",
-            valueTag = "columns_daily_cloud_value"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.CLOUD_COVER, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_cloud_range",
+            iconTag = "${rangePrefix}_cloud_icon",
+            valueTag = "${rangePrefix}_cloud_value"
         )
         TimelineMetric(
             icon = Icons.Filled.WbSunny,
@@ -868,7 +896,7 @@ private fun TimelinePointColumn(
                 point.estimatedSunHours, hourly = point.instant != null, units, LocalConfiguration.current.locales[0], localizedSunshineDurationFormats()
             ),
             tint = MaterialTheme.colorScheme.tertiary,
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
+            compact = showDailyRanges,
             semanticLabel = stringResource(R.string.compare_sunshine)
         )
         TimelineMetric(
@@ -876,20 +904,20 @@ private fun TimelinePointColumn(
             value = point.humidityPercent?.let { "$it%" } ?: "—",
             tint = MaterialTheme.colorScheme.secondary,
             semanticLabel = stringResource(R.string.metric_humidity),
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.HUMIDITY, units, displayLocale) else null,
-            rangeTag = "columns_daily_humidity_range"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.HUMIDITY, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_humidity_range"
         )
         TimelineMetric(
             icon = DewPointMetricIcon,
             value = point.dewPointC?.let { units.temp(it) } ?: "—",
             tint = MaterialTheme.colorScheme.tertiary,
             semanticLabel = stringResource(R.string.metric_dew_point),
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.DEW_POINT, units, displayLocale) else null,
-            rangeTag = "columns_daily_dew_point_range"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.DEW_POINT, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_dew_point_range"
         )
         TimelineMetric(
             icon = Icons.Outlined.Speed,
@@ -897,10 +925,10 @@ private fun TimelinePointColumn(
                 units.format(it, WeatherUnit.PRESSURE, if (units.pressureInInHg) 2 else 0)
             } ?: "—",
             tint = MaterialTheme.colorScheme.tertiary,
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.PRESSURE, units, displayLocale) else null,
-            rangeTag = "columns_daily_pressure_range"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.PRESSURE, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_pressure_range"
         )
         TimelineMetric(
             icon = Icons.Outlined.Air,
@@ -909,17 +937,17 @@ private fun TimelinePointColumn(
                 windCardinal(point.windDirectionDeg, displayLocale)?.let { "$formatted · $it" } ?: formatted
             } ?: "—",
             tint = windAccent,
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.WIND, units, displayLocale) else null,
-            rangeTag = "columns_daily_wind_range"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.WIND, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_wind_range"
         )
         TimelineSupportingText(
             text = point.windGustKmh?.let { stringResource(R.string.timeline_wind_gust, it) } ?: "—",
-            compact = showDailyRanges && mode == DisplayMode.DAILY,
-            range = if (showDailyRanges && mode == DisplayMode.DAILY)
-                dailyMetricRange(point, DailyRangeMetric.WIND_GUST, units, displayLocale) else null,
-            rangeTag = "columns_daily_gust_range"
+            compact = showDailyRanges,
+            range = if (showDailyRanges)
+                timelineMetricRange(point, TimelineRangeMetric.WIND_GUST, units, displayLocale) else null,
+            rangeTag = "${rangePrefix}_gust_range"
         )
 
         Spacer(Modifier.height(6.dp))
@@ -993,7 +1021,8 @@ private fun TemperatureHeatmapBand(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (mode == DisplayMode.DAILY) 58.dp else 52.dp)
+            .height(if (mode == DisplayMode.DAILY) 58.dp else
+                46.dp * if (showDailyRanges) LocalDensity.current.fontScale.coerceAtLeast(1f) else 1f)
             .clip(shape)
             .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
             .testTag(TAG_TIMELINE_HEATMAP_BAND),
@@ -1003,18 +1032,20 @@ private fun TemperatureHeatmapBand(
             DisplayMode.HOURLY -> {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = point.temperatureC?.let { units.temp(it) } ?: "—",
+                        text = units.temp(point.temperatureC, locale = displayLocale),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = contentColor,
                         maxLines = 1
                     )
-                    temperatureRangeLabel(point, mode, units = units)?.let { range ->
+                    (if (showDailyRanges) timelineMetricRange(point, TimelineRangeMetric.HOURLY_TEMPERATURE, units, displayLocale)
+                    else null)?.let { range ->
                         Text(
                             text = range,
                             style = MaterialTheme.typography.labelSmall,
                             color = contentColor.copy(alpha = 0.82f),
-                            maxLines = 1
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("columns_hourly_temperature_range")
                         )
                     }
                 }
@@ -1030,7 +1061,7 @@ private fun TemperatureHeatmapBand(
                     DailyRangeLabel(
                         value = high,
                         range = if (showDailyRanges)
-                            dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE, units, displayLocale) else null,
+                            timelineMetricRange(point, TimelineRangeMetric.HIGH_TEMPERATURE, units, displayLocale) else null,
                         rangeTag = "columns_daily_temp_max_range",
                         modifier = Modifier.fillMaxWidth(),
                         valueStyle = MaterialTheme.typography.labelLarge,
@@ -1042,7 +1073,7 @@ private fun TemperatureHeatmapBand(
                     DailyRangeLabel(
                         value = low,
                         range = if (showDailyRanges)
-                            dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE, units, displayLocale) else null,
+                            timelineMetricRange(point, TimelineRangeMetric.LOW_TEMPERATURE, units, displayLocale) else null,
                         rangeTag = "columns_daily_temp_min_range",
                         modifier = Modifier.fillMaxWidth(),
                         valueStyle = MaterialTheme.typography.labelSmall,
@@ -1082,18 +1113,6 @@ private fun PrecipitationHeatIndicator(
             )
         }
     }
-}
-
-private fun temperatureRangeLabel(
-    point: SimplifiedTimelinePoint,
-    mode: DisplayMode,
-    units: WeatherUnits
-): String? {
-    if (mode != DisplayMode.HOURLY) return null
-    val min = point.temperatureMinAcrossModels ?: return null
-    val max = point.temperatureMaxAcrossModels ?: return null
-    if (max - min < 1) return null
-    return "${units.value(min, WeatherUnit.TEMPERATURE_COMPACT)}–${units.temp(max)}"
 }
 
 @Composable
@@ -1262,7 +1281,7 @@ private fun orderedDivergenceReasons(
 ).filter { it in reasons }
 
 /**
- * On the opt-in daily layout every icon sits on the same left rail. The value
+ * On the opt-in range layout every icon sits on the same left rail. The value
  * starts immediately after the icon; the range may use the remaining width or
  * wrap to a tiny second line. Rows with no range retain the same alignment.
  */
@@ -1276,14 +1295,15 @@ private fun TimelineMetric(
     rangeTag: String = "",
     compact: Boolean = false,
     iconTag: String? = null,
-    valueTag: String? = null
+    valueTag: String? = null,
+    modifier: Modifier = Modifier
 ) {
     val semanticModifier = if (semanticLabel != null) Modifier.semantics(mergeDescendants = true) {
         contentDescription = "$semanticLabel $value${range?.let { " $it" } ?: ""}"
     } else Modifier
     if (!compact && range == null) {
-        // Preserve the established layout for hourly and ranges-off daily.
-        Row(modifier = Modifier.height(20.dp).then(semanticModifier),
+        // Preserve the established layout when ranges are off.
+        Row(modifier = modifier.height(20.dp).then(semanticModifier),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = null, tint = tint,
                 modifier = Modifier.size(12.dp).then(iconTag?.let { Modifier.testTag(it) } ?: Modifier))
@@ -1296,7 +1316,7 @@ private fun TimelineMetric(
         return
     }
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 19.dp)
+        modifier = modifier.fillMaxWidth().heightIn(min = 19.dp)
             .padding(start = 7.dp, end = 5.dp).then(semanticModifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1388,7 +1408,7 @@ internal const val TAG_TIMELINE_HEATMAP_BAND = "timeline_heatmap_band"
 internal const val TAG_TIMELINE_PRECIP_HEAT_DOT = "timeline_precip_heat_dot"
 private const val TAG_TIMELINE_POINT_PREFIX = "timeline_point_"
 internal fun timelineColumnWidth(mode: DisplayMode, showDailyRanges: Boolean): androidx.compose.ui.unit.Dp =
-    if (mode == DisplayMode.DAILY && showDailyRanges) 136.dp else 112.dp
+    if (showDailyRanges) 136.dp else 112.dp
 private val EVENT_RULER_HEIGHT = 24.dp
 private val TIMELINE_RULER_EDGE_INSET = 56.dp
 private const val MAX_MARKERS_PER_SLOT = 4

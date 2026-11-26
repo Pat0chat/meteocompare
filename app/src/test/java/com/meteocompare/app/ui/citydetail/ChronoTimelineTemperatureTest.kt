@@ -30,10 +30,12 @@ class ChronoTimelineTemperatureTest {
     fun daily_ranges_fit_into_compact_columns_and_do_not_widen_the_chrono_grid() {
         assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY))
         assertEquals(148.dp, chronoPointWidth(DisplayMode.DAILY, true))
-        assertEquals(96.dp, chronoPointWidth(DisplayMode.HOURLY, true))
+        assertEquals(96.dp, chronoPointWidth(DisplayMode.HOURLY, false))
+        assertEquals(128.dp, chronoPointWidth(DisplayMode.HOURLY, true))
         assertEquals(112.dp, timelineColumnWidth(DisplayMode.DAILY, false))
         assertEquals(136.dp, timelineColumnWidth(DisplayMode.DAILY, true))
-        assertEquals(112.dp, timelineColumnWidth(DisplayMode.HOURLY, true))
+        assertEquals(112.dp, timelineColumnWidth(DisplayMode.HOURLY, false))
+        assertEquals(136.dp, timelineColumnWidth(DisplayMode.HOURLY, true))
     }
 
     @Test
@@ -45,10 +47,25 @@ class ChronoTimelineTemperatureTest {
         assertEquals(50.dp, chronoDailyApparentHeight(true))
         assertEquals(75.dp, chronoDailyApparentHeight(true, 1.5f))
         assertEquals(75.dp, chronoRowHeights(DisplayMode.DAILY, true, 1.5f)[2])
-        assertEquals(
-            chronoRowHeights(DisplayMode.HOURLY, false),
-            chronoRowHeights(DisplayMode.HOURLY, true)
-        )
+    }
+
+    @Test
+    fun hourly_range_labels_have_reserved_space_outside_both_curves() {
+        val base = chronoRowHeights(DisplayMode.HOURLY, false)
+        val expanded = chronoRowHeights(DisplayMode.HOURLY, true)
+        assertEquals(base.size, expanded.size)
+        assertEquals(118.dp, base[1])
+        assertEquals(170.dp, expanded[1])
+        assertTrue(expanded.sumOf { it.value.toDouble() } - base.sumOf { it.value.toDouble() } < 100.0)
+        for (scale in listOf(1f, 1.5f, 2f)) {
+            val top = chronoTemperaturePlotTop(DisplayMode.HOURLY, true, scale)
+            val bottom = chronoTemperaturePlotBottom(DisplayMode.HOURLY, true, scale)
+            val height = chronoTemperatureRowHeight(DisplayMode.HOURLY, true, scale)
+            assertEquals(40.dp * scale + 9.dp, top)
+            assertEquals(72.dp, bottom - top)
+            assertEquals(top, height - bottom)
+            assertEquals(height, chronoRowHeights(DisplayMode.HOURLY, true, scale)[1])
+        }
     }
 
     @Test

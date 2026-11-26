@@ -58,6 +58,7 @@ private val CITY_DETAIL_VIEW_MODES_KEY =
     stringSetPreferencesKey("city_detail_view_modes")
 private val CITY_DETAIL_CONTENT_TABS_KEY =
     stringSetPreferencesKey("city_detail_content_tabs")
+// Retain the original key so existing daily opt-ins carry over to hourly.
 private val DAILY_RANGES_ENABLED_KEY = booleanPreferencesKey("daily_ranges_enabled")
 private val HOME_EXPANDED_CITY_ID_KEY = stringPreferencesKey("home_expanded_city_id")
 private val NOTIFICATION_DAILY_SUMMARY_KEY = booleanPreferencesKey("notification_daily_summary")

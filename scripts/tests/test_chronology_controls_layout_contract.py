@@ -35,6 +35,17 @@ class ChronologyUiContract(unittest.TestCase):
         self.assertIn('TimelineDailyRangesToggle(', body)
         self.assertLess(body.index('TimelineLayout.CHRONO ->'), body.index('TimelineDailyRangesToggle('))
 
+    def test_range_toggle_is_shared_across_time_scales_and_both_views(self):
+        body = section(COLUMNS, 'when (layout) {', 'if (expanded && showConvergenceInfo)')
+        self.assertIn('if (onShowDailyRangesChange != null)', body)
+        self.assertNotIn('mode == DisplayMode.DAILY && onShowDailyRangesChange', body)
+        self.assertEqual(body.count('showDailyRanges = showDailyRanges'), 2)
+        self.assertIn('checked = showDailyRanges', body)
+        self.assertIn('TimelineRangeMetric.HOURLY_TEMPERATURE', COLUMNS)
+        self.assertIn('TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE', COLUMNS)
+        self.assertIn('TimelineRangeMetric.HOURLY_TEMPERATURE', CHRONO)
+        self.assertIn('TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE', CHRONO)
+
     def test_daily_columns_use_shared_icon_rail_and_secondary_ranges(self):
         body = section(COLUMNS, 'private fun TimelineMetric(',
                        'private fun TimelineSupportingText(')
@@ -56,6 +67,25 @@ class ChronologyUiContract(unittest.TestCase):
         self.assertIn('padding(start = 22.dp, end = 5.dp)', supporting)
         chrono = CHRONO.split('DailyApparentRangeLabels(', 1)[1].split('} else {', 1)[0]
         self.assertNotIn('Alignment.Start', chrono)
+
+    def test_hourly_apparent_uses_primary_metric_and_reserves_bottom_clearance(self):
+        apparent = section(COLUMNS, 'TemperatureHeatmapBand(\n            point = point,', 'PrecipitationHeatIndicator(')
+        hourly = section(apparent, 'if (mode == DisplayMode.HOURLY) {', '} else {')
+        self.assertIn('TimelineMetric(', hourly)
+        self.assertNotIn('TimelineSupportingText(', hourly)
+        self.assertIn('valueTag = "columns_hourly_apparent_value"', hourly)
+        self.assertIn('compact = showDailyRanges', hourly)
+        self.assertIn('top = 3.dp + CHRONO_HOURLY_RANGE_EXTRA_EDGE_SPACE', CHRONO)
+        self.assertIn('bottom = 3.dp + CHRONO_HOURLY_RANGE_EXTRA_EDGE_SPACE', CHRONO)
+        self.assertIn('CHRONO_HOURLY_RANGE_EXTRA_EDGE_SPACE = 9.dp', CHRONO)
+        self.assertIn('hourlyRangeLabelBand(fontScale) * 2f + 72.dp + CHRONO_HOURLY_RANGE_EXTRA_EDGE_SPACE * 2f', CHRONO)
+
+    def test_daily_apparent_has_thermostat_in_both_range_states(self):
+        apparent = section(COLUMNS, 'TemperatureHeatmapBand(\n            point = point,', 'PrecipitationHeatIndicator(')
+        self.assertEqual(apparent.count('testTag("columns_daily_apparent_icon")'), 2)
+        self.assertEqual(apparent.count('Icons.Outlined.Thermostat'), 3)
+        self.assertIn('Modifier.align(Alignment.CenterStart).padding(start = 7.dp)', apparent)
+        self.assertIn('Modifier.fillMaxWidth().timelineMetricReadingInset()', apparent)
 
     def test_timeline_title_icons_are_kept_but_cell_icons_removed(self):
         title = section(CHRONO, 'private fun ChronoLabelsColumn(', 'private fun ChronoLabelGrid(')

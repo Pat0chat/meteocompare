@@ -19,6 +19,58 @@ class SimplifiedTimelineTest {
     private val today = LocalDate.of(2026, 7, 23)
 
     @Test
+    fun `hourly ranges use the same instant and interval as the readings and ignore missing models`() {
+        val times = listOf(now, now.plusSeconds(3600), now.plusSeconds(7200))
+        fun series(model: WeatherModel, high: Boolean) = ForecastSeries(model,
+            HourlyForecast(timestamps = times,
+                temperature2m = listOf(if (high) 24.0 else 18.0, 30.0, null),
+                apparentTemperature = listOf(if (high) 27.0 else 14.0, if (high) Double.NaN else 28.0, null),
+                precipitation = listOf(99.0, if (high) 5.0 else 1.0, 0.0),
+                precipitationProbability = listOf(99, if (high) 80 else 20, 0),
+                windSpeed10m = listOf(if (high) 37.04 else 18.52, 15.0, null),
+                windGusts10m = listOf(999.0, if (high) 92.6 else 46.3, null),
+                cloudCover = listOf(if (high) 80 else 20, null, null),
+                pressureMsl = listOf(if (high) 1030.0 else 1000.0, null, null),
+                relativeHumidity2m = listOf(if (high) 70 else 40, null, null),
+                dewPoint2m = listOf(if (high) 17.0 else 9.0, null, null)),
+            DailyForecast(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()))
+        val a = series(WeatherModel.GFS, false)
+        val b = series(WeatherModel.ECMWF, true)
+        val invalid = series(WeatherModel.ICON_EU, false).copy(hourly = HourlyForecast(
+            timestamps = times, temperature2m = listOf(Double.NaN), apparentTemperature = listOf(Double.POSITIVE_INFINITY),
+            precipitation = listOf(null, -5.0), precipitationProbability = listOf(null, 105),
+            windSpeed10m = listOf(-10.0), windGusts10m = listOf(null, -20.0),
+            pressureMsl = listOf(700.0), cloudCover = listOf(110), relativeHumidity2m = listOf(-1), dewPoint2m = listOf(Double.NaN)))
+        val points = buildSimplifiedTimeline(CityForecast(paris.copy(timezone = "UTC"),
+            listOf(a, b, invalid).associateBy { it.model }), DisplayMode.HOURLY, now)
+        val point = points.first { it.instant == now }
+        val units = com.meteocompare.app.core.units.WeatherUnits()
+        val expected = mapOf(
+            TimelineRangeMetric.HOURLY_TEMPERATURE to "(18–24)",
+            TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE to "(14–27)",
+            TimelineRangeMetric.RAIN_AMOUNT to "(1.0–5.0)",
+            TimelineRangeMetric.RAIN_PROBABILITY to "(20–80%)",
+            TimelineRangeMetric.CLOUD_COVER to "(20–80%)",
+            TimelineRangeMetric.PRESSURE to "(1000–1030)",
+            TimelineRangeMetric.HUMIDITY to "(40–70%)",
+            TimelineRangeMetric.DEW_POINT to "(9–17)",
+            TimelineRangeMetric.WIND to "(19–37)",
+            TimelineRangeMetric.WIND_GUST to "(46–93)"
+        )
+        for (metric in TimelineRangeMetric.entries) {
+            assertEquals(metric.name, expected[metric], timelineMetricRange(point, metric, units, java.util.Locale.US))
+        }
+        assertEquals(2, point.apparentTemperatureModelCount)
+        val next = points.first { it.instant == now.plusSeconds(3600) }
+        assertEquals(1, next.apparentTemperatureModelCount)
+        assertEquals(null, timelineMetricRange(next, TimelineRangeMetric.HOURLY_APPARENT_TEMPERATURE, units))
+        assertEquals("(30–30)", timelineMetricRange(next, TimelineRangeMetric.HOURLY_TEMPERATURE, units, java.util.Locale.US))
+        val single = buildSimplifiedTimeline(CityForecast(paris.copy(timezone = "UTC"), mapOf(a.model to a, invalid.model to invalid)),
+            DisplayMode.HOURLY, now).first()
+        for (metric in TimelineRangeMetric.entries) assertEquals(null, timelineMetricRange(single, metric, units))
+    }
+
+    @Test
     fun `daily timeline recovers hourly-only dates with no daily axis`() {
         val start = today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
         val hours = List(24) { start.plusSeconds(it * 3600L) }
@@ -92,13 +144,13 @@ class SimplifiedTimelineTest {
         assertEquals(29.0, daily.apparentMaxMinAcrossModels!!, 0.0)
         assertEquals(40.0, daily.apparentMaxMaxAcrossModels!!, 0.0)
         val units = com.meteocompare.app.core.units.WeatherUnits()
-        assertEquals("(-5–12)", dailyMetricRange(daily, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, units, java.util.Locale.US))
-        assertEquals("(29–40)", dailyMetricRange(daily, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, units, java.util.Locale.US))
+        assertEquals("(-5–12)", timelineMetricRange(daily, TimelineRangeMetric.LOW_APPARENT_TEMPERATURE, units, java.util.Locale.US))
+        assertEquals("(29–40)", timelineMetricRange(daily, TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE, units, java.util.Locale.US))
         val single = point(a, c)
         assertEquals(1, single.apparentMinModelCount)
         assertEquals(1, single.apparentMaxModelCount)
-        assertEquals(null, dailyMetricRange(single, DailyRangeMetric.LOW_APPARENT_TEMPERATURE, units))
-        assertEquals(null, dailyMetricRange(single, DailyRangeMetric.HIGH_APPARENT_TEMPERATURE, units))
+        assertEquals(null, timelineMetricRange(single, TimelineRangeMetric.LOW_APPARENT_TEMPERATURE, units))
+        assertEquals(null, timelineMetricRange(single, TimelineRangeMetric.HIGH_APPARENT_TEMPERATURE, units))
     }
 
     @Test
@@ -129,9 +181,9 @@ class SimplifiedTimelineTest {
         assertEquals(3, point.precipitationAmountModelCount)
         assertEquals(3, point.tempMinModelCount)
         assertEquals(3, point.windModelCount)
-        assertEquals("(25–34)", dailyMetricRange(point, DailyRangeMetric.HIGH_TEMPERATURE,
+        assertEquals("(25–34)", timelineMetricRange(point, TimelineRangeMetric.HIGH_TEMPERATURE,
             com.meteocompare.app.core.units.WeatherUnits(), java.util.Locale.US))
-        assertEquals("(12–16)", dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE,
+        assertEquals("(12–16)", timelineMetricRange(point, TimelineRangeMetric.LOW_TEMPERATURE,
             com.meteocompare.app.core.units.WeatherUnits(), java.util.Locale.US))
     }
 
@@ -152,7 +204,7 @@ class SimplifiedTimelineTest {
         assertEquals(null, point.tempMinMinAcrossModels)
         assertEquals(null, point.tempMinMaxAcrossModels)
         assertEquals(1, point.tempMinModelCount)
-        assertEquals(null, dailyMetricRange(point, DailyRangeMetric.LOW_TEMPERATURE,
+        assertEquals(null, timelineMetricRange(point, TimelineRangeMetric.LOW_TEMPERATURE,
             com.meteocompare.app.core.units.WeatherUnits()))
     }
 
@@ -188,13 +240,13 @@ class SimplifiedTimelineTest {
         ).single()
         val units = com.meteocompare.app.core.units.WeatherUnits()
         val locale = java.util.Locale.US
-        assertEquals("(1000–1030)", dailyMetricRange(point, DailyRangeMetric.PRESSURE, units, locale))
-        assertEquals("(40–70%)", dailyMetricRange(point, DailyRangeMetric.HUMIDITY, units, locale))
-        assertEquals("(9–17)", dailyMetricRange(point, DailyRangeMetric.DEW_POINT, units, locale))
-        assertEquals("(20–80%)", dailyMetricRange(point, DailyRangeMetric.CLOUD_COVER, units, locale))
-        assertEquals("(20–90%)", dailyMetricRange(point, DailyRangeMetric.RAIN_PROBABILITY, units, locale))
-        assertEquals("(19–37)", dailyMetricRange(point, DailyRangeMetric.WIND, units, locale))
-        assertEquals("(46–93)", dailyMetricRange(point, DailyRangeMetric.WIND_GUST, units, locale))
+        assertEquals("(1000–1030)", timelineMetricRange(point, TimelineRangeMetric.PRESSURE, units, locale))
+        assertEquals("(40–70%)", timelineMetricRange(point, TimelineRangeMetric.HUMIDITY, units, locale))
+        assertEquals("(9–17)", timelineMetricRange(point, TimelineRangeMetric.DEW_POINT, units, locale))
+        assertEquals("(20–80%)", timelineMetricRange(point, TimelineRangeMetric.CLOUD_COVER, units, locale))
+        assertEquals("(20–90%)", timelineMetricRange(point, TimelineRangeMetric.RAIN_PROBABILITY, units, locale))
+        assertEquals("(19–37)", timelineMetricRange(point, TimelineRangeMetric.WIND, units, locale))
+        assertEquals("(46–93)", timelineMetricRange(point, TimelineRangeMetric.WIND_GUST, units, locale))
         assertEquals(2, point.pressureModelCount)
         assertEquals(2, point.humidityModelCount)
         assertEquals(2, point.dewPointModelCount)

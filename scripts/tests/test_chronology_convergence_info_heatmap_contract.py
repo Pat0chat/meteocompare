@@ -39,7 +39,8 @@ class ChronologyConvergenceInfoHeatmapContract(unittest.TestCase):
     def test_daily_heatmap_has_one_height_regardless_of_ranges(self):
         heatmap = COLUMNS.split('private fun TemperatureHeatmapBand(', 1)[1].split(
             'private fun PrecipitationHeatIndicator(', 1)[0]
-        self.assertIn('.height(if (mode == DisplayMode.DAILY) 58.dp else 52.dp)', heatmap)
+        self.assertIn('.height(if (mode == DisplayMode.DAILY) 58.dp else', heatmap)
+        self.assertIn('46.dp * if (showDailyRanges) LocalDensity.current.fontScale.coerceAtLeast(1f) else 1f', heatmap)
         self.assertNotIn('70.dp', heatmap)
         self.assertEqual(heatmap.count('singleLine = showDailyRanges'), 2)
         self.assertIn('if (singleLine)', RANGE)

@@ -97,6 +97,9 @@ internal data class SimplifiedTimelinePoint(
     val temperatureC: Double? = null,
     /** Model median of the estimated apparent temperature, hourly only. */
     val apparentTemperatureC: Double? = null,
+    val apparentTemperatureMinAcrossModels: Double? = null,
+    val apparentTemperatureMaxAcrossModels: Double? = null,
+    val apparentTemperatureModelCount: Int = 0,
     val apparentMinC: Double? = null,
     val apparentMaxC: Double? = null,
     val apparentMinMinAcrossModels: Double? = null,
@@ -739,7 +742,8 @@ private fun timelinePoint(
         ForecastConsensus.PrecipitationSource.MODEL_AGREEMENT -> PrecipitationSignalSource.MODEL_AGREEMENT
         null -> null
     }
-    val temperatures = meaningful.mapNotNull { if (hourly) it.temperature else it.tempMax }
+    val temperatures = meaningful.mapNotNull { (if (hourly) it.temperature else it.tempMax)?.takeIf(Double::isFinite) }
+    val apparentTemperatures = if (hourly) meaningful.mapNotNull { it.apparentTemperature?.takeIf(Double::isFinite) } else emptyList()
     val minimumTemperatures = if (hourly) emptyList() else meaningful.mapNotNull { it.tempMin?.takeIf(Double::isFinite) }
     // Compare the already validated daily extrema of each model, not hourly samples
     // across all models or the central daily minimum against the central maximum.
@@ -767,6 +771,9 @@ private fun timelinePoint(
         date = date,
         temperatureC = if (hourly) temp.forecastValue.central else null,
         apparentTemperatureC = apparent?.forecastValue?.central,
+        apparentTemperatureMinAcrossModels = apparentTemperatures.takeIf { it.size >= 2 }?.minOrNull(),
+        apparentTemperatureMaxAcrossModels = apparentTemperatures.takeIf { it.size >= 2 }?.maxOrNull(),
+        apparentTemperatureModelCount = apparentTemperatures.size,
         apparentMinC = apparentMin?.forecastValue?.central,
         apparentMaxC = apparentMax?.forecastValue?.central,
         apparentMinMinAcrossModels = apparentMinimums.takeIf { it.size >= 2 }?.minOrNull(),
@@ -812,21 +819,21 @@ private fun timelinePoint(
         cloudCoverPercent = cloud.forecastValue.central?.roundToInt()?.coerceIn(0, 100),
         cloudCoverMinAcrossModels = cloudValues.minOrNull(),
         cloudCoverMaxAcrossModels = cloudValues.maxOrNull(),
-        cloudCoverModelCount = cloud.agreement.modelCount,
+        cloudCoverModelCount = cloudValues.size,
         windKmh = wind.forecastValue.central,
         windMinAcrossModels = windValues.minOrNull(),
         windMaxAcrossModels = windValues.maxOrNull(),
         windGustKmh = gust.forecastValue.central,
         windGustMinAcrossModels = gustValues.minOrNull(),
         windGustMaxAcrossModels = gustValues.maxOrNull(),
-        windGustModelCount = gust.agreement.modelCount,
+        windGustModelCount = gustValues.size,
         windDirectionDeg = windDirection,
         condition = conditionConsensus.value,
         conditionDiagnostic = timelineConditionDiagnostic(meaningful, conditionConsensus),
         modelCount = meaningful.size,
         familyCount = familyCount,
         temperatureModelCount = temp.agreement.modelCount,
-        windModelCount = wind.agreement.modelCount,
+        windModelCount = windValues.size,
         conditionModelCount = conditionConsensus.modelCount,
         hasMultiModelEvidence = metricConsensus.isNotEmpty(),
         consensusPercent = overall,

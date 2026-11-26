@@ -153,13 +153,14 @@ class DailyRangeLayoutComposeTest {
 
     @Test fun daily_columns_apparent_readings_share_the_other_metrics_start_alignment() {
         val models = mutableStateOf(3)
+        val enabled = mutableStateOf(true)
         rule.setContent {
             MeteoCompareTheme {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     SimplifiedTimelineCard(
                         points = listOf(dailyPoint(models.value)), mode = DisplayMode.DAILY,
                         timezone = "UTC", now = now, layout = TimelineLayout.COLUMNS,
-                        showDailyRanges = true
+                        showDailyRanges = enabled.value
                     )
                 }
             }
@@ -167,28 +168,154 @@ class DailyRangeLayoutComposeTest {
         fun left(tag: String): Float = rule.onNodeWithTag(tag, useUnmergedTree = true)
             .getUnclippedBoundsInRoot().left.value
 
+        val icon = rule.onNodeWithTag("columns_daily_apparent_icon", useUnmergedTree = true)
         // Compare the real value baseline in dp, not the width of its parent.
         // It must not move when a range is unavailable for a single model.
         for (count in listOf(3, 1)) {
             rule.runOnIdle { models.value = count }
+            icon.performScrollTo().assertIsDisplayed()
+            assertEquals("Feels-like icon must share the common metric rail",
+                left("columns_daily_rain_probability_icon"), left("columns_daily_apparent_icon"), 1f)
             val readingStart = left("columns_daily_rain_probability_value")
             for (tag in listOf("columns_daily_apparent_min_value", "columns_daily_apparent_max_value")) {
                 assertEquals("$tag must align with the other daily readings", readingStart, left(tag), 1f)
             }
         }
+        rule.runOnIdle { enabled.value = false }
+        icon.performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("9° / 33°", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("columns_daily_apparent_min_range", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithTag("columns_daily_apparent_max_range", useUnmergedTree = true).assertDoesNotExist()
     }
 
-    @Test fun hourly_timeline_does_not_offer_the_daily_only_toggle() {
+    @Test fun hourly_columns_apparent_reading_shares_the_metric_alignment() {
+        val models = mutableStateOf(3)
+        val enabled = mutableStateOf(true)
         rule.setContent {
             MeteoCompareTheme {
-                SimplifiedTimelineCard(
-                    points = listOf(SimplifiedTimelinePoint(instant = now, temperatureC = 18.0)),
-                    mode = DisplayMode.HOURLY, timezone = "UTC", now = now,
-                    onShowDailyRangesChange = {}
-                )
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    val point = dailyPoint(models.value).copy(
+                        date = null, instant = now, temperatureC = 30.0,
+                        apparentTemperatureC = 33.0, apparentTemperatureMinAcrossModels = 27.0,
+                        apparentTemperatureMaxAcrossModels = 36.0, apparentTemperatureModelCount = models.value
+                    )
+                    SimplifiedTimelineCard(points = listOf(point), mode = DisplayMode.HOURLY,
+                        timezone = "UTC", now = now, layout = TimelineLayout.COLUMNS,
+                        showDailyRanges = enabled.value)
+                }
             }
         }
-        rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE).assertDoesNotExist()
+        val icon = rule.onNodeWithTag("columns_hourly_apparent_icon", useUnmergedTree = true)
+        val reading = rule.onNodeWithTag("columns_hourly_apparent_value", useUnmergedTree = true)
+        val rain = rule.onNodeWithTag("columns_hourly_rain_probability_value", useUnmergedTree = true)
+        val range = rule.onNodeWithTag("columns_hourly_apparent_range", useUnmergedTree = true)
+        for (count in listOf(3, 1)) {
+            rule.runOnIdle { models.value = count }
+            reading.performScrollTo().assertIsDisplayed()
+            icon.assertIsDisplayed()
+            assertEquals("Feels-like reading must start on the common metric rail",
+                rain.getUnclippedBoundsInRoot().left.value,
+                reading.getUnclippedBoundsInRoot().left.value, 1f)
+            if (count == 3) range.performScrollTo().assertIsDisplayed() else range.assertDoesNotExist()
+        }
+        rule.runOnIdle { models.value = 3; enabled.value = false }
+        reading.performScrollTo().assertIsDisplayed()
+        icon.assertIsDisplayed()
+        range.assertDoesNotExist()
+    }
+
+    @Test fun hourly_chrono_both_temperature_ranges_stay_inside_the_heatmap_with_clearance() {
+        val enabled = mutableStateOf(true)
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    val point = SimplifiedTimelinePoint(instant = now, temperatureC = 30.0,
+                        temperatureMinAcrossModels = 24.0, temperatureMaxAcrossModels = 34.0,
+                        temperatureModelCount = 3,
+                        apparentTemperatureC = 33.0, apparentTemperatureMinAcrossModels = 27.0,
+                        apparentTemperatureMaxAcrossModels = 36.0, apparentTemperatureModelCount = 3)
+                    ChronoTimelineView(points = listOf(point), mode = DisplayMode.HOURLY,
+                        timezone = "UTC", now = now, showDailyRanges = enabled.value)
+                }
+            }
+        }
+        val topRange = rule.onNodeWithTag("timeline_hourly_temperature_range", useUnmergedTree = true)
+        val range = rule.onNodeWithTag("timeline_hourly_apparent_range", useUnmergedTree = true)
+        topRange.performScrollTo().assertIsDisplayed()
+        val topPlot = rule.onNodeWithTag(TAG_TIMELINE_CHRONO_TEMPERATURE_PLOT, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val topBounds = topRange.getUnclippedBoundsInRoot()
+        // The heatmap starts 6 dp below the plot top; require at least 5 dp clearance.
+        assertTrue("Temperature range must stay inside heatmap: $topBounds vs $topPlot",
+            topBounds.top.value - topPlot.top.value >= 11f)
+        range.performScrollTo().assertIsDisplayed()
+        val plot = rule.onNodeWithTag(TAG_TIMELINE_CHRONO_TEMPERATURE_PLOT, useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val rangeBounds = range.getUnclippedBoundsInRoot()
+        // Heatmap background ends 6 dp above the plot bottom. Allow 1 dp
+        // rounding tolerance while requiring at least 5 dp inside that edge.
+        assertTrue("Feels-like range must stay inside heatmap: $rangeBounds vs $plot",
+            plot.bottom.value - rangeBounds.bottom.value >= 11f)
+        rule.runOnIdle { enabled.value = false }
+        topRange.assertDoesNotExist()
+        range.assertDoesNotExist()
+        rule.onNodeWithTag(TAG_TIMELINE_CHRONO_APPARENT, useUnmergedTree = true)
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun shared_toggle_controls_all_four_presentations_and_all_hourly_metrics() {
+        val enabled = mutableStateOf(false)
+        val mode = mutableStateOf(DisplayMode.HOURLY)
+        val layout = mutableStateOf(TimelineLayout.COLUMNS)
+        val models = mutableStateOf(2)
+        rule.setContent {
+            MeteoCompareTheme {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    val point = dailyPoint(models.value)
+                    val hourly = point.copy(date = null, instant = now, temperatureC = 30.0,
+                        apparentTemperatureC = 33.0, apparentTemperatureMinAcrossModels = 27.0,
+                        apparentTemperatureMaxAcrossModels = 36.0, apparentTemperatureModelCount = models.value,
+                        cloudCoverPercent = 50, cloudCoverMinAcrossModels = 20, cloudCoverMaxAcrossModels = 80, cloudCoverModelCount = models.value,
+                        pressureHpa = 1015.0, pressureMinAcrossModels = 1000.0, pressureMaxAcrossModels = 1030.0, pressureModelCount = models.value,
+                        humidityPercent = 60, humidityMinAcrossModels = 40, humidityMaxAcrossModels = 80, humidityModelCount = models.value,
+                        dewPointC = 12.0, dewPointMinAcrossModels = 9.0, dewPointMaxAcrossModels = 17.0, dewPointModelCount = models.value,
+                        windKmh = 25.0, windMinAcrossModels = 18.52, windMaxAcrossModels = 37.04, windModelCount = models.value,
+                        windGustKmh = 50.0, windGustMinAcrossModels = 46.3, windGustMaxAcrossModels = 92.6, windGustModelCount = models.value)
+                    SimplifiedTimelineCard(points = listOf(if (mode.value == DisplayMode.HOURLY) hourly else point),
+                        mode = mode.value, timezone = "UTC", now = now, layout = layout.value,
+                        showDailyRanges = enabled.value, onShowDailyRangesChange = { enabled.value = it })
+                }
+            }
+        }
+        val toggle = rule.onNodeWithTag(TAG_TIMELINE_RANGES_TOGGLE)
+        val common = listOf("temperature", "apparent", "rain_probability", "cloud", "pressure", "humidity", "dew_point", "wind", "gust")
+        fun assertHourlyRanges(view: TimelineLayout, visible: Boolean) {
+            val prefix = if (view == TimelineLayout.COLUMNS) "columns_hourly" else "timeline_hourly"
+            val metrics = common + if (view == TimelineLayout.COLUMNS) "rain_amount" else "rain"
+            for (metric in metrics) {
+                val node = rule.onNodeWithTag("${prefix}_${metric}_range", useUnmergedTree = true)
+                if (visible) node.assertExists() else node.assertDoesNotExist()
+            }
+        }
+        toggle.performScrollTo().assertIsDisplayed().assertIsOff()
+        assertHourlyRanges(TimelineLayout.COLUMNS, false)
+        toggle.performClick().assertIsOn()
+        for (view in TimelineLayout.entries) {
+            rule.runOnIdle { layout.value = view; mode.value = DisplayMode.HOURLY; models.value = 2 }
+            assertHourlyRanges(view, true)
+            toggle.performScrollTo().assertIsDisplayed().assertIsOn()
+            rule.runOnIdle { models.value = 1 }
+            assertHourlyRanges(view, false)
+            rule.runOnIdle { models.value = 2; mode.value = DisplayMode.DAILY }
+            toggle.performScrollTo().assertIsDisplayed().assertIsOn()
+            val prefix = if (view == TimelineLayout.COLUMNS) "columns_daily" else "timeline_daily"
+            rule.onNodeWithTag("${prefix}_temp_max_range", useUnmergedTree = true).assertExists()
+        }
+        toggle.performClick().assertIsOff()
+        rule.runOnIdle { mode.value = DisplayMode.HOURLY }
+        assertHourlyRanges(TimelineLayout.CHRONO, false)
+        rule.runOnIdle { layout.value = TimelineLayout.COLUMNS }
+        assertHourlyRanges(TimelineLayout.COLUMNS, false)
     }
 
     @Test fun ranges_with_only_one_model_are_absent_even_if_enabled() {
