@@ -1,0 +1,61 @@
+name: Set up Android build
+description: >
+  JDK 21, Gradle (cache inclus) et, si demandé, les paquets du SDK Android
+  dérivés de gradle/libs.versions.toml. Partagé par tous les jobs Gradle.
+
+inputs:
+  install-sdk:
+    description: Installer platform-tools, la plateforme compileSdk et les build-tools.
+    required: false
+    default: 'true'
+  extra-build-tools:
+    description: Versions de build-tools supplémentaires, séparées par des espaces (ex. "34.0.0").
+    required: false
+    default: ''
+  gradle-cache:
+    description: >
+      Utiliser gradle/actions/setup-gradle (cache des dépendances). Désactivé
+      pour la release reproductible, qui s'en passait déjà.
+    required: false
+    default: 'true'
+  validate-wrapper:
+    description: Vérifier que gradle-wrapper.jar est un wrapper Gradle officiel.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Gradle Wrapper
+      if: inputs.validate-wrapper == 'true'
+      uses: gradle/actions/wrapper-validation@v6
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: '21'
+
+    - name: Set up Gradle
+      if: inputs.gradle-cache == 'true'
+      uses: gradle/actions/setup-gradle@v6
+
+    # Sous Windows, le bit exécutable Unix de gradlew peut se perdre.
+    - name: Make Gradle Wrapper executable
+      shell: bash
+      run: chmod +x ./gradlew
+
+    - name: Install Android SDK packages
+      if: inputs.install-sdk == 'true'
+      shell: bash
+      env:
+        EXTRA_BUILD_TOOLS: ${{ inputs.extra-build-tools }}
+      run: |
+        set -euo pipefail
+        SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+        if [[ ! -x "$SDKMANAGER" ]]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+        COMPILE_SDK="$(python3 -c 'import tomllib; print(tomllib.load(open("gradle/libs.versions.toml", "rb"))["versions"]["compileSdk"])')"
+        PACKAGES=("platform-tools" "platforms;android-${COMPILE_SDK}" "build-tools;36.0.0")
+        for version in $EXTRA_BUILD_TOOLS; do PACKAGES+=("build-tools;${version}"); done
+        echo "compileSdk=${COMPILE_SDK} packages=${PACKAGES[*]}"
+        "$SDKMANAGER" "${PACKAGES[@]}"

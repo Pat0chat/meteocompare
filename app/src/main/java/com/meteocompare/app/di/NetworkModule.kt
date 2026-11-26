@@ -8,8 +8,10 @@ import com.meteocompare.app.core.network.MeteoCompareClientHeaderInterceptor
 import com.meteocompare.app.core.network.OpenMeteoClockDebugInterceptor
 import com.meteocompare.app.core.network.OsmCacheDiagnosticsInterceptor
 import com.meteocompare.app.data.remote.ClimateArchiveApi
+import com.meteocompare.app.data.remote.ElevationApi
 import com.meteocompare.app.data.remote.GeocodingApi
 import com.meteocompare.app.data.remote.MarineApi
+import com.meteocompare.app.data.remote.MetarArchiveApi
 import com.meteocompare.app.data.remote.MeteoCompareApi
 import com.meteocompare.app.data.remote.OpenMeteoApi
 import com.meteocompare.app.data.remote.PreviousRunsApi
@@ -54,6 +56,10 @@ annotation class PreviousRunsRetrofit
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class MeteoCompareRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MetarArchiveRetrofit
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -207,6 +213,16 @@ object NetworkModule {
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
 
+    /** Archive METAR IEM : réponse CSV lue telle quelle, sans convertisseur. */
+    @Provides
+    @Singleton
+    @MetarArchiveRetrofit
+    fun provideMetarArchiveRetrofit(client: OkHttpClient): Retrofit =
+        Retrofit.Builder()
+            .baseUrl("https://mesonet.agron.iastate.edu/")
+            .client(client)
+            .build()
+
     @Provides
     @Singleton
     @MeteoCompareRetrofit
@@ -244,6 +260,16 @@ object NetworkModule {
     @Singleton
     fun providePreviousRunsApi(@PreviousRunsRetrofit retrofit: Retrofit): PreviousRunsApi =
         retrofit.create(PreviousRunsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideElevationApi(@ForecastRetrofit retrofit: Retrofit): ElevationApi =
+        retrofit.create(ElevationApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideMetarArchiveApi(@MetarArchiveRetrofit retrofit: Retrofit): MetarArchiveApi =
+        retrofit.create(MetarArchiveApi::class.java)
 
     @Provides
     @Singleton

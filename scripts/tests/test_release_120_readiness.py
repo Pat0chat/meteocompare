@@ -8,6 +8,10 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+import sys as _sys  # noqa: E402
+if str(Path(__file__).resolve().parents[2]) not in _sys.path:
+    _sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.ci_workflows import expanded_workflow, job_needs, top_level_jobs  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ('fr-FR', 'en-US', 'es-ES', 'de-DE', 'it-IT')
@@ -38,9 +42,16 @@ class Release120ReadinessTests(unittest.TestCase):
                 self.assertLessEqual(len(text), 500)
 
     def test_release_ci_blocks_publication_until_emulator_suite_is_green(self):
-        pipeline = (ROOT / '.github/workflows/release-fdroid.yml').read_text(encoding='utf-8')
-        self.assertRegex(pipeline, r'(?m)^  android-device-gate:\s*$')
-        self.assertRegex(pipeline, r'(?m)^  build-apk:\s*\n    needs: \[android-device-gate\]')
+        caller = (ROOT / '.github/workflows/release-fdroid.yml').read_text(encoding='utf-8')
+        pipeline = expanded_workflow('release-fdroid.yml')
+        self.assertRegex(caller, r'(?m)^  android-device-gate:\s*$')
+        # La compilation tourne en parallèle des tests instrumentés, mais la
+        # publication de la release attend que la porte émulateur soit verte.
+        jobs = top_level_jobs(caller)
+        publishing = [name for name, body in jobs.items() if 'Create or update GitHub Release' in body]
+        self.assertEqual(['publish'], publishing)
+        self.assertIn('android-device-gate', job_needs(jobs['publish']))
+        self.assertIn('build-apk', job_needs(jobs['publish']))
         self.assertIn(':app:connectedDebugAndroidTest', pipeline)
         self.assertIn('GITHUB_REF_NAME', pipeline)
         self.assertIn('versionName', pipeline)

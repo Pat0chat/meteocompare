@@ -1,0 +1,48 @@
+name: Python checks (reusable)
+
+# Contrôles Python sans SDK Android, communs à la qualité et à la release :
+# corpus de non-régression, tests unitaires des scripts (dont la parité du
+# moteur de prévision) et validateurs de ressources.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        description: Nom de l'artefact contenant le journal des tests Python.
+        required: true
+        type: string
+
+jobs:
+  python:
+    name: Python static-contract and validator tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify weather regression golden corpus (SHA256 and generated expectations)
+        run: |
+          python3 scripts/generate_weather_regression_corpus.py --check
+          python3 scripts/generate_condition_status_corpus.py --check
+          python3 scripts/generate_temporal_windows_corpus.py --check
+          python3 scripts/generate_civil_day_coverage_corpus.py --check
+          python3 -m unittest scripts.tests.test_weather_regression_corpus -v
+
+      - name: Validate all Python checks (no pytest required)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v 2>&1 | tee python-test-output.log
+          python3 scripts/validate-compose-previews.py
+          python3 scripts/check_android_strings.py
+          python3 scripts/test-summary-dialog-copy.py
+          python3 scripts/verify_atmospheric_localizations.py
+          bash scripts/validate-fdroid-metadata.sh
+
+      - name: Preserve Python test counts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: python-test-output.log
+          if-no-files-found: warn

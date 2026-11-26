@@ -1,10 +1,16 @@
 package com.meteocompare.app.domain.usecase
 
+import android.util.Log
 import com.meteocompare.app.core.util.apiTimezoneOrAuto
 import com.meteocompare.app.core.util.localDateIn
+import com.meteocompare.app.core.util.resolveZoneOrUtc
+import com.meteocompare.app.core.util.runSuspendCatching
+import com.meteocompare.app.core.util.validZoneOrNull
 import com.meteocompare.app.data.remote.ClimateArchiveApi
+import com.meteocompare.app.data.remote.MetarArchiveApi
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.BiasVariable
+import com.meteocompare.app.domain.model.CalibrationPoint
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.ForecastPhysicalLimits
 import com.meteocompare.app.domain.repository.BiasSampleRepository
@@ -15,12 +21,26 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
  * Récupère les données historiques de référence manquantes pour une ville et les
- * enregistre dans le repo de biais. La référence Open-Meteo est une réanalyse
- * (observations assimilées + modélisation), pas une mesure de station au point exact.
+ * enregistre dans le repo de biais.
+ *
+ * ## Références
+ *
+ * Avec une station de calibration ([CalibrationPoint.station]), la Tmax vient
+ * de ses METAR : face aux stations, la réanalyse est trop froide d'environ
+ * 0,5 °C en Tmax, et la corriger vers elle dégradait la Tmax à J+1 (voir
+ * `scripts/backtest/results`). Un jour sans METAR suffisants reste sans Tmax :
+ * il n'est jamais complété par la réanalyse, pour ne pas mélanger deux
+ * références dans la même fenêtre.
+ *
+ * Le cumul de pluie et le vent max restent sur la réanalyse Open-Meteo, prise
+ * au même point que les prévisions archivées : les METAR hors États-Unis ne
+ * donnent pas la pluie, et le vent d'un anémomètre d'aéroport, plus exposé,
+ * gonflerait le vent affiché en ville.
  *
  * ## Stratégie delta
  *
@@ -63,6 +83,7 @@ import kotlinx.coroutines.withContext
 @Singleton
 class FetchBiasObservationsUseCase @Inject constructor(
     private val archiveApi: ClimateArchiveApi,
+    private val metarApi: MetarArchiveApi,
     private val biasRepository: BiasSampleRepository,
     @param:IoDispatcher private val io: CoroutineDispatcher,
     private val clock: Clock = Clock.systemUTC()
@@ -75,7 +96,8 @@ class FetchBiasObservationsUseCase @Inject constructor(
      */
     suspend operator fun invoke(
         city: City,
-        today: LocalDate = clock.instant().localDateIn(city.timezone)
+        today: LocalDate = clock.instant().localDateIn(city.timezone),
+        point: CalibrationPoint = CalibrationPoint.reanalysis(city)
     ): Int = withContext(io) {
         val end = today.minusDays(1)
         val earliestMissing = biasRepository.earliestMissingReferenceDate(
@@ -92,8 +114,8 @@ class FetchBiasObservationsUseCase @Inject constructor(
         if (cappedStart > end) return@withContext 0
 
         val response = archiveApi.archive(
-            latitude = city.latitude,
-            longitude = city.longitude,
+            latitude = point.latitude,
+            longitude = point.longitude,
             startDate = cappedStart.format(ISO_DATE),
             endDate = end.format(ISO_DATE),
             daily = ClimateArchiveApi.BIAS_DAILY_VARS,
@@ -104,6 +126,10 @@ class FetchBiasObservationsUseCase @Inject constructor(
         val tempMax = response.daily.tempMax
         val precipSum = response.daily.precipSum
         val windMax = response.daily.windSpeedMax
+        val stationTmax = point.station?.let { station ->
+            val zone = validZoneOrNull(city.timezone) ?: resolveZoneOrUtc(response.timezone)
+            stationDailyTmax(station.icao, cappedStart, end, zone)
+        }
 
         // Chaque série est lue indépendamment. Toutes les lignes sont ensuite
         // persistées en une transaction Room pour éviter 30 × 3 transactions.
@@ -118,7 +144,8 @@ class FetchBiasObservationsUseCase @Inject constructor(
             if (date < cappedStart || date > end) continue
             var recordedForDate = false
 
-            ForecastPhysicalLimits.temperature(tempMax.getOrNull(i))?.let { value ->
+            val temperature = if (stationTmax != null) stationTmax[date] else tempMax.getOrNull(i)
+            ForecastPhysicalLimits.temperature(temperature)?.let { value ->
                 records += ObservationBiasRecord(
                     city.id, BiasVariable.TEMPERATURE, date, value, fetchedAt
                 )
@@ -142,7 +169,48 @@ class FetchBiasObservationsUseCase @Inject constructor(
         recordedDays
     }
 
+    /**
+     * Tmax METAR par jour civil local. La fenêtre UTC est élargie d'un jour de
+     * chaque côté pour couvrir toute la journée locale, quel que soit le fuseau.
+     * Une erreur (limite de débit, panne) donne une carte vide : les jours
+     * restent sans Tmax et seront redemandés au prochain cycle.
+     */
+    private suspend fun stationDailyTmax(
+        icao: String,
+        start: LocalDate,
+        end: LocalDate,
+        zone: java.time.ZoneId
+    ): Map<LocalDate, Double> {
+        val from = start.minusDays(1)
+        val until = end.plusDays(2)
+        // IEM refuse les requêtes rapprochées : espacer les villes successives.
+        val wait = lastMetarCallMs + METAR_MIN_SPACING_MS - clock.millis()
+        if (wait > 0) delay(wait)
+        lastMetarCallMs = clock.millis()
+        return runSuspendCatching {
+            val csv = metarApi.hourly(
+                station = icao,
+                startYear = from.year,
+                startMonth = from.monthValue,
+                startDay = from.dayOfMonth,
+                endYear = until.year,
+                endMonth = until.monthValue,
+                endDay = until.dayOfMonth
+            ).use { it.string() }
+            MetarDailyMaxTemperature.parse(csv, zone)
+        }.getOrElse { error ->
+            Log.w(LOG_TAG, "METAR history unavailable for $icao", error)
+            emptyMap()
+        }
+    }
+
+    @Volatile
+    private var lastMetarCallMs = Long.MIN_VALUE / 2
+
     companion object {
+        private const val LOG_TAG = "MeteoCompare/Bias"
+        private const val METAR_MIN_SPACING_MS = 2_000L
+
         /**
          * Nombre max de jours à fetcher en une passe. Aligné sur la fenêtre du
          * biais (30) : au premier lancement, on remplit exactement ce qu'il
