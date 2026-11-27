@@ -122,6 +122,12 @@ class FakeForecastRepository @Inject constructor() : ForecastRepository {
         return streamFor(city).value
     }
 
+    override suspend fun refreshStaleCityForecast(
+        city: City,
+        models: List<WeatherModel>,
+        forecastDays: Int
+    ): ApiResult<CityForecast> = refreshCityForecast(city, models, forecastDays)
+
     override suspend fun clearCacheForCity(cityId: String) {
         clearedCityIds += cityId
         streams.remove(cityId)

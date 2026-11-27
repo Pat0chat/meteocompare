@@ -36,6 +36,7 @@ import com.meteocompare.app.domain.util.forecastPresentationTicks
 import com.meteocompare.app.domain.util.hasForecastPresentationChanged
 import com.meteocompare.app.notification.WeatherNotificationScheduler
 import com.meteocompare.app.ui.components.AppToastEvent
+import com.meteocompare.app.domain.model.isForecastStale
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Clock
@@ -139,6 +140,25 @@ class CityListViewModel @Inject constructor(
     private val requestedUvLocations = mutableMapOf<String, Pair<Double, Double>>()
     private val vigilanceJobs = mutableMapOf<String, Job>()
     private val vigilanceCoastModeById = mutableMapOf<String, Boolean>()
+    private val freshnessNow = MutableStateFlow(clock.instant())
+
+    /** Raw cache timestamps remain available even if an expired forecast cannot be presented. */
+    private fun hasStaleForecast(city: City, forecasts: Map<String, CityForecast>, now: Instant): Boolean {
+        val forecast = forecasts[city.id] ?: return false
+        if (forecast.city.latitude != city.latitude || forecast.city.longitude != city.longitude) return false
+        return isForecastStale(forecast.fetchedAt, now)
+    }
+
+    /** UI-only signal: the clock can expose the action, but never starts a network request. */
+    val manualRefreshNeeded: StateFlow<Boolean> = combine(
+        cityRepository.observeFavorites(),
+        rawForecastsById,
+        userPreferences.observeRefreshInterval(),
+        freshnessNow
+    ) { cities, forecasts, interval, now ->
+        interval == RefreshInterval.MANUAL && cities.any { hasStaleForecast(it, forecasts, now) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     private val _isRefreshing = MutableStateFlow(false)
     private val _isOnline = MutableStateFlow(networkMonitor.isOnline())
     private val marineLoadingIds = MutableStateFlow<Set<String>>(emptySet())
@@ -434,6 +454,7 @@ class CityListViewModel @Inject constructor(
     private fun observePresentationTime() {
         viewModelScope.launch {
             forecastPresentationTicks(clock).collect { now ->
+                freshnessNow.value = now
                 runSuspendCatching { recalculatePresentation(now) }
                     .onFailure { error ->
                         android.util.Log.w(
@@ -504,6 +525,7 @@ class CityListViewModel @Inject constructor(
     fun refreshIfStale() {
         // Toujours remettre la présentation à l'heure, y compris hors ligne.
         // C'est le rattrapage immédiat après une longue veille du process.
+        freshnessNow.value = clock.instant()
         viewModelScope.launch { recalculatePresentation(clock.instant()) }
         val cities = favoriteCitiesById.values.toList()
         // Only a TTL validation: changing theme, engine or timeline never requests UV.
@@ -929,8 +951,22 @@ class CityListViewModel @Inject constructor(
         job.start()
     }
 
+    /** Revalidate queued alert requests after waiting for a concurrency slot. */
+    private suspend fun shouldRefreshStaleCity(city: City): Boolean {
+        if (userPreferences.observeRefreshInterval().first() != RefreshInterval.MANUAL) return false
+        val stillFavorite = cityRepository.observeFavorites().first().any {
+            it.id == city.id && it.latitude == city.latitude && it.longitude == city.longitude
+        }
+        return stillFavorite && hasStaleForecast(city, rawForecastsById.value, clock.instant())
+    }
+
     /** Pull-to-refresh : force le réseau pour toutes les villes en parallèle. */
-    fun onRefreshAll() {
+    fun onRefreshAll() = refreshCities(staleOnly = false)
+
+    /** Alert action: same manual job and repository protections as pull-to-refresh. */
+    fun onRefreshStaleCities() = refreshCities(staleOnly = true)
+
+    private fun refreshCities(staleOnly: Boolean) {
         if (manualRefreshJob?.isActive == true) return
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             _isRefreshing.value = true
@@ -940,7 +976,14 @@ class CityListViewModel @Inject constructor(
                 // retard quand un favori vient d'être ajouté ou supprimé.
                 // DataStore location updates can precede syncStreams. Read the latest
                 // favorites rather than forcing a fetch for the previous GPS cell.
-                val cities = cityRepository.observeFavorites().first()
+                val favorites = cityRepository.observeFavorites().first()
+                if (staleOnly && userPreferences.observeRefreshInterval().first() != RefreshInterval.MANUAL) {
+                    return@launch
+                }
+                val cities = if (staleOnly) {
+                    val now = clock.instant()
+                    favorites.filter { hasStaleForecast(it, rawForecastsById.value, now) }
+                } else favorites
                 val models = userPreferences.observeEnabledModels().first()
                 val expectedGeneration = streamConfigGeneration
                 val limiter = Semaphore(MAX_CONCURRENT_CITY_REFRESHES)
@@ -948,8 +991,15 @@ class CityListViewModel @Inject constructor(
                     cities.map { city ->
                         async {
                             limiter.withPermit {
-                                runSuspendCatching {
-                                    val result = forecastRepository.refreshCityForecast(city, models)
+                                if (staleOnly && !shouldRefreshStaleCity(city)) {
+                                    return@withPermit emptyList<ApiResult<CityForecast>?>()
+                                }
+                                listOf(runSuspendCatching {
+                                    val result = if (staleOnly) {
+                                        forecastRepository.refreshStaleCityForecast(city, models)
+                                    } else {
+                                        forecastRepository.refreshCityForecast(city, models)
+                                    }
                                     applyForecastResult(
                                         city = city,
                                         result = result,
@@ -957,7 +1007,9 @@ class CityListViewModel @Inject constructor(
                                         expectedModels = models.toSet()
                                     )
                                     runSuspendCatching {
-                                        refreshVigilance(city, forceRefresh = true)
+                                        // The alert targets outdated forecasts, not an unrelated
+                                        // forced download of official vigilance data.
+                                        refreshVigilance(city, forceRefresh = !staleOnly)
                                     }.onFailure { error ->
                                         android.util.Log.w(
                                             "MeteoCompare/CityList",
@@ -966,10 +1018,10 @@ class CityListViewModel @Inject constructor(
                                         )
                                     }
                                     result
-                                }.getOrNull()
+                                }.getOrNull())
                             }
                         }
-                    }.awaitAll()
+                    }.awaitAll().flatten()
                 }
                 val errors = results.filterIsInstance<ApiResult.Error>()
                 val failedCount = errors.size + results.count { it == null }

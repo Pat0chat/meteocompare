@@ -1271,4 +1271,5 @@ datos</string>
     <string name="sunshine_source_layers">Estimación a partir de las capas de nubes bajas, medias y altas.</string>
     <string name="sunshine_source_total">Estimación a partir de la nubosidad total (fracción de cielo despejado).</string>
     <string name="sunshine_extrapolated">En algunos modelos se extrapola la fracción soleada de las horas disponibles a la duración del día.</string>
+    <string name="home_manual_refresh_stale">Actualizar las previsiones obsoletas</string>
 </resources>

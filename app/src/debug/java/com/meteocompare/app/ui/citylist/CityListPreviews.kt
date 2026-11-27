@@ -78,6 +78,7 @@ private fun CityListScreenCompletePreview() {
     MeteoPreviewSurface {
         CityListContent(
             uiState = CityListUiState(items = homeItems()),
+            showManualRefresh = true,
             onCityClick = {},
             onAddClick = {},
             onDonateClick = {},

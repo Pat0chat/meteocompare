@@ -130,7 +130,7 @@ class ForecastRepositoryImplTest {
     }
 
     /** Cache réel en mémoire : les lecteurs suivants voient les écritures du fetch. */
-    private fun installMutableCache(days: Int) {
+    private fun installMutableCache(days: Int, ageMs: Long = 0L) {
         fun dto(count: Int) = sampleDto.copy(daily = DailyDto(
             time = List(count) { java.time.LocalDate.of(2026, 6, 23).plusDays(it.toLong()).toString() },
             temperature2mMax = List(count) { 22.0 },
@@ -138,7 +138,7 @@ class ForecastRepositoryImplTest {
         ))
         var rows = listOf(ForecastCacheEntity(
             cityId = paris.id, modelKey = WeatherModel.GFS.apiKey,
-            fetchedAtEpochMs = System.currentTimeMillis(),
+            fetchedAtEpochMs = System.currentTimeMillis() - ageMs,
             responseJson = json.encodeToString(ForecastResponseDto.serializer(), dto(days))
         ))
         coEvery { cacheDao.getForCity(paris.id) } coAnswers { rows }
@@ -182,6 +182,32 @@ class ForecastRepositoryImplTest {
     }
 
     @Test
+    fun `stale alert reuses newer shared cache and avoids sequential network duplicates`() = runTest {
+        installMutableCache(10, ageMs = 86_400_000L)
+        val models = listOf(WeatherModel.GFS)
+        assertTrue(repository.refreshStaleCityForecast(paris, models, 10) is ApiResult.Success)
+        assertTrue(repository.refreshStaleCityForecast(paris, models, 10) is ApiResult.Success)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `stale alert respects transient backoff shared with explicit refresh`() = runTest {
+        installMutableCache(10, ageMs = 86_400_000L)
+        val models = listOf(WeatherModel.GFS)
+        coEvery {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } throws openMeteoHttpError(429)
+        assertTrue(repository.refreshStaleCityForecast(paris, models, 10) is ApiResult.Error)
+        assertTrue(repository.refreshStaleCityForecast(paris, models, 10) is ApiResult.Error)
+        assertTrue(repository.refreshCityForecast(paris, models, 10) is ApiResult.Error)
+        coVerify(exactly = 1) {
+            api.getForecastBatched(any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
     fun `fresh automatic cache does not suppress later explicit refreshes`() = runTest {
         installMutableCache(10)
         repository.getCityForecastStream(paris, listOf(WeatherModel.GFS), 10, false, 3_600_000L).toList()
@@ -208,6 +234,22 @@ class ForecastRepositoryImplTest {
         }
         fakeApi.release()
         assertEquals(automatic.await().single(), explicit.await())
+        assertEquals(1, fakeApi.callCount.get())
+    }
+
+    @Test
+    fun `stale alert joins an explicit network refresh already in flight`() = runTest {
+        val fakeApi = GatedForecastApi(batchedResponseWith(listOf(WeatherModel.GFS)))
+        val repo = repositoryWith(fakeApi)
+        val models = listOf(WeatherModel.GFS)
+        val explicit = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.refreshCityForecast(paris, models, 10)
+        }
+        val alert = async(start = CoroutineStart.UNDISPATCHED) {
+            repo.refreshStaleCityForecast(paris, models, 10)
+        }
+        fakeApi.release()
+        assertEquals(explicit.await(), alert.await())
         assertEquals(1, fakeApi.callCount.get())
     }
 

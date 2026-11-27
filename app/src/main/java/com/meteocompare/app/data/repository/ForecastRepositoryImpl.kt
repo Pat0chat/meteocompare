@@ -18,6 +18,7 @@ import com.meteocompare.app.di.DefaultDispatcher
 import com.meteocompare.app.di.IoDispatcher
 import com.meteocompare.app.domain.model.City
 import com.meteocompare.app.domain.model.CityForecast
+import com.meteocompare.app.domain.model.STALE_FORECAST_AGE
 import com.meteocompare.app.domain.model.Coverage
 import com.meteocompare.app.domain.model.ForecastSeries
 import com.meteocompare.app.domain.model.WeatherModel
@@ -315,6 +316,23 @@ class ForecastRepositoryImpl @Inject constructor(
         city: City,
         models: List<WeatherModel>,
         forecastDays: Int
+    ): ApiResult<CityForecast> = refreshAndPublish(city, models, forecastDays, maxCacheAgeMs = null)
+
+    override suspend fun refreshStaleCityForecast(
+        city: City,
+        models: List<WeatherModel>,
+        forecastDays: Int
+    ): ApiResult<CityForecast> = refreshAndPublish(
+        city, models, forecastDays,
+        // The repository accepts ages <= maxCacheAgeMs; the alert begins at 24 h.
+        maxCacheAgeMs = STALE_FORECAST_AGE.toMillis() - 1L
+    )
+
+    private suspend fun refreshAndPublish(
+        city: City,
+        models: List<WeatherModel>,
+        forecastDays: Int,
+        maxCacheAgeMs: Long?
     ): ApiResult<CityForecast> = withContext(ioDispatcher) {
         // Fix faux positif "Prévisions mises à jour" en mode avion :
         //   AVANT : si réseau KO mais cache existe → on retournait Success(cached)
@@ -327,10 +345,12 @@ class ForecastRepositoryImpl @Inject constructor(
         // Les données déjà affichées dans l'UI ne sont pas effacées : la VM
         // garde son state Loaded (philosophie tolerant côté CityDetailViewModel).
         //
+        // L'action d'alerte accepte également un cache récent et complet,
+        // éventuellement écrit entre-temps par un autre écran ou un widget.
         // Passe par [coalescedFetchAndCache] : un pull-to-refresh qui arrive
         // pendant qu'une fetch est déjà en vol (autre subscriber, widget)
         // attend son résultat au lieu d'en lancer une seconde HTTP identique.
-        val result = coalescedFetchAndCache(city, models, forecastDays)
+        val result = coalescedFetchAndCache(city, models, forecastDays, maxCacheAgeMs)
 
         // Seuls les refreshs EXPLICITES de l'application publient ce signal.
         // Les streams automatiques — notamment ceux des widgets/workers —

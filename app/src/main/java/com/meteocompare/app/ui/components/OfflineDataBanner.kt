@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.meteocompare.app.R
+import com.meteocompare.app.domain.model.STALE_FORECAST_AGE
 import java.time.Duration
 import java.time.Instant
 
@@ -36,7 +37,7 @@ internal fun offlineDataAgeLevel(
     val age = Duration.between(fetchedAt, now).coerceAtLeast(Duration.ZERO)
     return when {
         age < Duration.ofHours(6) -> OfflineDataAgeLevel.RECENT
-        age < Duration.ofHours(24) -> OfflineDataAgeLevel.AGING
+        age < STALE_FORECAST_AGE -> OfflineDataAgeLevel.AGING
         else -> OfflineDataAgeLevel.STALE
     }
 }

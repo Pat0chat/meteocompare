@@ -87,6 +87,52 @@ class CityListContentTest {
     }
 
     @Test
+    fun manual_refresh_alert_is_next_to_add_and_only_visible_when_requested() {
+        val show = mutableStateOf(false)
+        val refreshing = mutableStateOf(false)
+        var calls = 0
+        var ordinaryCalls = 0
+        composeRule.setContent {
+            MeteoCompareTheme {
+                CityListContent(
+                    uiState = CityListUiState(
+                        items = listOf(CityCardState(TestFixtures.paris, ForecastState.Loading)),
+                        isRefreshing = refreshing.value
+                    ),
+                    onCityClick = {}, onAddClick = {}, onDonateClick = {},
+                    onSettingsClick = {}, onRemoveCity = {}, onRetry = {},
+                    onRefresh = { ordinaryCalls++ }, showManualRefresh = show.value,
+                    onManualRefresh = { calls++ }
+                )
+            }
+        }
+        val alert = composeRule.onNodeWithTag("home_manual_refresh")
+        alert.assertDoesNotExist()
+        composeRule.runOnIdle { show.value = true }
+        alert.assertIsDisplayed()
+        val alertBounds = alert.getUnclippedBoundsInRoot()
+        val add = composeRule.onNodeWithTag(TAG_ADD_FAB)
+        val addBounds = add.getUnclippedBoundsInRoot()
+        val verticalOffset = kotlin.math.abs(
+            (alertBounds.top.value + alertBounds.bottom.value - addBounds.top.value - addBounds.bottom.value) / 2f
+        )
+        assertTrue("Alert and add FAB must share a row", verticalOffset <= 2f)
+        val (left, right) = listOf(alertBounds, addBounds).sortedBy { it.left }
+        assertTrue("Alert must be next to add FAB", (right.left - left.right).value in 0f..22f)
+        alert.performClick()
+        composeRule.runOnIdle {
+            assertEquals(1, calls)
+            assertEquals(0, ordinaryCalls)
+            refreshing.value = true
+        }
+        alert.assertDoesNotExist()
+        composeRule.runOnIdle { refreshing.value = false }
+        alert.assertIsDisplayed()
+        composeRule.runOnIdle { show.value = false }
+        alert.assertDoesNotExist()
+    }
+
+    @Test
     fun compare_is_adjacent_to_reorder_in_bottom_action_row() {
         var compared = false
         var reordered = false

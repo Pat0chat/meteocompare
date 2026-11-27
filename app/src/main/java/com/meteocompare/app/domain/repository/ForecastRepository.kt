@@ -56,6 +56,16 @@ interface ForecastRepository {
     ): ApiResult<CityForecast>
 
     /**
+     * Explicit stale-data alert: recheck the shared cache before fetching, then
+     * publish the result just like a manual refresh. Network errors remain explicit.
+     */
+    suspend fun refreshStaleCityForecast(
+        city: City,
+        models: List<WeatherModel> = WeatherModel.MVP_SELECTION,
+        forecastDays: Int = ForecastDisplayHorizon.REQUEST_DAYS
+    ): ApiResult<CityForecast>
+
+    /**
      * Émissions en mémoire des prévisions obtenues par un refresh manuel.
      *
      * Ce flux permet aux écrans déjà présents dans la pile de navigation de

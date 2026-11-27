@@ -1283,4 +1283,5 @@
     <string name="sunshine_source_layers">Estimation à partir des couches nuageuses basses, moyennes et hautes.</string>
     <string name="sunshine_source_total">Estimation à partir de la nébulosité totale (fraction de ciel dégagé).</string>
     <string name="sunshine_extrapolated">Pour certains modèles, la fraction ensoleillée des heures disponibles est extrapolée à la durée du jour.</string>
+    <string name="home_manual_refresh_stale">Actualiser les prévisions périmées</string>
 </resources>

@@ -1279,4 +1279,5 @@
     <string name="sunshine_source_layers">Alçak, orta ve yüksek bulut katmanlarından tahmin.</string>
     <string name="sunshine_source_total">Toplam bulutluluk oranından tahmin (açık gökyüzü oranı).</string>
     <string name="sunshine_extrapolated">Bazı modellerde mevcut saatlerin güneşli kısmı gündüz süresine uyarlanır.</string>
+    <string name="home_manual_refresh_stale">Güncel olmayan tahminleri yenile</string>
 </resources>

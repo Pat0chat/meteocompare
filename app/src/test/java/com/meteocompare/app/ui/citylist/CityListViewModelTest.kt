@@ -769,6 +769,95 @@ class CityListViewModelTest {
         }
 
     @Test
+    fun `manual alert appears at stale threshold without fetching and follows preference`() = runViewModelTest {
+        viewModel.viewModelScope.cancel()
+        val clock = MutableClock(testNow)
+        val almostStale = buildForecast(paris, 22.0).copy(fetchedAt = testNow.minusSeconds(86_400L - 60L))
+        coEvery { forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any()) } returns
+            flowOf(ApiResult.Success(almostStale))
+        refreshIntervalFlow.value = RefreshInterval.MANUAL
+        favoritesFlow.value = listOf(paris)
+        val vm = createViewModel(clock = clock)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.manualRefreshNeeded.collect {} }
+        runCurrent()
+        assertFalse(vm.manualRefreshNeeded.value)
+        clock.currentInstant = testNow.plusSeconds(60)
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertTrue(vm.manualRefreshNeeded.value)
+        coVerify(exactly = 0) { forecastRepo.refreshStaleCityForecast(any(), any(), any()) }
+        refreshIntervalFlow.value = RefreshInterval.HOUR_1
+        runCurrent()
+        assertFalse(vm.manualRefreshNeeded.value)
+        vm.onRefreshStaleCities()
+        runCurrent()
+        coVerify(exactly = 0) { forecastRepo.refreshStaleCityForecast(any(), any(), any()) }
+        refreshIntervalFlow.value = RefreshInterval.MANUAL
+        runCurrent()
+        assertTrue(vm.manualRefreshNeeded.value)
+        favoritesFlow.value = emptyList()
+        runCurrent()
+        assertFalse(vm.manualRefreshNeeded.value)
+    }
+
+    @Test
+    fun `manual alert refreshes only stale cities and shares the pull refresh job`() = runViewModelTest {
+        viewModel.viewModelScope.cancel()
+        val stale = buildForecast(paris, 22.0).copy(fetchedAt = testNow.minusSeconds(86_400))
+        val fresh = buildForecast(lyon, 20.0).copy(fetchedAt = testNow)
+        coEvery { forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any()) } returns
+            flowOf(ApiResult.Success(stale))
+        coEvery { forecastRepo.getCityForecastStream(eq(lyon), any(), any(), any(), any()) } returns
+            flowOf(ApiResult.Success(fresh))
+        val pending = CompletableDeferred<Unit>()
+        coEvery { forecastRepo.refreshStaleCityForecast(eq(paris), any(), any()) } coAnswers {
+            pending.await()
+            ApiResult.Success(stale.copy(fetchedAt = testNow))
+        }
+        refreshIntervalFlow.value = RefreshInterval.MANUAL
+        favoritesFlow.value = listOf(paris, lyon)
+        val vm = createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.manualRefreshNeeded.collect {} }
+        runCurrent()
+        assertTrue(vm.manualRefreshNeeded.value)
+        vm.onRefreshStaleCities()
+        runCurrent()
+        vm.onRefreshStaleCities()
+        vm.onRefreshAll()
+        runCurrent()
+        coVerify(exactly = 1) { forecastRepo.refreshStaleCityForecast(eq(paris), any(), any()) }
+        coVerify(exactly = 0) { forecastRepo.refreshStaleCityForecast(eq(lyon), any(), any()) }
+        coVerify(exactly = 0) { forecastRepo.refreshCityForecast(any(), any(), any()) }
+        pending.complete(Unit)
+        runCurrent()
+        assertFalse(vm.manualRefreshNeeded.value)
+        vm.onRefreshStaleCities()
+        runCurrent()
+        coVerify(exactly = 1) { forecastRepo.refreshStaleCityForecast(eq(paris), any(), any()) }
+    }
+
+    @Test
+    fun `manual alert cannot refresh in automatic mode or for unknown age`() = runViewModelTest {
+        viewModel.viewModelScope.cancel()
+        val unknown = buildForecast(paris, 22.0)
+        coEvery { forecastRepo.getCityForecastStream(eq(paris), any(), any(), any(), any()) } returns
+            flowOf(ApiResult.Success(unknown))
+        favoritesFlow.value = listOf(paris)
+        val vm = createViewModel()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.manualRefreshNeeded.collect {} }
+        runCurrent()
+        vm.onRefreshStaleCities()
+        runCurrent()
+        assertFalse(vm.manualRefreshNeeded.value)
+        refreshIntervalFlow.value = RefreshInterval.MANUAL
+        runCurrent()
+        vm.onRefreshStaleCities()
+        runCurrent()
+        assertFalse(vm.manualRefreshNeeded.value)
+        coVerify(exactly = 0) { forecastRepo.refreshStaleCityForecast(any(), any(), any()) }
+    }
+
+    @Test
     fun `refresh global utilise les favoris meme sans subscriber uiState`() = runViewModelTest {
         val forecast = buildForecast(paris, dailyMaxTemp = 22.0)
         coEvery { forecastRepo.refreshCityForecast(eq(paris), any(), any()) } returns

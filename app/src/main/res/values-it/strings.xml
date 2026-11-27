@@ -1271,4 +1271,5 @@ dato</string>
     <string name="sunshine_source_layers">Stima dagli strati di nubi basse, medie e alte.</string>
     <string name="sunshine_source_total">Stima dalla nuvolosità totale (frazione di cielo sereno).</string>
     <string name="sunshine_extrapolated">Per alcuni modelli la frazione soleggiata delle ore disponibili è estrapolata alla durata del giorno.</string>
+    <string name="home_manual_refresh_stale">Aggiorna le previsioni obsolete</string>
 </resources>

@@ -1265,4 +1265,5 @@ Daten</string>
     <string name="sunshine_source_layers">Schätzung aus tiefen, mittleren und hohen Wolkenschichten.</string>
     <string name="sunshine_source_total">Schätzung aus der Gesamtbewölkung (Anteil klaren Himmels).</string>
     <string name="sunshine_extrapolated">Bei einigen Modellen wird der Sonnenanteil der verfügbaren Stunden auf die Tageslichtdauer hochgerechnet.</string>
+    <string name="home_manual_refresh_stale">Veraltete Vorhersagen aktualisieren</string>
 </resources>

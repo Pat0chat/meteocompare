@@ -1282,4 +1282,5 @@
     <string name="sunshine_source_layers">Estimate from low, middle and high cloud layers.</string>
     <string name="sunshine_source_total">Estimate from total cloud cover (clear-sky fraction).</string>
     <string name="sunshine_extrapolated">For some models, the sunny fraction of available hours is extrapolated to the daylight duration.</string>
+    <string name="home_manual_refresh_stale">Refresh outdated forecasts</string>
 </resources>

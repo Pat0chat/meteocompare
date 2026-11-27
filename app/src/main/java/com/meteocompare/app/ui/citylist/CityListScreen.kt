@@ -253,6 +253,7 @@ fun CityListScreen(
         }
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val manualRefreshNeeded by viewModel.manualRefreshNeeded.collectAsStateWithLifecycle()
     val addState by viewModel.addCityState.collectAsStateWithLifecycle()
     val homeExpansion by viewModel.homeExpansion.collectAsStateWithLifecycle()
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
@@ -308,6 +309,8 @@ fun CityListScreen(
             onRemoveCity = viewModel::onRemoveCity,
             onRetry = viewModel::onRetry,
             onRefresh = { locationVm.refreshActive(viewModel::onRefreshAll) },
+            showManualRefresh = manualRefreshNeeded,
+            onManualRefresh = { locationVm.refreshActive(viewModel::onRefreshStaleCities) },
             onMarineAction = viewModel::onMarineAction,
             isLocating = locationVm.isLocating,
             currentLocationUpdatedAt = locationState.updatedAt.takeIf { locationState.enabled && it > 0L },
@@ -417,9 +420,11 @@ internal fun CityListContent(
     selectedCityId: String? = null,
     selectionEnabled: Boolean = false,
     homeExpandedCityId: String? = null,
-    onHomeCityExpanded: ((String) -> Unit)? = null
+    onHomeCityExpanded: ((String) -> Unit)? = null,
+    showManualRefresh: Boolean = false,
+    onManualRefresh: () -> Unit = {}
 ) {
-    // Toutes les actions flottantes de Home partagent la même palette que
+    // Les actions flottantes ordinaires de Home partagent la même palette que
     // « Ajouter une ville », y compris avec Material You et le thème sombre.
     val actionContainerColor = MaterialTheme.colorScheme.primary
     val actionContentColor = MaterialTheme.colorScheme.onPrimary
@@ -496,6 +501,16 @@ internal fun CityListContent(
                         modifier = Modifier.testTag("home_reorder_action")
                     ) {
                         Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.home_reorder_title))
+                    }
+                }
+                if (showManualRefresh && !uiState.isEmpty && !uiState.isRefreshing) {
+                    SmallFloatingActionButton(
+                        onClick = onManualRefresh,
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                        modifier = Modifier.testTag("home_manual_refresh")
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.home_manual_refresh_stale))
                     }
                 }
                 FloatingActionButton(
